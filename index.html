@@ -1781,6 +1781,54 @@
   .btn-outline:hover .play { background: var(--red); }
 
 
+  /* ── Newsletter ─────────────────────────────── */
+  .newsletter { background: var(--paper); border-top: 1px solid var(--line-soft); padding: 84px 0; }
+  .nl-card {
+    display: grid; grid-template-columns: 260px 1fr; gap: 40px; align-items: center;
+    background: var(--yellow); border: 3px solid var(--ink); border-radius: 18px;
+    padding: 36px 44px 36px 28px;
+    box-shadow: 10px 10px 0 var(--ink);
+    position: relative; overflow: hidden;
+  }
+  .nl-card::before {
+    content: '?'; position: absolute; right: 18px; top: -30px;
+    font-family: 'Fraunces', Georgia, serif; font-style: italic; font-weight: 700;
+    font-size: 240px; line-height: 1; color: rgba(14,26,43,0.07); pointer-events: none;
+  }
+  .nl-figure img { width: 100%; height: auto; display: block; border: 3px solid var(--ink); border-radius: 14px; box-shadow: 6px 6px 0 var(--ink); background: #fff; }
+  .nl-body { position: relative; z-index: 1; }
+  .nl-body .section-label { color: var(--ink); }
+  .nl-body .section-label::before { background: var(--ink); }
+  .nl-body h2 { font-size: clamp(30px, 3.6vw, 44px); line-height: 1.06; margin-bottom: 14px; }
+  .nl-body h2 em { color: var(--red); }
+  .nl-sub { font-size: 17.5px; line-height: 1.6; color: var(--ink-soft); max-width: 58ch; margin-bottom: 22px; }
+  .nl-form { display: flex; gap: 12px; align-items: stretch; max-width: 560px; }
+  .nl-form[hidden] { display: none; }
+  .nl-input {
+    flex: 1; min-width: 0;
+    font-family: 'DM Sans', sans-serif; font-size: 17px;
+    padding: 15px 18px; border: 2px solid var(--ink); border-radius: 100px;
+    background: #fff; color: var(--ink);
+  }
+  .nl-input:focus { outline: 3px solid var(--blue); outline-offset: 2px; }
+  .nl-btn { flex: none; white-space: nowrap; }
+  .nl-hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
+  .nl-msg { margin-top: 14px; font-size: 16.5px; font-weight: 600; min-height: 1.4em; }
+  .nl-msg.ok  { color: var(--green-deep); }
+  .nl-msg.err { color: var(--red-deep); }
+  .nl-fine {
+    margin-top: 10px; font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-soft);
+  }
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+  @media (max-width: 860px) {
+    .nl-card { grid-template-columns: 1fr; padding: 28px 22px; gap: 10px; box-shadow: 6px 6px 0 var(--ink); }
+    .nl-figure { max-width: 190px; margin: 0 auto; }
+    .nl-form { flex-direction: column; }
+    .nl-btn { width: 100%; justify-content: center; }
+  }
+
+
   footer {
     background: var(--ink);
     color: rgba(250,246,236,0.7);
@@ -2831,6 +2879,77 @@
   </div>
 </section>
 
+<!-- ──────────── NEWSLETTER ──────────── -->
+<section class="newsletter" id="newsletter">
+  <div class="container">
+    <div class="nl-card reveal">
+      <div class="nl-figure" aria-hidden="true">
+        <img src="assets/matthew-comic-fullbody.webp" alt="" width="600" height="600" loading="lazy" decoding="async">
+      </div>
+      <div class="nl-body">
+        <span class="section-label">Free email tips</span>
+        <h2 class="display">Get Matthew&#8217;s free money tips <em>in your email.</em></h2>
+        <p class="nl-sub">Matthew and the team send free tips about new grants, deadlines, and who can get them. It is free. You can stop any time.</p>
+
+        <form class="nl-form" id="nlForm" action="https://app.kit.com/forms/8864982/subscriptions" method="post" novalidate>
+          <label class="sr-only" for="nlEmail">Your email</label>
+          <input class="nl-input" id="nlEmail" name="email_address" type="email" inputmode="email" autocomplete="email" placeholder="Your email address" required>
+          <input class="nl-hp" name="website" type="text" tabindex="-1" autocomplete="off" aria-hidden="true">
+          <button class="btn-primary nl-btn" type="submit">Send me the tips &nbsp;&rarr;</button>
+        </form>
+        <p class="nl-msg" id="nlMsg" role="status" aria-live="polite"></p>
+        <p class="nl-fine">No spam. Free. Stop any time with one click.</p>
+      </div>
+    </div>
+  </div>
+</section>
+<script>
+(function () {
+  var form = document.getElementById('nlForm');
+  if (!form) return;
+  var email = document.getElementById('nlEmail');
+  var msg = document.getElementById('nlMsg');
+  var btn = form.querySelector('.nl-btn');
+  var hp = form.querySelector('.nl-hp');
+
+  function say(text, ok) {
+    msg.textContent = text;
+    msg.className = 'nl-msg ' + (ok ? 'ok' : 'err');
+  }
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    if (hp.value) return;                          // bot filled the hidden field
+    var value = (email.value || '').trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+      say('Please type your email address.', false);
+      email.focus();
+      return;
+    }
+    btn.disabled = true;
+    var old = btn.innerHTML;
+    btn.textContent = 'One moment…';
+
+    fetch(form.action, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ email_address: value })
+    }).then(function (r) {
+      if (!r.ok) throw new Error('http ' + r.status);
+      return r.json().catch(function () { return {}; });
+    }).then(function () {
+      form.hidden = true;
+      say('Done! Check your email. Matthew’s first tip is on its way.', true);
+    }).catch(function () {
+      // Network or API hiccup: let the browser submit the form to Kit directly
+      btn.disabled = false; btn.innerHTML = old;
+      form.removeEventListener('submit', arguments.callee);
+      form.submit();
+    });
+  });
+})();
+</script>
+
 <!-- ──────────── FOOTER ──────────── -->
 <footer>
   <div class="container">
@@ -2857,6 +2976,7 @@
           <li><a href="#inside">What's inside</a></li>
           <li><a href="#stories">Member stories</a></li>
           <li><a href="#faq">FAQ</a></li>
+          <li><a href="#newsletter">Free email tips</a></li>
         </ul>
       </div>
       <div>
