@@ -1,6 +1,6 @@
 {
   // Cloudflare Workers config — static site + tiny API worker
-  "name": "leskohelp-pro",
+  "name": "lesko-business-landingpage",
   "main": "worker.js",
   "compatibility_date": "2026-08-01",
   "assets": {
