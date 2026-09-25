@@ -356,6 +356,11 @@
     font-size: 14px;
     font-weight: 600;
     transition: all 0.2s;
+    white-space: nowrap;
+    flex: none;
+  }
+  @media (max-width: 600px) {
+    .nav-links > a.nav-cta { padding: 9px 14px; font-size: 12.5px; }
   }
   .nav-cta:hover { background: var(--red); color: var(--paper) !important; }
 
@@ -2677,9 +2682,9 @@
     <div class="guarantee reveal">
       <div class="g-seal" aria-hidden="true"><span>30</span><small>DAY</small></div>
       <div class="g-body">
-        <span class="g-kicker">Your risk, removed</span>
-        <h3>Try the whole thing. If it isn&#8217;t for you, we give it back.</h3>
-        <p>Join, come to the classes, generate your reports, ask the coaches anything. If within 30 days you decide it isn&#8217;t worth it, email us and we refund you in full &#8212; <strong>no forms, no hoops, no &#8220;let me transfer you&#8221;</strong>. And you can cancel any time, in a couple of clicks.</p>
+        <span class="g-kicker">Our promise to you</span>
+        <h3>Try it for 30 days. If you don&#8217;t like it, you get your money back.</h3>
+        <p>Join. Go to the classes. Make your reports. Ask the coaches your questions. If in the first 30 days you decide it is not for you, <strong>send us one email and we give you all your money back.</strong> You can also cancel any time you want.</p>
       </div>
     </div>
 
@@ -3040,7 +3045,7 @@
     <div class="jp-body">
       <span class="jp-kicker">One more thing</span>
       <h3 id="jpTitle">Come find your money <em>with us.</em></h3>
-      <p>There is nothing to lose here. <strong>Cancel any time</strong> in a couple of clicks, and if it turns out not to be for you, we refund you in full within 30&nbsp;days &#8212; no forms, no hoops.</p>
+      <p>You can <strong>cancel any time</strong>. And if you don&#8217;t like it, <strong>you get all your money back</strong> within 30&nbsp;days. So there is nothing to lose.</p>
       <a class="btn-primary" href="#pricing" data-jp-close>Yes, sign me up &nbsp;&rarr;</a>
       <button class="jp-no" type="button" data-jp-close>No thanks, I&#8217;ll keep looking on my own</button>
     </div>
