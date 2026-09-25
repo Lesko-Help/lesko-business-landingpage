@@ -1647,6 +1647,130 @@
   }
 
 
+  /* ── Discount seal on the pricing cards ─────── */
+  .price-card { position: relative; }
+  .pc-seal {
+    position: absolute; top: -22px; right: -18px; z-index: 3;
+    width: 92px; height: 92px;
+    display: grid; place-content: center; text-align: center;
+    background: var(--red); color: #fff;
+    clip-path: polygon(50.0% 0.0%, 56.8% 11.6%, 67.1% 3.0%, 69.5% 16.2%, 82.1% 11.7%, 79.9% 24.9%, 93.3% 25.0%, 86.6% 36.7%, 99.2% 41.3%, 89.0% 50.0%, 99.2% 58.7%, 86.6% 63.3%, 93.3% 75.0%, 79.9% 75.1%, 82.1% 88.3%, 69.5% 83.8%, 67.1% 97.0%, 56.8% 88.4%, 50.0% 100.0%, 43.2% 88.4%, 32.9% 97.0%, 30.5% 83.8%, 17.9% 88.3%, 20.1% 75.1%, 6.7% 75.0%, 13.4% 63.3%, 0.8% 58.7%, 11.0% 50.0%, 0.8% 41.3%, 13.4% 36.7%, 6.7% 25.0%, 20.1% 24.9%, 17.9% 11.7%, 30.5% 16.2%, 32.9% 3.0%, 43.2% 11.6%);
+    transform: rotate(-12deg);
+    filter: drop-shadow(0 6px 10px rgba(14,26,43,0.28));
+    line-height: 1;
+  }
+  .pc-seal b { display: block; font-family: 'Fraunces', Georgia, serif; font-weight: 700; font-size: 27px; }
+  .pc-seal small {
+    display: block; margin-top: 3px;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; letter-spacing: 0.14em;
+  }
+  .price-card.popular { border-color: #3F3F3F; }
+
+  /* ── Louder guarantee band ──────────────────── */
+  .guarantee {
+    margin-top: 52px;
+    display: grid; grid-template-columns: auto 1fr; gap: 32px; align-items: center;
+    background: #fff;
+    border: 2px solid var(--green);
+    border-radius: 16px;
+    padding: 32px 36px;
+    box-shadow: 0 18px 44px rgba(79,168,79,0.18);
+  }
+  .g-seal {
+    width: 118px; height: 118px; flex: none;
+    border-radius: 50%; border: 5px solid var(--green);
+    display: grid; place-content: center; text-align: center;
+    background: #fff; color: var(--green-deep);
+    box-shadow: inset 0 0 0 4px rgba(79,168,79,0.16);
+  }
+  .g-seal span { font-family: 'Fraunces', Georgia, serif; font-weight: 700; font-size: 46px; line-height: 1; }
+  .g-seal small { font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; letter-spacing: 0.16em; }
+  .g-kicker {
+    display: block; margin-bottom: 8px;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700;
+    letter-spacing: 0.16em; text-transform: uppercase; color: var(--green-deep);
+  }
+  .guarantee h3 { font-size: 27px; line-height: 1.18; margin-bottom: 10px; }
+  .guarantee p { font-size: 16.5px; line-height: 1.62; color: var(--ink-soft); max-width: 74ch; }
+
+  /* ── Join popover ───────────────────────────── */
+  .joinpop { position: fixed; inset: 0; z-index: 900; display: grid; place-items: center; padding: 24px; }
+  .joinpop[hidden] { display: none; }
+  .jp-backdrop { position: absolute; inset: 0; background: rgba(14,26,43,0.62); backdrop-filter: blur(3px); }
+  .jp-card {
+    position: relative; z-index: 1;
+    width: min(760px, 100%);
+    display: grid; grid-template-columns: 250px 1fr;
+    background: var(--paper);
+    border: 3px solid var(--ink);
+    border-radius: 18px; overflow: hidden;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.42);
+    animation: jp-in 0.32s cubic-bezier(.2,.8,.3,1) both;
+  }
+  @keyframes jp-in { from { opacity: 0; transform: translateY(18px) scale(0.97); } to { opacity: 1; transform: none; } }
+  .jp-figure { background: var(--yellow); display: grid; place-items: end center; position: relative; }
+  .jp-figure::before {
+    content: '?'; position: absolute; top: 6px; left: 10px;
+    font-family: 'Fraunces', Georgia, serif; font-style: italic; font-weight: 700;
+    font-size: 150px; color: rgba(14,26,43,0.10); line-height: 1; pointer-events: none;
+  }
+  .jp-figure img { width: 100%; height: auto; display: block; position: relative; }
+  .jp-body { padding: 30px 32px 30px 28px; }
+  .jp-kicker {
+    display: block; margin-bottom: 10px;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700;
+    letter-spacing: 0.16em; text-transform: uppercase; color: var(--red);
+  }
+  .jp-body h3 { font-family: 'Fraunces', Georgia, serif; font-size: 30px; line-height: 1.1; letter-spacing: -0.02em; }
+  .jp-body h3 em { font-style: italic; color: var(--red); }
+  .jp-body p { font-size: 16px; line-height: 1.6; color: var(--ink-soft); margin: 12px 0 22px; }
+  .jp-body .btn-primary { width: 100%; justify-content: center; }
+  .jp-no {
+    display: block; width: 100%; margin-top: 14px;
+    background: none; border: none; cursor: pointer;
+    font-family: 'DM Sans', sans-serif; font-size: 13.5px; color: var(--ink-mid);
+    text-decoration: underline; text-underline-offset: 3px;
+  }
+  .jp-no:hover { color: var(--ink); }
+  .jp-x {
+    position: absolute; top: 10px; right: 12px; z-index: 2;
+    width: 34px; height: 34px; border-radius: 50%;
+    background: rgba(14,26,43,0.08); border: none; cursor: pointer;
+    font-size: 22px; line-height: 1; color: var(--ink);
+  }
+  .jp-x:hover { background: rgba(14,26,43,0.16); }
+  @media (max-width: 640px) {
+    .jp-card { grid-template-columns: 1fr; }
+    .jp-figure { max-height: 190px; overflow: hidden; }
+    .jp-figure img { width: 62%; margin: 0 auto; }
+    .jp-body { padding: 24px 22px; }
+    .jp-body h3 { font-size: 25px; }
+    .pc-seal { width: 78px; height: 78px; top: -18px; right: -10px; }
+    .pc-seal b { font-size: 23px; }
+    .guarantee { grid-template-columns: 1fr; justify-items: center; text-align: center; padding: 26px 22px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .jp-card { animation: none; } }
+
+
+  /* ── Transitional (secondary) button ────────── */
+  .btn-outline {
+    display: inline-flex; align-items: center; gap: 10px;
+    background: transparent; color: var(--ink);
+    border: 2px solid var(--ink); border-radius: 100px;
+    padding: 14px 26px; font-size: 16px; font-weight: 600;
+    text-decoration: none; cursor: pointer;
+    transition: background 0.2s, color 0.2s, transform 0.2s;
+  }
+  .btn-outline:hover { background: var(--ink); color: var(--paper); transform: translateY(-1px); }
+  .btn-outline--light { color: var(--paper); border-color: rgba(250,246,236,0.85); }
+  .btn-outline--light:hover { background: var(--paper); color: var(--ink); }
+  .btn-outline .play {
+    display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%;
+    background: var(--red); color: #fff; font-size: 9px; flex: none;
+  }
+  .btn-outline:hover .play { background: var(--red); }
+
+
   footer {
     background: var(--ink);
     color: rgba(250,246,236,0.7);
@@ -1758,7 +1882,7 @@
       <a href="#inside">Inside</a>
       <a href="#stories">Stories</a>
       <a href="#pricing">Membership</a>
-      <a href="#pricing" class="nav-cta">Find my money</a>
+      <a href="#pricing" class="nav-cta">Get the money</a>
     </div>
   </div>
 </nav>
@@ -1945,7 +2069,7 @@
           </div>
         </div>
         <div class="guide-cta">
-          <a href="#pricing" class="btn-primary">Let’s find my money &nbsp;→</a>
+          <a href="#youtube" class="btn-outline btn-outline--light"><span class="play">&#9654;</span> Watch Matthew explain it</a>
           <a href="#how" class="btn-secondary">See how it works</a>
         </div>
       </div>
@@ -2134,8 +2258,8 @@
       </div>
     </div>
     <div class="plan-cta reveal">
-      <span class="plan-cta-line">Step one is your personalized report — <em>it’s ready in minutes.</em></span>
-      <a href="#pricing" class="btn-primary">Let’s find my money &nbsp;→</a>
+      <span class="plan-cta-line">Step one is your report — <em>try the free version right now.</em></span>
+      <a href="#ai-tool" class="btn-outline">Try the free AI researcher &nbsp;→</a>
     </div>
   </div>
 </section>
@@ -2239,7 +2363,7 @@
     </div>
     <div class="inside-cta reveal">
       <span class="plan-cta-line">All of it opens with <em>one membership.</em></span>
-      <a href="#pricing" class="btn-primary">Let’s find my money &nbsp;→</a>
+      <a href="#pricing" class="btn-primary">Open the whole toolbox &nbsp;→</a>
     </div>
   </div>
 </section>
@@ -2286,7 +2410,7 @@
     </div>
     <div class="wall-close reveal">
       <div class="line">If you recognized yourself on this wall, <em>this was built for you.</em><div class="wall-note">Join 15,000+ members &#183; from $12.49/month &#183; 30-day guarantee</div></div>
-      <a class="btn-primary" href="#pricing">Let’s find my money &nbsp;→</a>
+      <a class="btn-primary" href="#pricing">Yes — this is for me &nbsp;→</a>
     </div>
   </div>
 </section>
@@ -2306,7 +2430,7 @@
     </div>
     <div class="wn-close reveal">
       <div class="line">Funding goes to whoever shows up. <em>This is how you show up.</em><div class="wn-note">plans from $12.49/month &#183; cancel anytime &#183; 30-day money-back guarantee</div></div>
-      <a class="btn-primary" href="#pricing">Let’s find my money &nbsp;→</a>
+      <a class="btn-primary" href="#pricing">I’m showing up &nbsp;→</a>
     </div>
   </div>
 </section>
@@ -2333,7 +2457,7 @@
     </div>
     <div class="ai-boost reveal">
       <p><strong>Like what it found?</strong> This is the free version. Members work with the <strong>boosted researcher inside the community</strong> — plus the coaches who help you turn what it finds into submitted applications.</p>
-      <a class="btn-primary" href="#pricing">Let’s find my money &nbsp;→</a>
+      <a class="btn-primary" href="#pricing">Get the boosted version &nbsp;→</a>
     </div>
   </div>
 </section>
@@ -2479,7 +2603,7 @@
 
     <div class="stories-cta reveal">
       <span class="plan-cta-line">Every one of these stories started with <em>one decision.</em></span>
-      <a href="#pricing" class="btn-primary">Let’s find my money &nbsp;→</a>
+      <a href="#pricing" class="btn-outline btn-outline--light">Compare the plans &nbsp;→</a>
     </div>
   </div>
 </section>
@@ -2497,9 +2621,10 @@
     <div class="pricing-grid">
       <!-- 1 MONTH -->
       <div class="price-card reveal">
-        <div class="pc-title pad-top">1 Month</div>
-        <div class="pc-rule"></div>
         <div class="pc-banner dark">MOST FLEXIBLE</div>
+        <div class="pc-title">1 Month</div>
+        <div class="pc-rule"></div>
+        <div class="pc-banner dark">NO COMMITMENT</div>
         <div class="pc-comic-wrap"><img src="assets/matthew-comic-yellow.webp" alt="" width="600" height="600" loading="lazy" decoding="async"><video class="pc-loop" src="assets/welcome-loop.mp4" muted loop playsinline preload="metadata" aria-hidden="true" tabindex="-1"></video></div>
         <div class="pc-price">$29.95</div>
         <div class="pc-per">Per Month</div>
@@ -2510,8 +2635,10 @@
       </div>
 
       <!-- 6 MONTHS -->
-      <div class="price-card reveal">
-        <div class="pc-title pad-top">6 Months</div>
+      <div class="price-card popular reveal">
+        <span class="pc-seal" aria-hidden="true"><b>50%</b><small>OFF</small></span>
+        <div class="pc-banner dark">MOST POPULAR</div>
+        <div class="pc-title">6 Months</div>
         <div class="pc-rule"></div>
         <div class="pc-banner dark">SAVE $89.75!</div>
         <div class="pc-comic-wrap"><img src="assets/matthew-comic-yellow.webp" alt="" width="600" height="600" loading="lazy" decoding="async"><video class="pc-loop" src="assets/welcome-loop.mp4" muted loop playsinline preload="metadata" aria-hidden="true" tabindex="-1"></video></div>
@@ -2524,8 +2651,9 @@
         <div class="pc-mbg">30-Day Money-Back Guarantee</div>
       </div>
 
-      <!-- 12 MONTHS (FEATURED · BEST VALUE) -->
+      <!-- 12 MONTHS (FEATURED) -->
       <div class="price-card featured reveal">
+        <span class="pc-seal" aria-hidden="true"><b>58%</b><small>OFF</small></span>
         <div class="pc-banner green">BEST VALUE!</div>
         <div class="pc-title">12 Months</div>
         <div class="pc-rule"></div>
@@ -2544,8 +2672,9 @@
     <div class="guarantee reveal">
       <div class="g-seal" aria-hidden="true"><span>30</span><small>DAY</small></div>
       <div class="g-body">
+        <span class="g-kicker">Your risk, removed</span>
         <h3>Try the whole thing. If it isn&#8217;t for you, we give it back.</h3>
-        <p>Join, come to the classes, generate your reports, ask the coaches anything. If within 30 days you decide it isn&#8217;t worth it, email us and we refund you in full &#8212; <strong>no forms, no hoops, no &#8220;let me transfer you&#8221;</strong>. And you can cancel your plan any time from your account, in a couple of clicks.</p>
+        <p>Join, come to the classes, generate your reports, ask the coaches anything. If within 30 days you decide it isn&#8217;t worth it, email us and we refund you in full &#8212; <strong>no forms, no hoops, no &#8220;let me transfer you&#8221;</strong>. And you can cancel any time, in a couple of clicks.</p>
       </div>
     </div>
 
@@ -2636,7 +2765,7 @@
     </div>
     <div class="yt-cta-row reveal">
       <a class="btn-youtube" href="https://www.youtube.com/@MatthewLesko" target="_blank" rel="noopener"><span class="play">▶</span> Subscribe on YouTube</a>
-      <a class="btn-primary" href="#pricing">Let’s find my money &nbsp;→</a>
+      <a class="btn-primary" href="#pricing">Put me in Matthew’s corner &nbsp;→</a>
     </div>
   </div>
 </section>
@@ -2683,8 +2812,8 @@
       Stop researching grants.<br>
       <em>Start winning them.</em>
     </h2>
-    <p>Join 15,000+ grant entrepreneurs inside LeskoHelp Pro. <strong>Your first AI report is ready as soon as you sign up.</strong></p>
-    <a href="https://www.leskohelp.com/business-monthly" target="_blank" rel="noopener" class="btn-primary">Let’s find my money &nbsp;→</a>
+    <p>This money isn’t only for the rich and the well-connected — <strong>it’s for everybody, and most of it goes unclaimed.</strong> Join 15,000+ members and get your first AI report the minute you sign up.</p>
+    <a href="https://www.leskohelp.com/business-monthly" target="_blank" rel="noopener" class="btn-primary">I want my share &nbsp;→</a>
     <p class="small">From $12.49/month · Cancel anytime · 30-day money-back guarantee</p>
     <div class="cta-video">
       <video src="assets/welcome-loop.mp4" muted autoplay loop playsinline aria-label="Comic Matthew welcomes you with open arms"></video>
@@ -2894,5 +3023,65 @@
   }));
 })();
 </script>
+
+<!-- ──────────── JOIN POPOVER ──────────── -->
+<div class="joinpop" id="joinPop" hidden role="dialog" aria-modal="true" aria-labelledby="jpTitle">
+  <div class="jp-backdrop" data-jp-close></div>
+  <div class="jp-card">
+    <button class="jp-x" type="button" data-jp-close aria-label="Close">&times;</button>
+    <div class="jp-figure">
+      <img src="assets/matthew-comic-fullbody.webp" alt="" width="600" height="600" loading="lazy" decoding="async">
+    </div>
+    <div class="jp-body">
+      <span class="jp-kicker">One more thing</span>
+      <h3 id="jpTitle">Come find your money <em>with us.</em></h3>
+      <p>There is nothing to lose here. <strong>Cancel any time</strong> in a couple of clicks, and if it turns out not to be for you, we refund you in full within 30&nbsp;days &#8212; no forms, no hoops.</p>
+      <a class="btn-primary" href="#pricing" data-jp-close>Alright, I&#8217;m in &nbsp;&rarr;</a>
+      <button class="jp-no" type="button" data-jp-close>No thanks, I&#8217;ll keep looking on my own</button>
+    </div>
+  </div>
+</div>
+<script>
+(function () {
+  var pop = document.getElementById('joinPop');
+  if (!pop) return;
+  var KEY = 'leskoJoinPopSeen';
+  var shown = false, lastFocus = null;
+
+  function seen() { try { return sessionStorage.getItem(KEY) === '1'; } catch (e) { return false; } }
+  function mark() { try { sessionStorage.setItem(KEY, '1'); } catch (e) {} }
+
+  function open() {
+    if (shown || seen()) return;
+    // don't interrupt someone already reading the plans
+    var pricing = document.getElementById('pricing');
+    if (pricing && pricing.getBoundingClientRect().top < window.innerHeight) return;
+    shown = true; mark();
+    lastFocus = document.activeElement;
+    pop.hidden = false;
+    var cta = pop.querySelector('.btn-primary');
+    if (cta) cta.focus();
+    document.addEventListener('keydown', onKey);
+  }
+  function close() {
+    pop.hidden = true;
+    document.removeEventListener('keydown', onKey);
+    if (lastFocus && lastFocus.focus) lastFocus.focus();
+  }
+  function onKey(e) { if (e.key === 'Escape') close(); }
+
+  pop.querySelectorAll('[data-jp-close]').forEach(function (el) {
+    el.addEventListener('click', close);
+  });
+
+  // exit intent (desktop) — pointer leaves through the top of the window
+  document.addEventListener('mouseout', function (e) {
+    if (!e.relatedTarget && e.clientY <= 0) open();
+  });
+  // and a timed fallback for touch devices
+  setTimeout(open, 50000);
+})();
+</script>
+
 </body>
 </html>
