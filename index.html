@@ -92,11 +92,11 @@
    "offers": [
     {
      "@type": "Offer",
-     "name": "5-day trial",
-     "price": "1.00",
+     "name": "Monthly plan",
+     "price": "29.95",
      "priceCurrency": "USD",
-     "description": "5-day trial, then renews at $19.95/month.",
-     "url": "https://www.leskohelp.com/business-trial",
+     "description": "$29.95 per month, billed monthly. Cancel anytime.",
+     "url": "https://www.leskohelp.com/business-monthly",
      "availability": "https://schema.org/InStock"
     },
     {
@@ -1625,6 +1625,28 @@
   @media (max-width: 720px) { #ytPrev { left: 2px; } #ytNext { right: 2px; } }
 
 
+  /* Guarantee band under the pricing cards */
+  .guarantee {
+    margin-top: 44px;
+    display: grid; grid-template-columns: auto 1fr; gap: 28px; align-items: center;
+    background: var(--cream); border: 1px solid var(--line); border-radius: 14px;
+    padding: 30px 34px;
+  }
+  .g-seal {
+    width: 96px; height: 96px; flex: none;
+    border-radius: 50%; border: 3px solid var(--green);
+    display: grid; place-content: center; text-align: center;
+    background: #fff; color: var(--green-deep);
+  }
+  .g-seal span { font-family: 'Fraunces', Georgia, serif; font-weight: 700; font-size: 38px; line-height: 1; }
+  .g-seal small { font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700; letter-spacing: 0.14em; }
+  .guarantee h3 { font-size: 23px; line-height: 1.2; margin-bottom: 8px; }
+  .guarantee p { font-size: 16px; line-height: 1.62; color: var(--ink-soft); max-width: 72ch; }
+  @media (max-width: 720px) {
+    .guarantee { grid-template-columns: 1fr; gap: 18px; padding: 26px 22px; text-align: center; justify-items: center; }
+  }
+
+
   footer {
     background: var(--ink);
     color: rgba(250,246,236,0.7);
@@ -1736,7 +1758,7 @@
       <a href="#inside">Inside</a>
       <a href="#stories">Stories</a>
       <a href="#pricing">Membership</a>
-      <a href="#pricing" class="nav-cta">Start your $1 trial</a>
+      <a href="#pricing" class="nav-cta">Become a member</a>
     </div>
   </div>
 </nav>
@@ -1758,7 +1780,7 @@
           You’ve built something worth funding — a business, a nonprofit, a one-person practice. <strong>The grant money for it is real</strong>, and you don’t have to find it alone. Inside LeskoHelp Pro, <strong>a coach, a community, and Matthew’s AI</strong> find your programs with you — starting today.
         </p>
         <div class="hero-ctas">
-          <a href="#pricing" class="btn-primary">Start your $1 trial &nbsp;→</a>
+          <a href="#pricing" class="btn-primary">Become a member &nbsp;→</a>
           <a href="#how" class="btn-secondary">See how it works</a>
         </div>
         <div class="cta-boost">Your first AI report in under 5 minutes · Cancel anytime</div>
@@ -1923,7 +1945,7 @@
           </div>
         </div>
         <div class="guide-cta">
-          <a href="#pricing" class="btn-primary">Start your $1 trial &nbsp;→</a>
+          <a href="#pricing" class="btn-primary">Become a member &nbsp;→</a>
           <a href="#how" class="btn-secondary">See how it works</a>
         </div>
       </div>
@@ -2113,7 +2135,7 @@
     </div>
     <div class="plan-cta reveal">
       <span class="plan-cta-line">Step one is your personalized report — <em>it’s ready in minutes.</em></span>
-      <a href="#pricing" class="btn-primary">Start your $1 trial &nbsp;→</a>
+      <a href="#pricing" class="btn-primary">Become a member &nbsp;→</a>
     </div>
   </div>
 </section>
@@ -2216,8 +2238,8 @@
       </div>
     </div>
     <div class="inside-cta reveal">
-      <span class="plan-cta-line">All of it opens with <em>one dollar.</em></span>
-      <a href="#pricing" class="btn-primary">Start your $1 trial &nbsp;→</a>
+      <span class="plan-cta-line">All of it opens with <em>one membership.</em></span>
+      <a href="#pricing" class="btn-primary">Become a member &nbsp;→</a>
     </div>
   </div>
 </section>
@@ -2263,8 +2285,8 @@
       </button>
     </div>
     <div class="wall-close reveal">
-      <div class="line">If you recognized yourself on this wall, <em>this was built for you.</em><div class="wall-note">Join 15,000+ members &#183; $1 five-day trial &#183; 30-day guarantee</div></div>
-      <a class="btn-primary" href="#pricing">Start your $1 trial &nbsp;→</a>
+      <div class="line">If you recognized yourself on this wall, <em>this was built for you.</em><div class="wall-note">Join 15,000+ members &#183; from $12.49/month &#183; 30-day guarantee</div></div>
+      <a class="btn-primary" href="#pricing">Become a member &nbsp;→</a>
     </div>
   </div>
 </section>
@@ -2283,8 +2305,8 @@
       <div class="wn-card"><span class="suit" style="color:var(--green)">?</span><span class="wn-kicker">Cost to apply</span><div class="wn-num">$0</div><p>Most programs cost <strong>nothing to apply</strong>. The price of a grant isn't money &#8212; it's knowing where to look.</p></div>
     </div>
     <div class="wn-close reveal">
-      <div class="line">Funding goes to whoever shows up. <em>This is how you show up.</em><div class="wn-note">5-day trial &#183; renews $19.95/mo &#183; 30-day money-back guarantee</div></div>
-      <a class="btn-primary" href="#pricing">Start your $1 trial &nbsp;→</a>
+      <div class="line">Funding goes to whoever shows up. <em>This is how you show up.</em><div class="wn-note">plans from $12.49/month &#183; cancel anytime &#183; 30-day money-back guarantee</div></div>
+      <a class="btn-primary" href="#pricing">Become a member &nbsp;→</a>
     </div>
   </div>
 </section>
@@ -2311,7 +2333,7 @@
     </div>
     <div class="ai-boost reveal">
       <p><strong>Like what it found?</strong> This is the free version. Members work with the <strong>boosted researcher inside the community</strong> — plus the coaches who help you turn what it finds into submitted applications.</p>
-      <a class="btn-primary" href="#pricing">Start your $1 trial &nbsp;→</a>
+      <a class="btn-primary" href="#pricing">Become a member &nbsp;→</a>
     </div>
   </div>
 </section>
@@ -2456,8 +2478,8 @@
 </div>
 
     <div class="stories-cta reveal">
-      <span class="plan-cta-line">Every one of these stories started with <em>the same $1.</em></span>
-      <a href="#pricing" class="btn-primary">Start your $1 trial &nbsp;→</a>
+      <span class="plan-cta-line">Every one of these stories started with <em>one decision.</em></span>
+      <a href="#pricing" class="btn-primary">Become a member &nbsp;→</a>
     </div>
   </div>
 </section>
@@ -2468,54 +2490,62 @@
     <div class="pricing-header reveal">
       <span class="section-label">Membership</span>
       <h2 class="display">
-        Only $1 for <em>5 days</em> of help <span class="highlight">finding every program</span> you qualify for.
+        One membership. <em>Three ways</em> to <span class="highlight">pay for it.</span>
       </h2>
-      <p>Start with a <strong>5-day trial for just $1</strong>, then keep the plan that fits: 1, 6, or 12 months. Every plan includes the <strong>same full member access</strong>.</p>
+      <p>Every plan includes the <strong>same full member access</strong> &#8212; daily coaching classes, unlimited AI grant reports, the resource library, and Matthew Lives. Go monthly for flexibility, or <strong>save up to $209 a year</strong>.</p>
     </div>
     <div class="pricing-grid">
-      <!-- 1 MONTH (FEATURED · $1 OFFER) -->
-      <div class="price-card featured reveal">
-        <div class="pc-banner green">$1 OFFER!</div>
-        <div class="pc-title">1 Month</div>
+      <!-- 1 MONTH -->
+      <div class="price-card reveal">
+        <div class="pc-title pad-top">1 Month</div>
         <div class="pc-rule"></div>
-        <div class="pc-banner green">5 DAYS FOR $1!</div>
+        <div class="pc-banner dark">MOST FLEXIBLE</div>
         <div class="pc-comic-wrap"><img src="assets/matthew-comic-yellow.webp" alt="" width="600" height="600" loading="lazy" decoding="async"><video class="pc-loop" src="assets/welcome-loop.mp4" muted loop playsinline preload="metadata" aria-hidden="true" tabindex="-1"></video></div>
-        <div class="pc-strike">$19.95/mo</div>
-        <div class="pc-price">ONLY $1</div>
-        <div class="pc-per">For 5 Day Trial</div>
-        <div class="pc-note">(Renews @ $19.95)</div>
-        <div class="pc-bill">Billed Monthly After Trial&nbsp;|&nbsp;Cancel Anytime</div>
-        <a href="https://www.leskohelp.com/business-trial" target="_blank" rel="noopener" class="pc-cart">Add To Cart!</a>
-        <div class="pc-mbg">Money-Back Guarantee</div>
+        <div class="pc-price">$29.95</div>
+        <div class="pc-per">Per Month</div>
+        <div class="pc-note">($29.95 Total)</div>
+        <div class="pc-bill">Billed Monthly&nbsp;|&nbsp;Cancel Anytime</div>
+        <a href="https://www.leskohelp.com/business-monthly" target="_blank" rel="noopener" class="pc-cart">Add To Cart!</a>
+        <div class="pc-mbg">30-Day Money-Back Guarantee</div>
       </div>
 
       <!-- 6 MONTHS -->
       <div class="price-card reveal">
         <div class="pc-title pad-top">6 Months</div>
         <div class="pc-rule"></div>
-        <div class="pc-banner dark">SAVE $29.75!</div>
+        <div class="pc-banner dark">SAVE $89.75!</div>
         <div class="pc-comic-wrap"><img src="assets/matthew-comic-yellow.webp" alt="" width="600" height="600" loading="lazy" decoding="async"><video class="pc-loop" src="assets/welcome-loop.mp4" muted loop playsinline preload="metadata" aria-hidden="true" tabindex="-1"></video></div>
+        <div class="pc-strike">$179.70</div>
         <div class="pc-price">$14.99</div>
         <div class="pc-per">Per Month</div>
         <div class="pc-note">($89.95 Total)</div>
         <div class="pc-bill">Billed Semi-Annually&nbsp;|&nbsp;Cancel Anytime</div>
         <a href="https://www.leskohelp.com/business-half-year" target="_blank" rel="noopener" class="pc-cart">Add To Cart!</a>
-        <div class="pc-mbg">Money-Back Guarantee</div>
+        <div class="pc-mbg">30-Day Money-Back Guarantee</div>
       </div>
 
-      <!-- 12 MONTHS -->
-      <div class="price-card reveal">
-        <div class="pc-banner dark">4 MONTHS FREE!</div>
+      <!-- 12 MONTHS (FEATURED · BEST VALUE) -->
+      <div class="price-card featured reveal">
+        <div class="pc-banner green">BEST VALUE!</div>
         <div class="pc-title">12 Months</div>
         <div class="pc-rule"></div>
-        <div class="pc-banner dark">SAVE $89.45!</div>
+        <div class="pc-banner green">SAVE $209.45!</div>
         <div class="pc-comic-wrap"><img src="assets/matthew-comic-yellow.webp" alt="" width="600" height="600" loading="lazy" decoding="async"><video class="pc-loop" src="assets/welcome-loop.mp4" muted loop playsinline preload="metadata" aria-hidden="true" tabindex="-1"></video></div>
+        <div class="pc-strike">$359.40</div>
         <div class="pc-price">$12.49</div>
         <div class="pc-per">Per Month</div>
         <div class="pc-note">($149.95 Total)</div>
         <div class="pc-bill">Billed Yearly&nbsp;|&nbsp;Cancel Anytime</div>
         <a href="https://www.leskohelp.com/business-yearly" target="_blank" rel="noopener" class="pc-cart">Add To Cart!</a>
-        <div class="pc-mbg">Money-Back Guarantee</div>
+        <div class="pc-mbg">30-Day Money-Back Guarantee</div>
+      </div>
+    </div>
+
+    <div class="guarantee reveal">
+      <div class="g-seal" aria-hidden="true"><span>30</span><small>DAY</small></div>
+      <div class="g-body">
+        <h3>Try the whole thing. If it isn&#8217;t for you, we give it back.</h3>
+        <p>Join, come to the classes, generate your reports, ask the coaches anything. If within 30 days you decide it isn&#8217;t worth it, email us and we refund you in full &#8212; <strong>no forms, no hoops, no &#8220;let me transfer you&#8221;</strong>. And you can cancel your plan any time from your account, in a couple of clicks.</p>
       </div>
     </div>
 
@@ -2606,7 +2636,7 @@
     </div>
     <div class="yt-cta-row reveal">
       <a class="btn-youtube" href="https://www.youtube.com/@MatthewLesko" target="_blank" rel="noopener"><span class="play">▶</span> Subscribe on YouTube</a>
-      <a class="btn-primary" href="#pricing">Start your $1 trial &nbsp;→</a>
+      <a class="btn-primary" href="#pricing">Become a member &nbsp;→</a>
     </div>
   </div>
 </section>
@@ -2654,8 +2684,8 @@
       <em>Start winning them.</em>
     </h2>
     <p>Join 15,000+ grant entrepreneurs inside LeskoHelp Pro. <strong>Your first AI report is ready as soon as you sign up.</strong></p>
-    <a href="https://www.leskohelp.com/business-trial" target="_blank" rel="noopener" class="btn-primary">Start your $1 trial &nbsp;→</a>
-    <p class="small">5 days for $1 · Renews at $19.95/mo · Cancel anytime · Money-back guarantee</p>
+    <a href="https://www.leskohelp.com/business-monthly" target="_blank" rel="noopener" class="btn-primary">Become a member &nbsp;→</a>
+    <p class="small">From $12.49/month · Cancel anytime · 30-day money-back guarantee</p>
     <div class="cta-video">
       <video src="assets/welcome-loop.mp4" muted autoplay loop playsinline aria-label="Comic Matthew welcomes you with open arms"></video>
     </div>
