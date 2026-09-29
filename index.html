@@ -96,7 +96,7 @@
      "price": "29.95",
      "priceCurrency": "USD",
      "description": "$29.95 per month, billed monthly. Cancel anytime.",
-     "url": "https://leskohelp.recurly.com/subscribe/business-monthly",
+     "url": "https://www.leskobusiness.com/checkout?plan=monthly",
      "availability": "https://schema.org/InStock"
     },
     {
@@ -105,7 +105,7 @@
      "price": "89.95",
      "priceCurrency": "USD",
      "description": "$14.99/month billed semi-annually ($89.95).",
-     "url": "https://leskohelp.recurly.com/subscribe/business-half-year",
+     "url": "https://www.leskobusiness.com/checkout?plan=half-year",
      "availability": "https://schema.org/InStock"
     },
     {
@@ -114,7 +114,7 @@
      "price": "149.95",
      "priceCurrency": "USD",
      "description": "$12.49/month billed yearly ($149.95).",
-     "url": "https://leskohelp.recurly.com/subscribe/business-yearly",
+     "url": "https://www.leskobusiness.com/checkout?plan=yearly",
      "availability": "https://schema.org/InStock"
     }
    ]
@@ -2607,12 +2607,13 @@
 </section>
 
 <!-- ──────────── PRICING ──────────── -->
-<!-- The checkout buttons go to Recurly's own hosted pages
-     (leskohelp.recurly.com/subscribe/<plan code>), not to ClickFunnels.
-     Input: the plan code at the end of the link. Output: Recurly shows and
-     charges that plan's own price, so the price here must match the plan in
-     Recurly: business-monthly $29.95, business-half-year $89.95,
-     business-yearly $149.95. Changing a price means changing it in both places. -->
+<!-- The checkout buttons go to our branded /checkout page (checkout.html),
+     which sends the buyer on to Recurly's hosted page
+     (leskohelp.recurly.com/subscribe/<plan code>). Recurly charges that
+     plan's own price, so the prices here and in checkout.html must match the
+     plans in Recurly: business-monthly $29.95, business-half-year $89.95,
+     business-yearly $149.95. Changing a price means changing it in all three
+     places. After payment Recurly should send the buyer to /welcome. -->
 <section class="pricing" id="pricing">
   <div class="container">
     <div class="pricing-header reveal">
@@ -2634,7 +2635,7 @@
         <div class="pc-per">Per Month</div>
         <div class="pc-note">($29.95 Total)</div>
         <div class="pc-bill">Billed Monthly&nbsp;|&nbsp;Cancel Anytime</div>
-        <a href="https://leskohelp.recurly.com/subscribe/business-monthly" target="_blank" rel="noopener" class="pc-cart">Add To Cart!</a>
+        <a href="/checkout?plan=monthly" class="pc-cart">Add To Cart!</a>
         <div class="pc-mbg">30-Day Money-Back Guarantee</div>
       </div>
 
@@ -2651,7 +2652,7 @@
         <div class="pc-per">Per Month</div>
         <div class="pc-note">($89.95 Total)</div>
         <div class="pc-bill">Billed Semi-Annually&nbsp;|&nbsp;Cancel Anytime</div>
-        <a href="https://leskohelp.recurly.com/subscribe/business-half-year" target="_blank" rel="noopener" class="pc-cart">Add To Cart!</a>
+        <a href="/checkout?plan=half-year" class="pc-cart">Add To Cart!</a>
         <div class="pc-mbg">30-Day Money-Back Guarantee</div>
       </div>
 
@@ -2668,7 +2669,7 @@
         <div class="pc-per">Per Month</div>
         <div class="pc-note">($149.95 Total)</div>
         <div class="pc-bill">Billed Yearly&nbsp;|&nbsp;Cancel Anytime</div>
-        <a href="https://leskohelp.recurly.com/subscribe/business-yearly" target="_blank" rel="noopener" class="pc-cart">Add To Cart!</a>
+        <a href="/checkout?plan=yearly" class="pc-cart">Add To Cart!</a>
         <div class="pc-mbg">30-Day Money-Back Guarantee</div>
       </div>
     </div>
@@ -2817,7 +2818,7 @@
       <em>Start winning them.</em>
     </h2>
     <p>This money isn’t only for the rich and the well-connected — <strong>it’s for everybody, and most of it goes unclaimed.</strong> Join 15,000+ members and get your first AI report the minute you sign up.</p>
-    <a href="https://leskohelp.recurly.com/subscribe/business-monthly" target="_blank" rel="noopener" class="btn-primary">Join the community — I want my share &nbsp;→</a>
+    <a href="/checkout?plan=monthly" class="btn-primary">Join the community — I want my share &nbsp;→</a>
     <p class="small">From $12.49/month · Cancel anytime · 30-day money-back guarantee</p>
     <div class="cta-video">
       <video src="assets/welcome-loop.mp4" muted autoplay loop playsinline aria-label="Comic Matthew welcomes you with open arms"></video>
