@@ -1633,6 +1633,8 @@
   /* Guarantee band under the pricing cards */
   .guarantee {
     margin-top: 52px;
+    /* The footer links here (#guarantee); the offset keeps the heading below the fixed menu bar. */
+    scroll-margin-top: 110px;
     display: grid; grid-template-columns: auto 1fr; gap: 32px; align-items: center;
     background: var(--red);
     color: var(--paper);
@@ -2699,7 +2701,8 @@
       </div>
     </div>
 
-    <div class="guarantee reveal">
+    <!-- id="guarantee" is the target of the footer's "Money-back guarantee" link -->
+    <div class="guarantee reveal" id="guarantee">
       <div class="g-seal" aria-hidden="true"><span>30</span><small>DAY</small></div>
       <div class="g-body">
         <span class="g-kicker">Our promise to you</span>
@@ -2938,7 +2941,7 @@
         <ul>
           <li><a href="#pricing">Monthly</a></li>
           <li><a href="#pricing">Yearly</a></li>
-          <li><a href="https://www.free.lesko.com/leskohelp-b" target="_blank" rel="noopener">Member sign in</a></li>
+          <li><a href="https://lesko-help-2.mn.co/sign_in" target="_blank" rel="noopener">Member sign in</a></li>
         </ul>
       </div>
       <div>
@@ -2964,7 +2967,7 @@
     </div>
     <div class="footer-bottom">
       <span>© 2026 Matthew Lesko · 1851 Columbia Rd NW #402, Washington, DC 20009</span>
-      <span><a href="https://www.free.lesko.com/privacy-policy" target="_blank" rel="noopener">Privacy</a> · <a href="https://www.free.lesko.com/lesko-help-a1757516761209" target="_blank" rel="noopener">Money-back guarantee</a></span>
+      <span><a href="https://www.leskohelp.com/privacy-policy" target="_blank" rel="noopener">Privacy</a> · <a href="#guarantee">Money-back guarantee</a></span>
     </div>
   </div>
 </footer>
