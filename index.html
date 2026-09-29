@@ -1129,6 +1129,7 @@
     width: 48px; height: 48px; border-radius: 50%;
     flex-shrink: 0; overflow: hidden;
   }
+  .wall-chip .s.initials { display: flex; align-items: center; justify-content: center; color: #faf6ec; font-family: 'JetBrains Mono', monospace; font-weight: 600; font-size: 15px; letter-spacing: 0.04em; }
   .wall-chip .s img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .wall-chip .t { font-size: 17px; font-weight: 600; color: var(--ink); line-height: 1.25; display: block; }
   .wall-chip .tag { font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-mid); display: block; margin-top: 3px; font-weight: 500; }
@@ -1177,7 +1178,7 @@
   .whynow { background: var(--paper); }
   .whynow h2 { font-size: clamp(36px, 4.5vw, 56px); line-height: 1.05; margin-bottom: 56px; max-width: 720px; }
   .wn-sub { font-size: 18px; color: var(--ink-soft); max-width: 560px; margin: -36px 0 48px; }
-  .wn-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-bottom: 40px; }
+  .wn-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; margin-bottom: 40px; }
   .wn-card { background: var(--cream); border: 1px solid var(--line); border-radius: 8px; padding: 36px 32px; position: relative; overflow: hidden; }
   .wn-card .suit { position: absolute; top: 18px; right: 22px; font-family: 'Fraunces', serif; font-style: italic; font-size: 34px; opacity: 0.22; }
   .wn-num { font-family: 'Fraunces', serif; font-weight: 700; font-size: 54px; line-height: 1; margin-bottom: 14px; }
@@ -2004,8 +2005,6 @@
   <div class="news-bar-inner">
     <div class="news-track">
     <span class="badge">Breaking News</span>
-    <span class="item">$4.96 trillion in U.S. grants &amp; programs available in 2026</span>
-    <span class="dot">●</span>
     <span class="item">15,000+ members &amp; growing</span>
     <span class="dot">●</span>
     <span class="item">Daily live coaching classes with grant experts</span>
@@ -2013,8 +2012,6 @@
     <span class="item">Personalized AI reports in under 5 minutes</span>
     <span class="dot">●</span>
     <span class="badge">Breaking News</span>
-    <span class="item">$4.96 trillion in U.S. grants &amp; programs available in 2026</span>
-    <span class="dot">●</span>
     <span class="item">15,000+ members &amp; growing</span>
     <span class="dot">●</span>
     <span class="item">Daily live coaching classes with grant experts</span>
@@ -2024,8 +2021,6 @@
     </div>
     <div class="news-track">
     <span class="badge">Breaking News</span>
-    <span class="item">$4.96 trillion in U.S. grants &amp; programs available in 2026</span>
-    <span class="dot">●</span>
     <span class="item">15,000+ members &amp; growing</span>
     <span class="dot">●</span>
     <span class="item">Daily live coaching classes with grant experts</span>
@@ -2033,8 +2028,6 @@
     <span class="item">Personalized AI reports in under 5 minutes</span>
     <span class="dot">●</span>
     <span class="badge">Breaking News</span>
-    <span class="item">$4.96 trillion in U.S. grants &amp; programs available in 2026</span>
-    <span class="dot">●</span>
     <span class="item">15,000+ members &amp; growing</span>
     <span class="dot">●</span>
     <span class="item">Daily live coaching classes with grant experts</span>
@@ -2435,32 +2428,32 @@
     </div>
     <div class="wall-chips reveal">
       <button class="wall-chip active" type="button">
-        <span class="s"><img src="assets/face-woman.webp" alt="" width="160" height="160" loading="lazy" decoding="async"></span>
+        <span class="s initials" style="background:var(--blue)" aria-hidden="true">RM</span>
         <span><span class="t">The nonprofit founder who almost gave up</span><span class="tag">first grant approved</span></span>
         <span class="chip-story"><strong>Renée M. · Nonprofit Director</strong>I run a small community-arts nonprofit. For two years I circled grant applications and never sent one, because I was sure I'd do it wrong and waste everyone's time. The coaching changed the order of things: first a shortlist of three state programs I actually qualified for, then one application, done with feedback at every step. It was approved last month. I cried a little, then I started the second one.</span>
       </button>
       <button class="wall-chip" type="button">
-        <span class="s"><img src="assets/face-man.webp" alt="" width="160" height="160" loading="lazy" decoding="async"></span>
+        <span class="s initials" style="background:var(--red)" aria-hidden="true">MT</span>
         <span><span class="t">The freelance sound engineer</span><span class="tag">equipment program</span></span>
         <span class="chip-story"><strong>Marcus T. · Freelance Sound Engineer</strong>I genuinely thought grants were for other people — nonprofits, scientists, someone with a board and a letterhead. My AI report turned up a state small-business equipment program I had never heard of, three miles of paperwork shorter than I feared. I asked two questions in the Questions Channel, got answers the same afternoon, and applied that week. The studio gear I'd been postponing for two years is sitting in my room now.</span>
       </button>
       <button class="wall-chip" type="button">
-        <span class="s"><img src="assets/face-elena.webp" alt="" width="160" height="160" loading="lazy" decoding="async"></span>
+        <span class="s initials" style="background:var(--green)" aria-hidden="true">ER</span>
         <span><span class="t">The bakery owner with one free hour a day</span><span class="tag">local development grant</span></span>
         <span class="chip-story"><strong>Elena R. · Bakery Owner</strong>Between orders I have maybe one free hour a day, usually at night. I never attended a single live class — I watched the replays with my feet up and posted my questions in the channel. The coaches kept pointing me back to one local development grant instead of ten scattered ones. It came through this spring, and it's paying for the display fridge my customers have been squeezing past for years.</span>
       </button>
       <button class="wall-chip" type="button">
-        <span class="s"><img src="assets/face-priya.webp" alt="" width="160" height="160" loading="lazy" decoding="async"></span>
+        <span class="s initials" style="background:var(--blue)" aria-hidden="true">PS</span>
         <span><span class="t">The founder who kept second-guessing</span><span class="tag">submitted &amp; approved</span></span>
         <span class="chip-story"><strong>Priya S. · Founder, B-corp startup</strong>My problem was never research — I had a spreadsheet that would frighten an accountant. My problem was pressing send. I brought my application to the Thursday Drop-In Clinic and Tony went through it with me line by line, live. Submitted it that Friday. Six weeks later it was approved, and I still think about how long I would have sat on it alone.</span>
       </button>
       <button class="wall-chip" type="button">
-        <span class="s"><img src="assets/face-danielle.webp" alt="" width="160" height="160" loading="lazy" decoding="async"></span>
+        <span class="s initials" style="background:var(--red)" aria-hidden="true">DW</span>
         <span><span class="t">The Army veteran with a two-woman repair crew</span><span class="tag">veteran-owned business grant</span></span>
         <span class="chip-story"><strong>Danielle W. · Army Veteran, Home-Repair Business</strong>After the Army I started a small home-repair business with my cousin — two women, one van, a lot of word of mouth. I assumed grant money was for tech companies, not for us. My report flagged a veteran-owned business program in the first five minutes, and a coach helped me get the eligibility paperwork right the first time. We got approved for tools and our certification before the busy season.</span>
       </button>
       <button class="wall-chip" type="button">
-        <span class="s"><img src="assets/face-jess.webp" alt="" width="160" height="160" loading="lazy" decoding="async"></span>
+        <span class="s initials" style="background:var(--green)" aria-hidden="true">JK</span>
         <span><span class="t">The one-person film studio</span><span class="tag">state arts council grant</span></span>
         <span class="chip-story"><strong>Jess K. · One-Person Film Studio</strong>I assumed arts funding went to institutions with marble lobbies, not to one person editing in a spare bedroom. I asked the AI researcher a plain question — 'what exists for solo filmmakers in my state' — and it came back with a state arts council program and a media fund I'd never seen in years of googling. The council grant landed. It bought a camera and, more importantly, a year of taking myself seriously.</span>
       </button>
@@ -2481,7 +2474,6 @@
       <p class="wn-sub">Grant programs run on windows and deadlines. The only people who miss out are the ones still "thinking about it" when the window closes.</p>
     </div>
     <div class="wn-grid reveal">
-      <div class="wn-card"><span class="suit" style="color:var(--blue)">?</span><span class="wn-kicker">On the table in 2026</span><div class="wn-num">$4.96T</div><p>In U.S. grants &amp; programs &#8212; federal, state, local, and foundation money that <strong>must be given out</strong>.</p></div>
       <div class="wn-card"><span class="suit" style="color:var(--red)">?</span><span class="wn-kicker">Closing constantly</span><div class="wn-num">Every week</div><p>Application windows open and close. <strong>Miss one, wait a year.</strong> Members see deadlines before they pass.</p></div>
       <div class="wn-card"><span class="suit" style="color:var(--green)">?</span><span class="wn-kicker">Cost to apply</span><div class="wn-num">$0</div><p>Most programs cost <strong>nothing to apply</strong>. The price of a grant isn't money &#8212; it's knowing where to look.</p></div>
     </div>
