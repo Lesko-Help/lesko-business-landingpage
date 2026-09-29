@@ -21,4 +21,4 @@ Allow: /
 User-agent: Bytespider
 Disallow: /
 
-Sitemap: https://leskohelp.com/sitemap.xml
+Sitemap: https://www.leskobusiness.com/sitemap.xml
