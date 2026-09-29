@@ -3183,5 +3183,129 @@
 })();
 </script>
 
+<!-- ──────────── ANALYTICS (Google Analytics 4) ────────────
+     What it measures: page visits, clicks on the join buttons, clicks on the
+     three checkout buttons (with plan and price), and newsletter sign-ups.
+     It stays completely off until GA4_MEASUREMENT_ID below is filled in. -->
+<script>
+(function () {
+  // The id of the GA4 data stream, like 'G-XXXXXXXXXX'. Empty = analytics off:
+  // nothing is loaded and nothing is sent.
+  var GA4_MEASUREMENT_ID = '';
+
+  // Set to true ONLY once the same id is also entered in Recurly's hosted page
+  // settings. It adds a visitor id to the checkout links so Google sees the
+  // landing page and the payment page as one visit instead of two.
+  var LINK_VISIT_TO_RECURLY = false;
+
+  // Plan code (the last part of a checkout link) -> what that plan costs.
+  // Must match the pricing cards above and the plans in Recurly.
+  var PLAN_PRICES_USD = {
+    'business-monthly': 29.95,
+    'business-half-year': 89.95,
+    'business-yearly': 149.95
+  };
+
+  // Countries where a visitor must agree before analytics cookies are set.
+  // This page has no consent banner yet, so for these visitors Google only
+  // receives anonymous, cookieless signals.
+  var CONSENT_REQUIRED_REGIONS = [
+    'AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'FI', 'FR', 'DE', 'GR', 'HU',
+    'IE', 'IT', 'LV', 'LT', 'LU', 'MT', 'NL', 'PL', 'PT', 'RO', 'SK', 'SI', 'ES',
+    'SE', 'IS', 'LI', 'NO', 'GB', 'CH'
+  ];
+
+  if (!GA4_MEASUREMENT_ID) return;
+
+  window.dataLayer = window.dataLayer || [];
+  // Input: any gtag command. Output: none; it queues the command for Google's
+  // script. Must pass `arguments` itself, that is the format Google reads.
+  function gtag() { window.dataLayer.push(arguments); }
+  window.gtag = gtag;
+
+  var everythingDenied = {
+    ad_storage: 'denied', ad_user_data: 'denied',
+    ad_personalization: 'denied', analytics_storage: 'denied'
+  };
+  var analyticsOnly = {
+    ad_storage: 'denied', ad_user_data: 'denied',
+    ad_personalization: 'denied', analytics_storage: 'granted'
+  };
+  gtag('consent', 'default', analyticsOnly);
+  everythingDenied.region = CONSENT_REQUIRED_REGIONS;
+  gtag('consent', 'default', everythingDenied);
+
+  gtag('js', new Date());
+  if (LINK_VISIT_TO_RECURLY) {
+    gtag('set', 'linker', { domains: ['leskohelp.recurly.com'] });
+  }
+  gtag('config', GA4_MEASUREMENT_ID);
+
+  var googleScript = document.createElement('script');
+  googleScript.async = true;
+  googleScript.src = 'https://www.googletagmanager.com/gtag/js?id=' +
+    encodeURIComponent(GA4_MEASUREMENT_ID);
+  document.head.appendChild(googleScript);
+
+  // Input: a link element. Output: the id of the page section it sits in
+  // ('pricing', 'faq', ...) or 'page' when it is in none. Why: the same button
+  // text appears in several places, and we want to know which one was clicked.
+  function sectionOf(link) {
+    var section = link.closest('section[id], footer, nav, #joinPop');
+    if (!section) return 'page';
+    return section.id || section.tagName.toLowerCase();
+  }
+
+  // Input: a link element. Output: its visible text, tidied, at most 80 signs.
+  function labelOf(link) {
+    return (link.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 80);
+  }
+
+  // Input: a checkout address. Output: the plan code at its end, or null when
+  // the address is not one of our checkout links.
+  function planCodeOf(address) {
+    var match = /leskohelp\.recurly\.com\/subscribe\/([a-z0-9-]+)/i.exec(address || '');
+    return match ? match[1] : null;
+  }
+
+  // One listener for the whole page: every click is checked once.
+  // Checkout button -> 'begin_checkout' with plan and price.
+  // Button that scrolls to the prices -> 'join_button_click'.
+  document.addEventListener('click', function (event) {
+    var link = event.target.closest ? event.target.closest('a[href]') : null;
+    if (!link) return;
+
+    var planCode = planCodeOf(link.getAttribute('href'));
+    if (planCode) {
+      var price = PLAN_PRICES_USD[planCode];
+      gtag('event', 'begin_checkout', {
+        currency: 'USD',
+        value: price,
+        items: [{ item_id: planCode, item_name: planCode, price: price, quantity: 1 }],
+        button_text: labelOf(link),
+        button_section: sectionOf(link)
+      });
+      return;
+    }
+
+    if (link.getAttribute('href') === '#pricing') {
+      gtag('event', 'join_button_click', {
+        button_text: labelOf(link),
+        button_section: sectionOf(link)
+      });
+    }
+  });
+
+  // Newsletter form sent -> 'generate_lead'. The email address itself is
+  // never sent to Google.
+  document.addEventListener('submit', function (event) {
+    var form = event.target;
+    var action = (form && form.getAttribute && form.getAttribute('action')) || '';
+    if (action.indexOf('app.kit.com/forms/') === -1) return;
+    gtag('event', 'generate_lead', { form_name: 'newsletter' });
+  });
+})();
+</script>
+
 </body>
 </html>
