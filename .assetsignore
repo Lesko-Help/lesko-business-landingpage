@@ -10,5 +10,8 @@ scripts/
 .werk.conf
 .gitignore
 .claude/
+# wrangler's local build folder: a hand `wrangler deploy` from this Mac uploaded
+# .wrangler/tmp/deploy-*/worker.js.map as a public page on 2026-09-30.
+.wrangler/
 .git/
 README.md
