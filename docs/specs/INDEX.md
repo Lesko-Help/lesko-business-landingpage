@@ -26,7 +26,7 @@ See `docs/specs/architecture.md`.
 
 | Module | What it does | Deploy | Spec |
 |---|---|---|---|
-| `worker` | `worker.js`: the `/api/videos` feed, unused by the page since 2026-09-29 | push to `main` (Cloudflare Workers Builds) | `docs/specs/modules/worker.md` |
+| `worker` | `worker.js`: the checkout's `/api/config` and `/api/subscribe` (Recurly purchase), plus the unused `/api/videos` feed | push to `main` (Cloudflare Workers Builds) | `docs/specs/modules/worker.md` |
 
 <!-- spec:modules end -->
 
