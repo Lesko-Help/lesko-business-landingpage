@@ -99,13 +99,18 @@ Replaced in full each time the context guard asks you to save — never append a
 About 60 lines max. Old traps stay (they are short and worth keeping); everything else gets
 overwritten with the current picture.
 
-Done: brief filled in from goal + overseer's memory message.
-In flight: about to copy checkout.html/welcome.html/assets/flow.css from
-27f77fd, then repoint links in index.html and llms.txt.
-Next: write the red-then-green checks (grep counts, wrangler dev + curl),
-run them red, make the edits, run them green, report to the overseer.
+Done: brief filled in; checkout.html/welcome.html/assets/flow.css copied
+unchanged from 27f77fd (verified 0-line diff against it); index.html and
+llms.txt repointed (7 + 3 links); both done-when checks proven red then
+green (grep counts, and `wrangler dev` + curl 200 on /checkout and
+/welcome); origin/main merged (no-op, already current); tree clean.
+In flight: nothing — reporting to the overseer next.
+Next: send the report to landing-opzichter and wait for its review.
 Traps (with dates):
 - 2026-09-30: do not merge origin/checkout/branded-pages, use
   `git checkout 27f77fd -- <files>` instead (see Context).
 - 2026-09-30: CLAUDE.md's "sticky bar" claim is stale — no such link exists
   in today's index.html (see Context).
+- 2026-09-30: running `npx wrangler dev` locally creates an untracked
+  `.wrangler/` cache dir — `rm -rf .wrangler` after, it is not part of the
+  repo and .gitignore doesn't list it.
