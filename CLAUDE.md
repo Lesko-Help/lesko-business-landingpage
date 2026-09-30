@@ -81,8 +81,8 @@ one-step checkout `/checkout?plan=<monthly|half-year|yearly>`:
 | `half-year` | `business-half-year` | $89.95 | 2026-09-24 |
 | `yearly` | `business-yearly` | $149.95 | 2026-09-24 |
 
-The mapping lives in `PLAN_CODES` in `worker.js`. The prices in `index.html`
-and `checkout.html` are typed by hand; the plans in Recurly are the truth.
+The mapping lives in `PLAN_CODES` in `worker.js`. The prices in `index.html`,
+`checkout.html` and `assets/site-events.js` are typed by hand; the plans in Recurly are the truth.
 Change one, change all — the HTML comment above the PRICING section says so.
 
 `worker.js` routes: `/api/config` hands the browser the Recurly public key;
@@ -130,14 +130,28 @@ purchase pending).
 
 ## Analytics
 
-The page had none until PR #4 (`analytics/ga4-tag`, merged by Martin
-2026-09-30 13:07 CEST): a GA4 block at the end of `index.html` that stays
-off until `GA4_MEASUREMENT_ID` is filled in; events `begin_checkout` (plan + price), `join_button_click`,
-`generate_lead`; EU/EEA/UK/CH visitors get no analytics cookies (no consent
-banner). Martin owns no GA4 property yet (see memory
-`project_lesko_ga4_analytics`); until he creates one the tag has nothing to
-send to. Recurly's hosted pages need the same id in Hosted Page Settings;
-whether that field accepts a `G-` id is unverified.
+Since `ga4-all-pages` (landed 2026-09-30, `815fbf2`) GA4 lives in one
+shared file, **`assets/site-events.js`**, loaded by `index.html`,
+`checkout.html` and `welcome.html`. (It started as PR #4, an inline block in
+`index.html`, merged 2026-09-30 13:07 CEST.) It stays off until
+`GA4_MEASUREMENT_ID` at the top of that file is filled in — the only place
+the id goes. Events, with plan and USD price:
+- `/`: `begin_checkout` on a `/checkout?plan=` link, `join_button_click`,
+  `generate_lead` (newsletter);
+- `/checkout`: `page_view` with the plan, `add_payment_info` on Pay;
+- `/welcome`: `purchase`, once per tab. The email is stripped from
+  `page_location`, so it never reaches Google.
+
+EU/EEA/UK/CH visitors get no analytics cookies (no consent banner). Each page
+carries a no-op `window.LeskoAnalytics` stand-in, so a blocked
+`site-events.js` never stops a checkout — keep it when editing a page. Test:
+`scripts/test-ga4-events.sh .` (21 checks). `PLAN_PRICES_USD` in that file is
+one more hand-typed copy of the prices: change it with the others.
+
+Martin owns no GA4 property yet (see memory `project_lesko_ga4_analytics`);
+until he creates one the tag has nothing to send to. Recurly's hosted pages
+need the same id in Hosted Page Settings; whether that field accepts a `G-`
+id is unverified.
 
 ## Neighbours (other repos, other overseers)
 
