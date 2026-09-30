@@ -1,13 +1,14 @@
 # Working in lesko-business-landingpage
 
-The business landing page: **leskobusiness.com** (and www), one static
-`index.html` plus `worker.js` (a tiny API worker; its `/api/videos` route is
-no longer called since the playlist was hard-coded on 2026-09-29), deployed
-as the Cloudflare Worker `lesko-business-landingpage`. Its three buttons sell
-LeskoHelp Pro and send the buyer to Recurly's hosted checkout pages; from
-there lesko-provisioning creates the Mighty Networks account. This repo
-owns only the page. Checkout, payment and provisioning belong to other
-repos (see "Neighbours").
+The business landing page: **leskobusiness.com** (and www), static pages
+(`index.html`, `checkout.html`, `welcome.html`, `assets/flow.css`) plus
+`worker.js`, deployed as the Cloudflare Worker `lesko-business-landingpage`.
+Its three buttons sell LeskoHelp Pro and send the buyer to our own
+`/checkout`, which charges through Recurly (see "Where the buttons go"); from
+there lesko-provisioning creates the Mighty Networks account. This repo owns
+the page and the checkout page with its two Worker routes. Recurly itself,
+provisioning and the checkout analytics belong to other repos (see
+"Neighbours").
 
 Repo created by Giulia (GitHub `GiuliaRobinMay`); she edits copy and images
 through GitHub's upload button, straight on `main`. This overseer set-up
@@ -65,21 +66,45 @@ any new non-page file there, and check it 404s after landing.
 
 ## Where the buttons go, and why
 
-Since PR #3 (`ac57980`, 2026-09-29, DECISION BY MARTIN "route A, deploy in an
-hour"): the three pricing buttons, the sticky bar and `llms.txt` link to
-Recurly's hosted pages `https://leskohelp.recurly.com/subscribe/<plan>`:
+Since 2026-09-30 (~13:20 UTC, commit `d3b2562`, DECISION BY MARTIN "step over
+to the branded pages as fast as possible, fix the issues one by one later"):
+the pricing buttons in `index.html` and the links in `llms.txt` go to our own
+one-step checkout `/checkout?plan=<monthly|half-year|yearly>`:
 
-| Button | Plan code | Price | Created |
+    buyer on /checkout → name, email, card in Recurly.js's card field
+      → worker.js /api/subscribe → Recurly POST /purchases
+      → /welcome?email=…&plan=…   (then lesko-provisioning, as before)
+
+| `?plan=` | Plan code in Recurly | Price | Created |
 |---|---|---|---|
-| 1 month | `business-monthly` | $29.95 | 2026-09-24 |
-| 6 months | `business-half-year` | $89.95 | 2026-09-24 |
-| 12 months | `business-yearly` | $149.95 | 2026-09-24 |
+| `monthly` | `business-monthly` | $29.95 | 2026-09-24 |
+| `half-year` | `business-half-year` | $89.95 | 2026-09-24 |
+| `yearly` | `business-yearly` | $149.95 | 2026-09-24 |
 
-The prices in `index.html` are typed by hand; the plans in Recurly are the
-truth. Change one, change both — the HTML comment above the PRICING section
-says so.
+The mapping lives in `PLAN_CODES` in `worker.js`. The prices in `index.html`
+and `checkout.html` are typed by hand; the plans in Recurly are the truth.
+Change one, change all — the HTML comment above the PRICING section says so.
 
-Before that the buttons went to ClickFunnels pages
+`worker.js` routes: `/api/config` hands the browser the Recurly public key;
+`/api/subscribe` makes the purchase with the private key; `/api/videos` is
+no longer called (playlist hard-coded 2026-09-29). Both keys are **Worker
+secrets** `RECURLY_PUBLIC_KEY` and `RECURLY_API_KEY` — secrets, not Text
+variables, because `wrangler.jsonc` has no `vars`/`keep_vars` and every
+Workers Builds deploy wipes dashboard Text variables. Without the private key
+`/api/subscribe` answers 503 "Payments are not switched on yet". Martin keeps
+a copy in his Mac keychain (service `leskobusiness`). The Worker lives in the
+**Freelesko** Cloudflare account (`c75d24d09764e8db455eaf601ba3b377`); a
+wrangler login sees two accounts, so set `CLOUDFLARE_ACCOUNT_ID` or wrangler
+stops.
+
+Known issues, accepted for the fast go-live and to be fixed one by one:
+`/api/subscribe` has no bot or rate limit (card-testing risk); the Recurly
+account code is the email the buyer types; the private key has full scope.
+
+From 2026-09-29 (PR #3, `ac57980`) to the go-live the buttons went to
+Recurly's hosted pages `https://leskohelp.recurly.com/subscribe/<plan>`;
+those still work for anyone with the link. Before that the buttons went to
+ClickFunnels pages
 `www.leskohelp.com/business-{monthly,half-year,yearly}` with Recurly.js
 embedded. Those pages still exist and still work for anyone with the link,
 and **`/business-monthly` shows $29.95 but its CF product 5128001 is wired to
@@ -89,13 +114,19 @@ the ClickFunnels dashboard, which no Claude session can reach. The wiring is
 visible without the dashboard: the `data-product-payment-gateway-plan-id`
 attribute on the product input of the CF page.
 
-Proven end to end 2026-09-29 16:46 UTC: hosted page → Recurly transaction
+For the hosted pages (the previous route), proven end to end 2026-09-29
+16:46 UTC: hosted page → Recurly transaction
 origin `hpp` → six webhooks → lesko-provisioning worker → MN member re-added,
 21 seconds from payment to access. Recurly hosted pages carry no company or
 VAT field (DECISION BY MARTIN 2026-09-29: collect the VAT number and print it
 on the invoice, do NOT charge VAT — the switch is in Recurly admin › Hosted
-Page Settings, Martin's or Giulia's to flip). The hosted plans' `success_url`
-is empty, so after paying the buyer sees Recurly's default page.
+Page Settings, Martin's or Giulia's to flip). On 2026-09-30 Martin set the
+three business plans' return URL to
+`https://leskobusiness.com/welcome?email={{account_code}}&plan={{plan_code}}`
+with "Bypass Recurly Confirmation", so hosted-page buyers also land on
+`/welcome`. The branded `/checkout` has no VAT field either; the route
+through `/api/subscribe` is not yet proven end to end (first real test
+purchase pending).
 
 ## Analytics
 
@@ -121,7 +152,10 @@ whether that field accepts a `G-` id is unverified.
 - **lesko-checkout** (`werk lesko-checkout`) — the checkout beacon and the
   checkout Dataform models. Hosted-page buyers arrive there as transaction
   origin `hpp`, already counted as checkout attempts; the beacon-based models
-  simply see fewer rows.
+  simply see fewer rows. Buyers through the branded `/checkout` (since
+  2026-09-30) are made by our Worker through Recurly's API, so their origin
+  will not be `hpp` — which origin they get (likely `api`) is unverified until
+  the first real purchase; tell that overseer.
 - **lesko_giulia_apps** (`werk lesko_giulia_apps`) — maintains the Lesko-Help
   GitHub org; it does not act on this repo.
 
