@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Checkout — LeskoHelp Pro</title>
-<meta name="description" content="Choose your LeskoHelp Pro plan and continue to secure payment. Cancel any time. 30-day money-back guarantee.">
+<meta name="description" content="Secure checkout for your LeskoHelp Pro membership. Cancel any time. 30-day money-back guarantee.">
 <meta name="robots" content="noindex, nofollow">
 <meta name="theme-color" content="#2c3fa0">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
@@ -13,6 +13,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,600;1,9..144,700&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/assets/flow.css">
+<!-- Recurly.js: the card field below is Recurly's own secure field, shown inside this page.
+     Card numbers go straight to Recurly and never touch this website or our server.
+     The site's Recurly public key is served by the Worker (/api/config), not stored here. -->
+<script src="https://js.recurly.com/v4/recurly.js"></script>
 </head>
 <body>
 
@@ -33,51 +37,37 @@
   <div class="co-head">
     <div>
       <h1>Checkout</h1>
-      <p class="sub">LeskoHelp Pro membership</p>
+      <p class="sub">LeskoHelp Pro, <span id="headPlan">6 months</span></p>
     </div>
     <div class="steps" aria-label="Checkout steps">
-      <span class="on"><b>1</b> Plan and details</span><i class="sep" aria-hidden="true"></i>
-      <span><b>2</b> Payment</span><i class="sep" aria-hidden="true"></i>
-      <span><b>3</b> Confirmation</span>
+      <span class="on"><b>1</b> Details and payment</span><i class="sep" aria-hidden="true"></i>
+      <span><b>2</b> Confirmation</span>
     </div>
   </div>
 
-  <form id="payForm" class="co-grid" novalidate>
+  <form id="payForm" class="co-grid" novalidate autocomplete="on">
     <div class="co-main">
 
-      <section class="panel" aria-labelledby="planTitle">
-        <h2 id="planTitle">1. Choose your plan</h2>
-        <p class="sub">Every plan gives full access. Longer plans cost less per month.</p>
-        <div class="plans" role="radiogroup" aria-label="Plan">
-          <label class="plan" data-plan="monthly">
-            <input type="radio" name="plan" value="monthly">
-            <span class="radio" aria-hidden="true"></span>
-            <span><span class="name">1 month</span><span class="sub">Billed monthly. Cancel any time.</span></span>
-            <span class="price"><span class="big">$29.95</span><span class="small">per month</span></span>
-          </label>
-          <label class="plan" data-plan="half-year">
-            <input type="radio" name="plan" value="half-year">
-            <span class="radio" aria-hidden="true"></span>
-            <span><span class="name">6 months <span class="tag">Save 50%</span></span><span class="sub">$14.99 per month, billed every 6 months.</span></span>
-            <span class="price"><span class="big">$89.95</span><span class="small">every 6 months</span></span>
-          </label>
-          <label class="plan" data-plan="yearly">
-            <input type="radio" name="plan" value="yearly">
-            <span class="radio" aria-hidden="true"></span>
-            <span><span class="name">12 months <span class="tag tag--best">Best value · Save 58%</span></span><span class="sub">$12.49 per month, billed once a year.</span></span>
-            <span class="price"><span class="big">$149.95</span><span class="small">per year</span></span>
-          </label>
-        </div>
-      </section>
-
       <section class="panel" aria-labelledby="detailsTitle">
-        <h2 id="detailsTitle">2. Your details</h2>
+        <h2 id="detailsTitle">1. Your details</h2>
         <p class="sub">We use your email address to create your account in the community.</p>
+        <div class="field-row">
+          <div class="field">
+            <label for="first_name">First name</label>
+            <input id="first_name" name="first_name" type="text" autocomplete="given-name" data-recurly="first_name" required>
+            <p class="msg">Please enter your first name.</p>
+          </div>
+          <div class="field">
+            <label for="last_name">Last name</label>
+            <input id="last_name" name="last_name" type="text" autocomplete="family-name" data-recurly="last_name" required>
+            <p class="msg">Please enter your last name.</p>
+          </div>
+        </div>
         <div class="field" id="emailField">
           <label for="email">Email address</label>
           <input id="email" name="email" type="email" inputmode="email" autocomplete="email" placeholder="name@example.com" required>
           <p class="help">Use an email you check every day. This will be your login.</p>
-          <p class="msg" id="emailMsg" role="alert">Please enter a valid email address, for example name@example.com.</p>
+          <p class="msg">Please enter a valid email address, for example name@example.com.</p>
         </div>
         <div class="field">
           <label for="company">Business name <small>(optional)</small></label>
@@ -89,14 +79,85 @@
         </div>
       </section>
 
-      <section class="panel" aria-labelledby="incTitle">
-        <h2 id="incTitle">What is included</h2>
-        <ul class="included">
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Live classes every day with Matthew Lesko and the coaches</li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Grant reports made for your business by our AI</li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>The full Lesko database of grants and free money programs</li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Ask the coaches your questions, as often as you want</li>
-        </ul>
+      <section class="panel" aria-labelledby="payTitle">
+        <h2 id="payTitle">2. Payment</h2>
+        <p class="sub">Your card details go into Recurly's secure field and never touch this website.</p>
+        <div class="field" id="cardField">
+          <label for="recurly-card">Card details</label>
+          <div class="card-box" id="recurly-card" data-placeholder="Card number &nbsp; MM / YY &nbsp; CVV"></div>
+          <p class="help">Number, expiry date and the 3-digit code on the back.</p>
+          <p class="msg" id="cardMsg">Please check your card details.</p>
+        </div>
+        <div class="field">
+          <label for="address1">Street address</label>
+          <input id="address1" name="address1" type="text" autocomplete="address-line1" data-recurly="address1" required>
+          <p class="msg">Please enter your street address.</p>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="city">City</label>
+            <input id="city" name="city" type="text" autocomplete="address-level2" data-recurly="city" required>
+            <p class="msg">Please enter your city.</p>
+          </div>
+          <div class="field">
+            <label for="state">State</label>
+            <input id="state" name="state" type="text" autocomplete="address-level1" data-recurly="state" required>
+            <p class="msg">Please enter your state.</p>
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="postal_code">ZIP code</label>
+            <input id="postal_code" name="postal_code" type="text" inputmode="numeric" autocomplete="postal-code" data-recurly="postal_code" required>
+            <p class="msg">Please enter your ZIP code.</p>
+          </div>
+          <div class="field">
+            <label for="country">Country</label>
+            <select id="country" name="country" autocomplete="country" data-recurly="country">
+              <option value="US" selected>United States</option>
+              <option value="CA">Canada</option>
+              <option value="GB">United Kingdom</option>
+              <option value="AU">Australia</option>
+              <option value="NZ">New Zealand</option>
+              <option value="IE">Ireland</option>
+              <option value="MX">Mexico</option>
+              <option value="PR">Puerto Rico</option>
+              <option value="JM">Jamaica</option>
+              <option value="TT">Trinidad and Tobago</option>
+              <option value="BS">Bahamas</option>
+              <option value="DE">Germany</option>
+              <option value="FR">France</option>
+              <option value="NL">Netherlands</option>
+              <option value="BE">Belgium</option>
+              <option value="ES">Spain</option>
+              <option value="IT">Italy</option>
+              <option value="PT">Portugal</option>
+              <option value="CH">Switzerland</option>
+              <option value="AT">Austria</option>
+              <option value="SE">Sweden</option>
+              <option value="NO">Norway</option>
+              <option value="DK">Denmark</option>
+              <option value="FI">Finland</option>
+              <option value="PL">Poland</option>
+              <option value="BR">Brazil</option>
+              <option value="AR">Argentina</option>
+              <option value="CL">Chile</option>
+              <option value="CO">Colombia</option>
+              <option value="IN">India</option>
+              <option value="PH">Philippines</option>
+              <option value="SG">Singapore</option>
+              <option value="JP">Japan</option>
+              <option value="KR">South Korea</option>
+              <option value="AE">United Arab Emirates</option>
+              <option value="IL">Israel</option>
+              <option value="ZA">South Africa</option>
+              <option value="NG">Nigeria</option>
+              <option value="KE">Kenya</option>
+              <option value="GH">Ghana</option>
+            </select>
+          </div>
+        </div>
+        <div id="threeds" class="threeds" hidden></div>
       </section>
 
     </div>
@@ -108,12 +169,14 @@
         <div class="line"><span class="k">Billing</span><span class="v" id="sumBill">Every 6 months</span></div>
         <div class="line"><span class="k">Renews</span><span class="v">Automatically. Cancel any time.</span></div>
         <div class="line line--total"><span>Due today</span><span class="v" id="sumTotal">$89.95</span></div>
+        <a class="change-plan" href="/#pricing">Change plan</a>
 
+        <div class="pay-error" id="payMsg" role="alert"></div>
         <button class="btn-pay" id="payBtn" type="submit">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-          Continue to secure payment
+          <span id="payBtnText">Pay $89.95 now</span>
         </button>
-        <p class="pay-fine">You enter your card on the next page, run by Recurly. Your card details never touch this website.</p>
+        <p class="pay-fine">Payment is processed by Recurly. Your card is charged today and then on each renewal until you cancel.</p>
         <div class="cards" aria-label="Accepted cards"><span>Visa</span><span>Mastercard</span><span>American Express</span><span>Discover</span></div>
       </section>
 
@@ -127,10 +190,9 @@
 
   <section class="after" aria-labelledby="afterTitle">
     <h2 id="afterTitle">What happens after you pay</h2>
-    <div class="stepgrid">
-      <div class="step"><b>1</b><h3>Pay on the secure page</h3><p>Enter your name, email and card. You can add your business details there too.</p></div>
-      <div class="step"><b>2</b><h3>Check your email</h3><p>We send a welcome email with your link. <strong>Not there? Check Spam or Promotions.</strong></p></div>
-      <div class="step"><b>3</b><h3>Create your account</h3><p><strong>Use the same email you paid with.</strong> Then you are in the community.</p></div>
+    <div class="stepgrid stepgrid--2">
+      <div class="step"><b>1</b><h3>Check your email</h3><p>We send a welcome email with your link. <strong>Not there? Check Spam or Promotions.</strong></p></div>
+      <div class="step"><b>2</b><h3>Create your account</h3><p><strong>Use the same email you paid with.</strong> Then you are in the community.</p></div>
     </div>
   </section>
 
@@ -138,7 +200,7 @@
     <h2 id="faqTitle">Questions</h2>
     <details open><summary>Can I cancel?<span class="tg" aria-hidden="true">+</span></summary><p class="a">Yes, at any time. There is no contract. Send us one email and we stop the payments.</p></details>
     <details><summary>What if I don&#8217;t like it?<span class="tg" aria-hidden="true">+</span></summary><p class="a">You have 30 days to try it. If it is not for you, email us and we refund the full amount.</p></details>
-    <details><summary>Is the payment secure?<span class="tg" aria-hidden="true">+</span></summary><p class="a">Yes. You pay on a page run by Recurly, a payment company used by thousands of businesses. Your card details go to them, not to us.</p></details>
+    <details><summary>Is the payment secure?<span class="tg" aria-hidden="true">+</span></summary><p class="a">Yes. The card field on this page belongs to Recurly, a payment company used by thousands of businesses. Your card number goes to them, not to us.</p></details>
     <details><summary>Which email should I use?<span class="tg" aria-hidden="true">+</span></summary><p class="a">The one you read every day. We use it to create your community account and to send your welcome email.</p></details>
   </section>
 </main>
@@ -152,75 +214,159 @@
 
 <script>
 (function () {
-  var PAY_BASE = 'https://leskohelp.recurly.com/subscribe/';
   var PLANS = {
-    'monthly':   { code: 'business-monthly',   name: '1 month',   bill: 'Every month',    total: '$29.95'  },
-    'half-year': { code: 'business-half-year', name: '6 months',  bill: 'Every 6 months', total: '$89.95'  },
-    'yearly':    { code: 'business-yearly',    name: '12 months', bill: 'Once a year',    total: '$149.95' }
+    'monthly':   { name: '1 month',   bill: 'Every month',    total: '$29.95'  },
+    'half-year': { name: '6 months',  bill: 'Every 6 months', total: '$89.95'  },
+    'yearly':    { name: '12 months', bill: 'Once a year',    total: '$149.95' }
   };
   var STORE = 'leskoCheckout';
 
+  // ── The plan comes from the button they clicked on the website ───────
   var q = new URLSearchParams(location.search);
   var wanted = (q.get('plan') || '').toLowerCase().replace(/_/g, '-');
-  var current = PLANS[wanted] ? wanted : 'monthly';
+  var plan = PLANS[wanted] ? wanted : 'monthly';
+  var P = PLANS[plan];
+  document.getElementById('headPlan').textContent = P.name;
+  document.getElementById('sumName').textContent = P.name;
+  document.getElementById('sumPrice').textContent = P.total;
+  document.getElementById('sumBill').textContent = P.bill;
+  document.getElementById('sumTotal').textContent = P.total;
+  document.getElementById('payBtnText').textContent = 'Pay ' + P.total + ' now';
 
-  var rows = document.querySelectorAll('.plan');
-  var sumName = document.getElementById('sumName');
-  var sumPrice = document.getElementById('sumPrice');
-  var sumBill = document.getElementById('sumBill');
-  var sumTotal = document.getElementById('sumTotal');
-
-  function select(key, pushUrl) {
-    current = key;
-    rows.forEach(function (r) {
-      var on = r.getAttribute('data-plan') === key;
-      r.classList.toggle('on', on);
-      r.querySelector('input').checked = on;
-    });
-    var p = PLANS[key];
-    sumName.textContent = p.name;
-    sumPrice.textContent = p.total;
-    sumBill.textContent = p.bill;
-    sumTotal.textContent = p.total;
-    if (pushUrl && history.replaceState) history.replaceState(null, '', '?plan=' + key);
-  }
-  rows.forEach(function (r) {
-    r.querySelector('input').addEventListener('change', function () { select(r.getAttribute('data-plan'), true); });
-  });
-  select(current, false);
-
+  var form = document.getElementById('payForm');
+  var btn = document.getElementById('payBtn');
+  var payMsg = document.getElementById('payMsg');
   var email = document.getElementById('email');
   var company = document.getElementById('company');
   var echo = document.getElementById('emailEcho');
   var echoText = document.getElementById('emailEchoText');
-  var field = document.getElementById('emailField');
+  var cardField = document.getElementById('cardField');
+
   function valid(v) { return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v); }
   function refreshEcho() {
     var v = email.value.trim();
     if (valid(v)) { echoText.textContent = v; echo.hidden = false; } else { echo.hidden = true; }
   }
-  email.addEventListener('input', function () { field.classList.remove('err'); refreshEcho(); });
-
+  email.addEventListener('input', refreshEcho);
+  form.querySelectorAll('.field input, .field select').forEach(function (el) {
+    el.addEventListener('input', function () { el.closest('.field').classList.remove('err'); });
+  });
   try {
     var saved = JSON.parse(localStorage.getItem(STORE) || 'null');
     if (saved && saved.email) { email.value = saved.email; refreshEcho(); }
     if (saved && saved.company) { company.value = saved.company; }
   } catch (e) {}
 
-  document.getElementById('payForm').addEventListener('submit', function (e) {
+  function showError(text) {
+    payMsg.textContent = text;
+    payMsg.classList.add('show');
+    payMsg.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }
+  function busy(on, label) {
+    btn.disabled = on;
+    document.getElementById('payBtnText').textContent = on ? label : 'Pay ' + P.total + ' now';
+  }
+
+  // ── Recurly's secure card field. The public key comes from our Worker. ─
+  var elements = null;
+  function setupCard(publicKey) {
+    if (!window.recurly || !publicKey) return;
+    recurly.configure({
+      publicKey: publicKey,
+      required: ['first_name', 'last_name', 'address1', 'city', 'state', 'postal_code', 'country']
+    });
+    elements = recurly.Elements();
+    var card = elements.CardElement({
+      style: {
+        fontFamily: 'DM Sans, Helvetica, Arial, sans-serif',
+        fontSize: '16px',
+        fontColor: '#0e1a2b',
+        placeholder: { color: '#9aa1ad' }
+      }
+    });
+    card.attach('#recurly-card');
+    card.on('change', function (state) { if (state.valid) cardField.classList.remove('err'); });
+  }
+  fetch('/api/config', { headers: { 'Accept': 'application/json' } })
+    .then(function (r) { return r.json(); })
+    .then(function (c) { setupCard(c && c.recurly_public_key); })
+    .catch(function () {});
+
+  // ── Submit: Recurly turns the card into a token, our server creates the membership
+  function collect() {
+    var ok = true;
+    form.querySelectorAll('.field input[required]').forEach(function (el) {
+      var f = el.closest('.field');
+      var bad = el.id === 'email' ? !valid(el.value.trim()) : !el.value.trim();
+      f.classList.toggle('err', bad);
+      if (bad && ok) { ok = false; el.focus(); }
+    });
+    return ok;
+  }
+
+  function subscribe(tokenId, threeDSResultId) {
+    var body = {
+      plan: plan,
+      token: tokenId,
+      email: email.value.trim().toLowerCase(),
+      first_name: document.getElementById('first_name').value.trim(),
+      last_name: document.getElementById('last_name').value.trim(),
+      company: company.value.trim()
+    };
+    if (threeDSResultId) body.three_d_secure_action_result_token_id = threeDSResultId;
+    return fetch('/api/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify(body)
+    }).then(function (r) { return r.json(); });
+  }
+
+  function finish(result, tokenId) {
+    if (result.ok) {
+      var e = email.value.trim().toLowerCase();
+      try { localStorage.setItem(STORE, JSON.stringify({ email: e, company: company.value.trim(), plan: plan, t: Date.now() })); } catch (err) {}
+      busy(true, 'Payment received. One moment…');
+      location.href = '/welcome?email=' + encodeURIComponent(e) + '&plan=' + plan;
+      return;
+    }
+    if (result.three_d_secure_action_token_id && window.recurly) {
+      // The bank wants to check it is really the cardholder. Recurly shows the bank's window here.
+      busy(true, 'Your bank is checking the card…');
+      var box = document.getElementById('threeds');
+      box.hidden = false;
+      var tds = recurly.Risk().ThreeDSecure({ actionTokenId: result.three_d_secure_action_token_id });
+      tds.on('token', function (t) { box.hidden = true; subscribe(tokenId, t.id).then(function (r2) { finish(r2, tokenId); }).catch(netFail); });
+      tds.on('error', function () { box.hidden = true; busy(false); showError('The bank check did not go through. Please try again or use another card.'); });
+      tds.attach(box);
+      return;
+    }
+    busy(false);
+    showError(result.message || 'The payment did not go through. Please check your card details and try again.');
+  }
+  function netFail() {
+    busy(false);
+    showError('We could not reach the payment server. Please check your connection and try again.');
+  }
+
+  form.addEventListener('submit', function (e) {
     e.preventDefault();
-    var v = email.value.trim().toLowerCase();
-    if (!valid(v)) { field.classList.add('err'); email.focus(); return; }
-    var c = company.value.trim();
-    try { localStorage.setItem(STORE, JSON.stringify({ email: v, company: c, plan: current, t: Date.now() })); } catch (e2) {}
-
-    var btn = document.getElementById('payBtn');
-    btn.disabled = true;
-    btn.textContent = 'Opening the secure payment page…';
-
-    var url = PAY_BASE + PLANS[current].code + '?email=' + encodeURIComponent(v);
-    if (c) url += '&company_name=' + encodeURIComponent(c);
-    location.href = url;
+    payMsg.classList.remove('show');
+    if (!collect()) return;
+    if (!window.recurly || !elements) {
+      showError('The secure card field is not ready. Please refresh the page and try again, or email support@lesko.help.');
+      return;
+    }
+    busy(true, 'Checking your card…');
+    recurly.token(elements, form, function (err, token) {
+      if (err) {
+        busy(false);
+        cardField.classList.add('err');
+        showError(err.message ? err.message.replace(/\.$/, '') + '.' : 'Please check your card details.');
+        return;
+      }
+      busy(true, 'Setting up your membership…');
+      subscribe(token.id).then(function (r) { finish(r, token.id); }).catch(netFail);
+    });
   });
 })();
 </script>
