@@ -99,7 +99,7 @@ money is GA4, shared by all three pages since `ga4-all-pages` (landed
 
 *Errors:* none surfaced to the visitor; with a wrong id Google silently drops the hits — check Realtime in the GA4 property after filling in the id. `PLAN_PRICES_USD` is one more hand-typed copy of the prices (with `index.html`, `checkout.html` and Recurly).
 
-*Test:* `scripts/test-ga4-events.sh .` — jsdom runs each page's scripts in order, patches `G-TEST` in memory only, fires the clicks and submits and reads `dataLayer` back: 21 checks, R1–R7. Red first against `origin/main` (`begin_checkout` dead) and against round 1 (the 4 "file blocked" checks for R7).
+*Test:* `scripts/test-ga4-events.sh .` — jsdom runs each page's scripts in order, patches `G-TEST` in memory only, fires the clicks and submits and reads `dataLayer` back: 23 checks, R1–R7, plus two on the file as shipped (id exactly `G-6K847LXFE7`; no page loads gtag.js itself). R1 is tested with the id forced to `''`, so it holds whatever id ships. Red first against `origin/main` (`begin_checkout` dead) and against round 1 (the 4 "file blocked" checks for R7).
 
 ## Decisions
 
@@ -109,6 +109,7 @@ money is GA4, shared by all three pages since `ga4-all-pages` (landed
 - 2026-09-29: the YouTube section shows a fixed playlist of six business-grant videos instead of the channel's latest (Giulia). Why: the latest videos were not about business grants.
 - 2026-09-30 (`d3b2562`): buttons go to our own one-step `/checkout` (Martin: "step over to the branded pages as fast as possible, fix the issues one by one later"). Why: a branded page instead of Recurly's hosted one. The route is not yet proven by a real purchase.
 - 2026-09-30 (`815fbf2`): one shared GA4 file for all three pages, named `site-events.js` so ad blockers are less likely to drop it, with a no-op stand-in on each page. Why: one id and one consent rule for the whole funnel, and a blocked analytics file must never stop a buyer from paying.
+- 2026-09-30 (`682b52f`): GA4 switched on with `G-6K847LXFE7`, the leskobusiness.com web stream of Martin's new property, set only in `site-events.js`; no Google snippet, no GTM (Martin). Why: the funnel events need somewhere to go; one id in one file keeps the consent and email-stripping rules in force.
 - 2026-09-30: `checkout.html`, `welcome.html` and `assets/flow.css` are part of this module, not a module of their own. Why: they are static pages deployed and edited the same way; the Worker side is `worker`.
 
 <!-- spec:template -->
