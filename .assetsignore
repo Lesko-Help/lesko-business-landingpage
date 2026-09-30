@@ -6,6 +6,7 @@ worker.js
 # so anything that is not the page itself must be listed here or it appears on leskobusiness.com.
 CLAUDE.md
 docs/
+scripts/
 .werk.conf
 .gitignore
 .claude/
