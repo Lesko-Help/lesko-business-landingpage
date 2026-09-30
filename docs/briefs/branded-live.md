@@ -126,11 +126,13 @@ Replaced in full each time the context guard asks you to save — never append a
 About 60 lines max. Old traps stay (they are short and worth keeping); everything else gets
 overwritten with the current picture.
 
-Done: brief filled in and committed; done-when check proved red.
-In flight: none yet.
-Next: copy checkout.html, assets/flow.css, worker.js from
-  origin/checkout/branded-pages (f8a42b5); re-run the done-when check for
-  green; commit; wt-done.sh --check; report to overseer.
+Done: brief filled in and committed (62df30d); checkout.html, assets/flow.css,
+  worker.js copied byte-identical from origin/checkout/branded-pages
+  (f8a42b5) and committed (d3b2562); done-when check re-run green;
+  origin/main confirmed unmoved (still d8f37c7, already an ancestor of HEAD,
+  no merge needed).
+In flight: none.
+Next: wt-done.sh --check branded-live, then report to the overseer.
 Traps (with dates):
 - 2026-09-30: origin/main already carried this branch's starting point
   (d8f37c7) before this worktree existed — the earlier `branded-checkout`
