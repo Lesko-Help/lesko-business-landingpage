@@ -13,6 +13,9 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,600;1,9..144,700&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/assets/flow.css">
+<!-- Shared GA4 setup (measurement id, consent rule, plan prices) — same file as index.html and
+     checkout.html. Off until the id in that file is filled in. -->
+<script src="/assets/analytics.js"></script>
 </head>
 <body>
 
@@ -89,6 +92,28 @@
       if (!plan && saved.plan) plan = saved.plan;
     }
   } catch (e) {}
+
+  // GA4 must never see the buyer's email. Recurly's hosted-page return URL can put it in "email",
+  // "account_code" or "account" (the comment above says account_code IS the email by default), so
+  // all three are stripped from the address before it becomes page_location.
+  var cleanUrl = new URL(location.href);
+  ['email', 'account_code', 'account'].forEach(function (p) { cleanUrl.searchParams.delete(p); });
+  var gaConfig = { page_location: cleanUrl.toString() };
+  if (plan) gaConfig.plan = plan.replace(/^business-/, '');
+  window.LeskoAnalytics.init(gaConfig);
+
+  // One purchase per visit: sessionStorage survives a reload of this tab but starts empty on a new
+  // one, so refreshing /welcome (or opening the confirmation link twice) does not double-count it.
+  if (plan && !sessionStorage.getItem('leskoPurchaseSent')) {
+    sessionStorage.setItem('leskoPurchaseSent', '1');
+    var gaPlan = plan.replace(/^business-/, '');
+    var price = window.LeskoAnalytics.planPriceUSD(gaPlan);
+    window.LeskoAnalytics.track('purchase', {
+      currency: 'USD',
+      value: price,
+      items: [{ item_id: gaPlan, item_name: gaPlan, price: price, quantity: 1 }]
+    });
+  }
 
   var box = document.getElementById('emailBox');
   var note = document.getElementById('emailNote');

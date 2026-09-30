@@ -17,6 +17,9 @@
      Card numbers go straight to Recurly and never touch this website or our server.
      The site's Recurly public key is served by the Worker (/api/config), not stored here. -->
 <script src="https://js.recurly.com/v4/recurly.js"></script>
+<!-- Shared GA4 setup (measurement id, consent rule, plan prices) — same file as index.html and
+     welcome.html. Off until the id in that file is filled in. -->
+<script src="/assets/analytics.js"></script>
 </head>
 <body>
 
@@ -226,6 +229,11 @@
   var wanted = (q.get('plan') || '').toLowerCase().replace(/_/g, '-');
   var plan = PLANS[wanted] ? wanted : 'monthly';
   var P = PLANS[plan];
+
+  // Page view with the plan already known, so the checkout funnel can be read
+  // out per plan in GA4 (the automatic page_view fires as part of this call).
+  window.LeskoAnalytics.init({ plan: plan });
+
   document.getElementById('headPlan').textContent = P.name;
   document.getElementById('sumName').textContent = P.name;
   document.getElementById('sumPrice').textContent = P.total;
@@ -352,6 +360,17 @@
     e.preventDefault();
     payMsg.classList.remove('show');
     if (!collect()) return;
+
+    // The buyer pressed Pay with a valid form. Record it before Recurly is even
+    // asked for a card token, so a bank decline afterwards still shows how many
+    // people got this far. Card details themselves never touch this file.
+    var payPrice = window.LeskoAnalytics.planPriceUSD(plan);
+    window.LeskoAnalytics.track('add_payment_info', {
+      currency: 'USD',
+      value: payPrice,
+      items: [{ item_id: plan, item_name: plan, price: payPrice, quantity: 1 }]
+    });
+
     if (!window.recurly || !elements) {
       showError('The secure card field is not ready. Please refresh the page and try again, or email support@lesko.help.');
       return;
