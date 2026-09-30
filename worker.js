@@ -59,7 +59,23 @@ function clean(v, max) {
   return typeof v === 'string' ? v.trim().slice(0, max) : '';
 }
 
+// Card-testing guard: a script trying many stolen card numbers fast looks
+// like a burst of POSTs from one place, so we key on the caller's IP (not
+// email — an attacker picks a new email every request, so it gates nothing).
+// Checked before the method, the key or Recurly, so a blocked caller never
+// reaches any of those. Input: the request (for its IP header) and the
+// SUBSCRIBE_LIMIT binding from wrangler.jsonc. Output: true if this call is
+// allowed to continue.
+async function withinSubscribeLimit(request, env) {
+  const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+  const { success } = await env.SUBSCRIBE_LIMIT.limit({ key: ip });
+  return success;
+}
+
 async function subscribe(request, env) {
+  if (!(await withinSubscribeLimit(request, env))) {
+    return json({ ok: false, error: 'rate-limited', message: 'Too many attempts. Please wait a minute and try again, or email ' + SUPPORT + '.' }, 429);
+  }
   if (request.method !== 'POST') return json({ ok: false, message: 'Method not allowed' }, 405);
   if (!env.RECURLY_API_KEY) {
     return json({ ok: false, error: 'not-configured', message: 'Payments are not switched on yet. Please try again later or email ' + SUPPORT + '.' }, 503);
