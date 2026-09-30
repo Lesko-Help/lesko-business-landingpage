@@ -18,12 +18,14 @@ Copy checkout.html, welcome.html and assets/flow.css unchanged from origin/check
 
 Two checks, both from red to green:
 
-1. `grep -c 'leskohelp.recurly.com/subscribe' index.html` is `0` for the
-   three pricing-card buttons, the three JSON-LD offer URLs and the bottom
-   CTA (7 occurrences today) — they all read `/checkout?plan=<code>` instead
-   — and `grep -c 'leskohelp.recurly.com/subscribe' llms.txt` is `0` for its
-   3 plan lines. Red today (7 and 3); green once index.html and llms.txt are
-   edited.
+1. `grep -cE '(href="https://leskohelp\.recurly\.com/subscribe|"url": "https://leskohelp\.recurly\.com/subscribe)' index.html`
+   is `0` (7 today: the 3 JSON-LD offer URLs, the 3 pricing-card buttons, the
+   bottom CTA — all become `/checkout?plan=<code>`; the explanatory comment
+   above PRICING is free to keep mentioning the Recurly URL, since
+   checkout.html really does forward there, so it is excluded from the
+   count on purpose) and `grep -c 'leskohelp.recurly.com/subscribe' llms.txt`
+   is `0` for its 3 plan lines. Red today (7 and 3); green once index.html
+   and llms.txt are edited.
 2. `npx wrangler dev` serving this worktree's files, then
    `curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:PORT/checkout`
    and `.../welcome` both print `200` (checkout.html/welcome.html do not
