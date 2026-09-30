@@ -45,14 +45,15 @@ function extractScripts(html) {
 }
 
 // Input: a page's file name, the URL it should believe it was loaded at, an id to substitute into
-// assets/site-events.js's own empty default (or null to leave it shipped-empty), and whether to
-// simulate site-events.js failing to load (an ad blocker or a network error: the browser just never
-// runs that file, nothing throws). Output: the JSDOM `window` after every remaining script on that
-// page ran, in order, exactly as authored, plus window.__scriptErrors (any error thrown by a script
-// block, kept instead of raised — a real browser stops only the block that threw, not the whole
-// page, and this test needs to check what happened to the *other* blocks on that page). Why: every
-// check below needs a page's own click/submit handlers to have actually run, the same way a
-// visitor's browser would run them, but offline and without installing anything into the repo itself.
+// assets/site-events.js's own shipped default (use '' to force the off state; null to leave the
+// shipped id untouched, whatever it is), and whether to simulate site-events.js failing to load (an
+// ad blocker or a network error: the browser just never runs that file, nothing throws). Output: the
+// JSDOM `window` after every remaining script on that page ran, in order, exactly as authored, plus
+// window.__scriptErrors (any error thrown by a script block, kept instead of raised — a real browser
+// stops only the block that threw, not the whole page, and this test needs to check what happened to
+// the *other* blocks on that page). Why: every check below needs a page's own click/submit handlers
+// to have actually run, the same way a visitor's browser would run them, but offline and without
+// installing anything into the repo itself.
 function loadPage(file, url, forcedId, blockAnalytics) {
   const html = fs.readFileSync(path.join(dir, file), 'utf8');
   const { scripts, stripped } = extractScripts(html);
@@ -73,10 +74,10 @@ function loadPage(file, url, forcedId, blockAnalytics) {
       if (!s.src.startsWith('/')) continue; // external CDN scripts (Recurly, GA itself) — not local, not needed
       if (blockAnalytics && isSharedAnalyticsSrc(s.src)) continue; // blocked: this <script> tag never runs at all
       code = fs.readFileSync(path.join(dir, s.src.replace(/^\//, '')), 'utf8');
-      if (forcedId && isSharedAnalyticsSrc(s.src)) {
-        const before = code;
-        code = code.replace("GA4_MEASUREMENT_ID = ''", "GA4_MEASUREMENT_ID = '" + forcedId + "'");
-        if (code === before) throw new Error('could not patch GA4_MEASUREMENT_ID in ' + s.src);
+      if (forcedId !== null && forcedId !== undefined && isSharedAnalyticsSrc(s.src)) {
+        const idLine = /GA4_MEASUREMENT_ID = '[^']*'/;
+        if (!idLine.test(code)) throw new Error('could not find GA4_MEASUREMENT_ID in ' + s.src);
+        code = code.replace(idLine, "GA4_MEASUREMENT_ID = '" + forcedId + "'");
       }
     } else {
       code = s.code;
@@ -202,15 +203,15 @@ function isSharedAnalyticsSrc(src) {
   check('welcome.html: does not throw when site-events.js is blocked', w.__scriptErrors.length === 0);
 })();
 
-// ── off state: empty id sends nothing, on any page ──────────────────────────
+// ── off state: an empty id sends nothing, on any page, regardless of what actually ships ────
 ['index.html', 'checkout.html', 'welcome.html'].forEach(function (file) {
   const url = file === 'welcome.html'
     ? 'https://leskobusiness.com/welcome?email=buyer@example.com&plan=yearly'
     : file === 'checkout.html'
       ? 'https://leskobusiness.com/checkout?plan=yearly'
       : 'https://leskobusiness.com/';
-  const w = loadPage(file, url, null); // no forcedId: whatever GA4_MEASUREMENT_ID ships as
-  check(file + ': sends nothing while GA4_MEASUREMENT_ID is empty, as shipped', events(w).length === 0);
+  const w = loadPage(file, url, ''); // force the id to empty, on purpose, so this check does not
+  check(file + ': sends nothing when GA4_MEASUREMENT_ID is forced empty', events(w).length === 0); // depend on what the file ships today
 });
 
 console.log(failCount === 0 ? 'ALL PASS' : failCount + ' CHECK(S) FAILED');
