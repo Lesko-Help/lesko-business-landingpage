@@ -80,9 +80,25 @@ wrangler >= 4.36.0 (this repo has 4.144.0). `wrangler dev` simulates the
 binding locally, so the red/green proof needs no Cloudflare account access
 and no deploy.
 
-Test script output: (filled in after the script is written and run against
-both `origin/main` and this branch — see `## State` and the report to the
-overseer for the actual transcript).
+Test script output, `scripts/test-subscribe-rate-limit.sh`, both runs against
+a local `wrangler dev` (no Recurly keys, `CF-Connecting-IP` set by hand since
+localhost has none), 2026-09-30:
+
+- Red, against a `git archive origin/main` scratch copy (740c31f):
+  `Six POST /api/subscribe status codes: 503 503 503 503 503 503` /
+  `PASS: no 429 among six calls` — proves today's worker never rate-limits.
+- Green, on this branch after the binding and the check landed:
+  `Six POST /api/subscribe status codes: 503 503 503 503 503 429` /
+  `PASS: 6th call is 429, first five are not`.
+
+`checkout.html` needed no change: `git diff HEAD -- checkout.html` is empty.
+Read `finish()` (checkout.html:324-345) — it calls
+`showError(result.message || '<generic>')` off the JSON body for any
+non-`ok` result, never branching on the HTTP status code, so the 429's
+`message` already reaches the buyer through the same path a 400 or 402
+does. A live-browser check needs a real `RECURLY_API_KEY`/public key (this
+task must not touch secrets or Recurly), so this is a code-path proof, not
+a screenshot; flagged here rather than claimed as browser-verified.
 
 ## Spec proposals
 
@@ -136,7 +152,23 @@ Replaced in full each time the context guard asks you to save — never append a
 About 60 lines max. Old traps stay (they are short and worth keeping); everything else gets
 overwritten with the current picture.
 
-Done:
-In flight (file:line):
-Next:
+Done: brief filled in; `SUBSCRIBE_LIMIT` rate-limit binding added to
+`wrangler.jsonc` (5/60s); `worker.js`'s `subscribe()` checks it first, keyed
+on `CF-Connecting-IP`, 429 JSON on over-limit; `checkout.html` confirmed
+unchanged (0-line diff, already surfaces any JSON `message`);
+`scripts/test-subscribe-rate-limit.sh` written and proven red (against a
+`git archive origin/main` scratch copy) then green (this branch); `scripts/`
+added to `.assetsignore`; spec proposal for `/api/subscribe` written into
+this brief. Tree clean, `origin/main` merge check pending.
+In flight: none — about to merge `origin/main` and run `wt-done.sh --check`.
+Next: report to the overseer.
 Traps (with dates):
+- 2026-09-30: `npx wrangler dev` under this test script leaves a live
+  `workerd` process on the port if you kill only the `npx` launcher PID —
+  npx wraps it in child processes. Kill by `pkill -f "wrangler dev --port
+  <port>"` plus an `lsof -ti tcp:<port>` backstop, not by PID alone (macOS
+  has no `setsid`, so a process-group kill isn't an option either).
+- 2026-09-30: point the dev server's own log/pid files outside the served
+  directory (`mktemp -d`, not `$DIR`) — `wrangler.jsonc`'s
+  `assets.directory` is `.`, so anything written into the repo root during
+  a test run is briefly a publicly-servable file if left behind.
