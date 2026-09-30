@@ -126,8 +126,65 @@ Own findings from reading the repo before coding:
   empty" step to forget. Flagged to the overseer as a methodology choice, not
   a spec conflict.
 
-Test output: pasted here once both the red and the green run are done (in
-progress — see State).
+Test output:
+
+Red, against a scratch copy of `origin/main` (`git archive origin/main | tar
+-x -C <scratch dir>`, commit `2a1ae8a`) — 11 of 17 checks fail, exactly the
+ones the goal describes as missing or broken today:
+
+```
+PASS - index.html has a /checkout?plan= link to click
+PASS - index.html has the newsletter form
+FAIL - index.html: begin_checkout fires on the checkout link click
+FAIL - index.html: begin_checkout carries currency USD and a plan value
+FAIL - index.html: join_button_click fires on #pricing
+FAIL - index.html: generate_lead fires on the newsletter submit
+FAIL - checkout.html: config call carries the plan
+FAIL - checkout.html: add_payment_info fires when Pay is pressed with a valid form
+FAIL - checkout.html: add_payment_info carries currency USD and the yearly price
+FAIL - welcome.html: purchase fires once with plan, value and currency USD
+FAIL - welcome.html: page_location was overridden
+FAIL - welcome.html: page_location does not carry the email
+PASS - welcome.html: no dataLayer entry anywhere contains the email
+FAIL - welcome.html: purchase does not fire again on a simulated reload
+PASS - index.html: sends nothing while GA4_MEASUREMENT_ID is empty, as shipped
+PASS - checkout.html: sends nothing while GA4_MEASUREMENT_ID is empty, as shipped
+PASS - welcome.html: sends nothing while GA4_MEASUREMENT_ID is empty, as shipped
+11 CHECK(S) FAILED
+```
+
+(The three `index.html` failures include `begin_checkout`/`join_button_click`/
+`generate_lead`, confirming the dead click-pattern bug above: on `origin/main`
+none of the three existing events fire at all today, not just the two new
+pages' events.)
+
+Green, this branch (commit `8632eca`), same harness, same 17 checks:
+
+```
+PASS - index.html has a /checkout?plan= link to click
+PASS - index.html has the newsletter form
+PASS - index.html: begin_checkout fires on the checkout link click
+PASS - index.html: begin_checkout carries currency USD and a plan value
+PASS - index.html: join_button_click fires on #pricing
+PASS - index.html: generate_lead fires on the newsletter submit
+PASS - checkout.html: config call carries the plan
+PASS - checkout.html: add_payment_info fires when Pay is pressed with a valid form
+PASS - checkout.html: add_payment_info carries currency USD and the yearly price
+PASS - welcome.html: purchase fires once with plan, value and currency USD
+PASS - welcome.html: page_location was overridden
+PASS - welcome.html: page_location does not carry the email
+PASS - welcome.html: no dataLayer entry anywhere contains the email
+PASS - welcome.html: purchase does not fire again on a simulated reload
+PASS - index.html: sends nothing while GA4_MEASUREMENT_ID is empty, as shipped
+PASS - checkout.html: sends nothing while GA4_MEASUREMENT_ID is empty, as shipped
+PASS - welcome.html: sends nothing while GA4_MEASUREMENT_ID is empty, as shipped
+ALL PASS
+```
+
+Run with `./scripts/test-ga4-events.sh <dir>`; `GA4_MEASUREMENT_ID` in the
+shipped `assets/analytics.js` was never edited — the "on" run patches `G-TEST`
+into the file's content in the test process's own memory only (see Context
+above), so there was no "set it back to empty" step to do or forget.
 
 ## Spec proposals
 
@@ -164,37 +221,32 @@ Done:
 - Rewrote `index.html`'s GA4 block to use the shared file, and fixed
   `planCodeOf` to match `/checkout?plan=<plan>` instead of the dead Recurly
   pattern.
-- Added the shared `<script src="/assets/analytics.js">` to `checkout.html`
-  and the `LeskoAnalytics.init({ plan: plan })` call right after `plan` is
-  known (`checkout.html`, in the plan-setup block).
-
-In flight (file:line):
-- `checkout.html`: still need the `add_payment_info` call inside the
-  `form.addEventListener('submit', ...)` handler, right after
-  `if (!collect()) return;` (around what was line 354 before this edit).
+- Added the shared script tag, `LeskoAnalytics.init({ plan: plan })` and the
+  `add_payment_info` call (right after `if (!collect()) return;`, before the
+  card-token request) to `checkout.html`.
+- Added the shared script tag, email/account_code/account-stripped
+  `page_location`, and the once-per-visit `purchase` event (sessionStorage
+  guard) to `welcome.html`.
+- Wrote `scripts/test-ga4-events.mjs` (jsdom harness) and
+  `scripts/test-ga4-events.sh` (installs jsdom into a scratch npm prefix);
+  committed as `9aa0034`.
+- Ran red against a scratch copy of `origin/main` (`git archive`, commit
+  `2a1ae8a`): 11 of 17 checks failed. Ran green against this branch: all 17
+  pass. Both outputs pasted under Context above.
+- Committed the implementation (`assets/analytics.js` + all three HTML files)
+  as one commit, `8632eca`.
 
 Next:
-- Add the `add_payment_info` event to `checkout.html`.
-- Add the shared script tag + `LeskoAnalytics.init({plan, page_location})`
-  (email/account_code/account stripped from `page_location`) + the
-  once-per-visit `purchase` event (sessionStorage guard) to `welcome.html`.
-- Write `scripts/test-ga4-events.mjs` (jsdom, no server) and
-  `scripts/test-ga4-events.sh` (installs jsdom into a scratch npm prefix, runs
-  the `.mjs` against a given directory).
-- Run red (`git archive origin/main` into a scratch dir, run the script
-  there, expect the checkout/welcome checks to fail and `begin_checkout` to
-  never fire).
-- Run green (this branch); paste both outputs into Context above.
-- Commit in this order: (1) this brief alone — first commit on the branch —
-  (2) the two `scripts/test-ga4-events.*` files, (3) the `assets/analytics.js`
-  + `index.html` + `checkout.html` + `welcome.html` change as one commit (it
-  is one idea: GA4 on every page), (4) a final brief update with the red/green
-  output and closing State.
 - `git fetch && git merge origin/main` before reporting (Giulia may have
   pushed copy edits to `main` meanwhile) — no divergence expected since this
-  branch matches `origin/main` at `2a1ae8a` as of start.
+  branch matched `origin/main` at `2a1ae8a` as of start.
+- Commit this brief update (closing State + test output) as the final commit.
 - `git add -N .`, clean `git status`, then `wt-done.sh --check ga4-all-pages`
   before reporting to the overseer (`landing-opzichter`).
+- Report to the overseer: branch, commit range, HEAD sha, no uncommitted work,
+  five-line summary, how Done when was proven, deploy implications. Reply to
+  the overseer's earlier cross-session memory message as part of that report.
+- Wait for the overseer's review verdict.
 
 Traps (with dates):
 - 2026-09-30: the pricing-button click pattern in the shipped GA4 code never
