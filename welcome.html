@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Order confirmed — LeskoHelp Pro</title>
+<meta name="description" content="Your LeskoHelp Pro payment went through. Check your email for your welcome link and create your account with the same email address.">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#2c3fa0">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,600;1,9..144,700&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/flow.css">
+</head>
+<body>
+
+<header class="co-nav">
+  <div class="wrap">
+    <a href="/" class="logo" aria-label="LeskoHelp Pro home">
+      <span class="logo-mark" aria-hidden="true">?</span>
+      <span><span class="logo-text">Lesko</span>Help<span class="pro-tag">Pro</span></span>
+    </a>
+    <div class="nav-side">
+      <a href="https://lesko-help-2.mn.co/" class="nav-link" target="_blank" rel="noopener">Member sign in</a>
+    </div>
+  </div>
+</header>
+
+<main class="wrap-narrow confirm">
+  <div class="check" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div>
+  <h1>Thank you. Your payment went through.</h1>
+  <p class="lead">One more step: <strong>check your email</strong> to get into the community.</p>
+
+  <section class="panel key" aria-labelledby="keyTitle">
+    <h2 id="keyTitle">Important: your email address is your login</h2>
+    <p>We create your community account with <strong>the same email you just paid with</strong>. Use that email when you create your account and when you sign in.</p>
+    <span class="emailbox" id="emailBox">the email you entered on the payment page</span>
+    <p id="emailNote"><strong>Please write it down.</strong> If you use a different email, we cannot find your membership.</p>
+  </section>
+
+  <section class="panel" aria-labelledby="stepsTitle">
+    <h2 id="stepsTitle">Next steps</h2>
+    <ol class="steplist">
+      <li><b>1</b><div><h3>Open your email</h3><p>Look for an email from <strong>Lesko Help</strong>. It can take a few minutes. <strong>Not there? Check Spam or Promotions.</strong></p></div></li>
+      <li><b>2</b><div><h3>Click the link in that email</h3><p>It takes you to the community. The link only works for the email we sent it to.</p></div></li>
+      <li><b>3</b><div><h3>Create your account</h3><p>Use <strong>the same email you paid with</strong> and choose a password. Then you are in.</p></div></li>
+    </ol>
+    <div class="actions">
+      <a class="btn-go" href="https://lesko-help-2.mn.co/" target="_blank" rel="noopener">Go to the community</a>
+      <a class="btn-quiet" href="/">Back to the website</a>
+    </div>
+    <p class="helpline"><strong>No email after 15 minutes?</strong> Write to <a href="mailto:support@lesko.help?subject=I%20paid%20but%20did%20not%20get%20my%20welcome%20email">support@lesko.help</a> and tell us the email you paid with. We will sort it out.</p>
+  </section>
+
+  <section class="panel receipt" aria-labelledby="orderTitle">
+    <h2 id="orderTitle">Your order</h2>
+    <div class="line"><span class="k">Membership</span><span class="v" id="planLine">LeskoHelp Pro</span></div>
+    <div class="line"><span class="k">Email</span><span class="v" id="emailLine">as entered on the payment page</span></div>
+    <div class="line"><span class="k">Guarantee</span><span class="v">30-day money back. Cancel any time.</span></div>
+    <div class="line"><span class="k">Receipt</span><span class="v">Sent by email from Recurly</span></div>
+  </section>
+</main>
+
+<footer class="co-foot">
+  <div class="wrap">
+    <span>&copy; 2026 Matthew Lesko &middot; 1851 Columbia Rd NW #402, Washington, DC 20009</span>
+    <span><a href="/#faq">FAQ</a><a href="https://lesko-help-2.mn.co/" target="_blank" rel="noopener">Member sign in</a><a href="mailto:support@lesko.help">Contact</a><a href="https://www.free.lesko.com/privacy-policy" target="_blank" rel="noopener">Privacy</a></span>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var PLAN_NAMES = {
+    'monthly': '1 month', 'half-year': '6 months', 'yearly': '12 months',
+    'business-monthly': '1 month', 'business-half-year': '6 months', 'business-yearly': '12 months'
+  };
+  var q = new URLSearchParams(location.search);
+  // Recurly's return URL can carry {{account_code}}; by default that IS the buyer's email
+  var email = (q.get('email') || q.get('account_code') || q.get('account') || '').trim();
+  var plan = (q.get('plan') || q.get('plan_code') || '').trim().toLowerCase();
+
+  // Fall back to what they typed on our checkout page (same device, last 24h)
+  try {
+    var saved = JSON.parse(localStorage.getItem('leskoCheckout') || 'null');
+    if (saved && Date.now() - (saved.t || 0) < 24 * 60 * 60 * 1000) {
+      if (!email && saved.email) email = saved.email;
+      if (!plan && saved.plan) plan = saved.plan;
+    }
+  } catch (e) {}
+
+  var box = document.getElementById('emailBox');
+  var note = document.getElementById('emailNote');
+  var emailLine = document.getElementById('emailLine');
+  if (email && /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
+    box.textContent = email;
+    emailLine.textContent = email;
+    note.innerHTML = '<strong>Please write it down.</strong> Entered a different email on the payment page? Then use that one.';
+  } else {
+    box.classList.add('unknown');
+  }
+  if (PLAN_NAMES[plan]) document.getElementById('planLine').textContent = 'LeskoHelp Pro, ' + PLAN_NAMES[plan];
+})();
+</script>
+</body>
+</html>

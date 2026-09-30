@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Checkout — LeskoHelp Pro</title>
+<meta name="description" content="Choose your LeskoHelp Pro plan and continue to secure payment. Cancel any time. 30-day money-back guarantee.">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#2c3fa0">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,600;1,9..144,700&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/flow.css">
+</head>
+<body>
+
+<header class="co-nav">
+  <div class="wrap">
+    <a href="/" class="logo" aria-label="LeskoHelp Pro home">
+      <span class="logo-mark" aria-hidden="true">?</span>
+      <span><span class="logo-text">Lesko</span>Help<span class="pro-tag">Pro</span></span>
+    </a>
+    <div class="nav-side">
+      <span class="secure"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Secure checkout</span>
+      <a href="/#pricing" class="nav-link">Back to plans</a>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="co-head">
+    <div>
+      <h1>Checkout</h1>
+      <p class="sub">LeskoHelp Pro membership</p>
+    </div>
+    <div class="steps" aria-label="Checkout steps">
+      <span class="on"><b>1</b> Plan and details</span><i class="sep" aria-hidden="true"></i>
+      <span><b>2</b> Payment</span><i class="sep" aria-hidden="true"></i>
+      <span><b>3</b> Confirmation</span>
+    </div>
+  </div>
+
+  <form id="payForm" class="co-grid" novalidate>
+    <div class="co-main">
+
+      <section class="panel" aria-labelledby="planTitle">
+        <h2 id="planTitle">1. Choose your plan</h2>
+        <p class="sub">Every plan gives full access. Longer plans cost less per month.</p>
+        <div class="plans" role="radiogroup" aria-label="Plan">
+          <label class="plan" data-plan="monthly">
+            <input type="radio" name="plan" value="monthly">
+            <span class="radio" aria-hidden="true"></span>
+            <span><span class="name">1 month</span><span class="sub">Billed monthly. Cancel any time.</span></span>
+            <span class="price"><span class="big">$29.95</span><span class="small">per month</span></span>
+          </label>
+          <label class="plan" data-plan="half-year">
+            <input type="radio" name="plan" value="half-year">
+            <span class="radio" aria-hidden="true"></span>
+            <span><span class="name">6 months <span class="tag">Save 50%</span></span><span class="sub">$14.99 per month, billed every 6 months.</span></span>
+            <span class="price"><span class="big">$89.95</span><span class="small">every 6 months</span></span>
+          </label>
+          <label class="plan" data-plan="yearly">
+            <input type="radio" name="plan" value="yearly">
+            <span class="radio" aria-hidden="true"></span>
+            <span><span class="name">12 months <span class="tag tag--best">Best value · Save 58%</span></span><span class="sub">$12.49 per month, billed once a year.</span></span>
+            <span class="price"><span class="big">$149.95</span><span class="small">per year</span></span>
+          </label>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="detailsTitle">
+        <h2 id="detailsTitle">2. Your details</h2>
+        <p class="sub">We use your email address to create your account in the community.</p>
+        <div class="field" id="emailField">
+          <label for="email">Email address</label>
+          <input id="email" name="email" type="email" inputmode="email" autocomplete="email" placeholder="name@example.com" required>
+          <p class="help">Use an email you check every day. This will be your login.</p>
+          <p class="msg" id="emailMsg" role="alert">Please enter a valid email address, for example name@example.com.</p>
+        </div>
+        <div class="field">
+          <label for="company">Business name <small>(optional)</small></label>
+          <input id="company" name="company" type="text" autocomplete="organization" placeholder="Your business or organization">
+        </div>
+        <div class="notice" id="emailEcho" hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+          <span>Your community login will be <b class="email" id="emailEchoText"></b>. Please write it down.</span>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="incTitle">
+        <h2 id="incTitle">What is included</h2>
+        <ul class="included">
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Live classes every day with Matthew Lesko and the coaches</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Grant reports made for your business by our AI</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>The full Lesko database of grants and free money programs</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Ask the coaches your questions, as often as you want</li>
+        </ul>
+      </section>
+
+    </div>
+
+    <aside class="co-side">
+      <section class="panel summary" aria-labelledby="sumTitle" aria-live="polite">
+        <h2 id="sumTitle">Order summary</h2>
+        <div class="line line--item"><span class="k">LeskoHelp Pro, <span id="sumName">6 months</span></span><span class="v" id="sumPrice">$89.95</span></div>
+        <div class="line"><span class="k">Billing</span><span class="v" id="sumBill">Every 6 months</span></div>
+        <div class="line"><span class="k">Renews</span><span class="v">Automatically. Cancel any time.</span></div>
+        <div class="line line--total"><span>Due today</span><span class="v" id="sumTotal">$89.95</span></div>
+
+        <button class="btn-pay" id="payBtn" type="submit">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          Continue to secure payment
+        </button>
+        <p class="pay-fine">You enter your card on the next page, run by Recurly. Your card details never touch this website.</p>
+        <div class="cards" aria-label="Accepted cards"><span>Visa</span><span>Mastercard</span><span>American Express</span><span>Discover</span></div>
+      </section>
+
+      <div class="assure">
+        <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span><strong>30-day money-back guarantee.</strong> Not for you? Email us within 30 days and we refund everything.</span></div>
+        <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span><strong>Cancel any time.</strong> No contract.</span></div>
+        <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span><strong>Secure payment</strong> handled by Recurly.</span></div>
+      </div>
+    </aside>
+  </form>
+
+  <section class="after" aria-labelledby="afterTitle">
+    <h2 id="afterTitle">What happens after you pay</h2>
+    <div class="stepgrid">
+      <div class="step"><b>1</b><h3>Pay on the secure page</h3><p>Enter your name, email and card. You can add your business details there too.</p></div>
+      <div class="step"><b>2</b><h3>Check your email</h3><p>We send a welcome email with your link. <strong>Not there? Check Spam or Promotions.</strong></p></div>
+      <div class="step"><b>3</b><h3>Create your account</h3><p><strong>Use the same email you paid with.</strong> Then you are in the community.</p></div>
+    </div>
+  </section>
+
+  <section class="faq" aria-labelledby="faqTitle">
+    <h2 id="faqTitle">Questions</h2>
+    <details open><summary>Can I cancel?<span class="tg" aria-hidden="true">+</span></summary><p class="a">Yes, at any time. There is no contract. Send us one email and we stop the payments.</p></details>
+    <details><summary>What if I don&#8217;t like it?<span class="tg" aria-hidden="true">+</span></summary><p class="a">You have 30 days to try it. If it is not for you, email us and we refund the full amount.</p></details>
+    <details><summary>Is the payment secure?<span class="tg" aria-hidden="true">+</span></summary><p class="a">Yes. You pay on a page run by Recurly, a payment company used by thousands of businesses. Your card details go to them, not to us.</p></details>
+    <details><summary>Which email should I use?<span class="tg" aria-hidden="true">+</span></summary><p class="a">The one you read every day. We use it to create your community account and to send your welcome email.</p></details>
+  </section>
+</main>
+
+<footer class="co-foot">
+  <div class="wrap">
+    <span>&copy; 2026 Matthew Lesko &middot; 1851 Columbia Rd NW #402, Washington, DC 20009</span>
+    <span><a href="/#faq">FAQ</a><a href="https://lesko-help-2.mn.co/" target="_blank" rel="noopener">Member sign in</a><a href="mailto:support@lesko.help">Contact</a><a href="https://www.free.lesko.com/privacy-policy" target="_blank" rel="noopener">Privacy</a></span>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var PAY_BASE = 'https://leskohelp.recurly.com/subscribe/';
+  var PLANS = {
+    'monthly':   { code: 'business-monthly',   name: '1 month',   bill: 'Every month',    total: '$29.95'  },
+    'half-year': { code: 'business-half-year', name: '6 months',  bill: 'Every 6 months', total: '$89.95'  },
+    'yearly':    { code: 'business-yearly',    name: '12 months', bill: 'Once a year',    total: '$149.95' }
+  };
+  var STORE = 'leskoCheckout';
+
+  var q = new URLSearchParams(location.search);
+  var wanted = (q.get('plan') || '').toLowerCase().replace(/_/g, '-');
+  var current = PLANS[wanted] ? wanted : 'monthly';
+
+  var rows = document.querySelectorAll('.plan');
+  var sumName = document.getElementById('sumName');
+  var sumPrice = document.getElementById('sumPrice');
+  var sumBill = document.getElementById('sumBill');
+  var sumTotal = document.getElementById('sumTotal');
+
+  function select(key, pushUrl) {
+    current = key;
+    rows.forEach(function (r) {
+      var on = r.getAttribute('data-plan') === key;
+      r.classList.toggle('on', on);
+      r.querySelector('input').checked = on;
+    });
+    var p = PLANS[key];
+    sumName.textContent = p.name;
+    sumPrice.textContent = p.total;
+    sumBill.textContent = p.bill;
+    sumTotal.textContent = p.total;
+    if (pushUrl && history.replaceState) history.replaceState(null, '', '?plan=' + key);
+  }
+  rows.forEach(function (r) {
+    r.querySelector('input').addEventListener('change', function () { select(r.getAttribute('data-plan'), true); });
+  });
+  select(current, false);
+
+  var email = document.getElementById('email');
+  var company = document.getElementById('company');
+  var echo = document.getElementById('emailEcho');
+  var echoText = document.getElementById('emailEchoText');
+  var field = document.getElementById('emailField');
+  function valid(v) { return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v); }
+  function refreshEcho() {
+    var v = email.value.trim();
+    if (valid(v)) { echoText.textContent = v; echo.hidden = false; } else { echo.hidden = true; }
+  }
+  email.addEventListener('input', function () { field.classList.remove('err'); refreshEcho(); });
+
+  try {
+    var saved = JSON.parse(localStorage.getItem(STORE) || 'null');
+    if (saved && saved.email) { email.value = saved.email; refreshEcho(); }
+    if (saved && saved.company) { company.value = saved.company; }
+  } catch (e) {}
+
+  document.getElementById('payForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var v = email.value.trim().toLowerCase();
+    if (!valid(v)) { field.classList.add('err'); email.focus(); return; }
+    var c = company.value.trim();
+    try { localStorage.setItem(STORE, JSON.stringify({ email: v, company: c, plan: current, t: Date.now() })); } catch (e2) {}
+
+    var btn = document.getElementById('payBtn');
+    btn.disabled = true;
+    btn.textContent = 'Opening the secure payment page…';
+
+    var url = PAY_BASE + PLANS[current].code + '?email=' + encodeURIComponent(v);
+    if (c) url += '&company_name=' + encodeURIComponent(c);
+    location.href = url;
+  });
+})();
+</script>
+</body>
+</html>
