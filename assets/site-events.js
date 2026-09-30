@@ -1,11 +1,12 @@
 // ──────────── Shared GA4 analytics — used by index.html, checkout.html and welcome.html ────────────
 // One measurement id, one consent rule and one plan-price table for the whole site, so any of the
-// three only has to be changed here. Everything stays off until GA4_MEASUREMENT_ID is filled in
-// (DECISION BY MARTIN 2026-09-30: no GA4 property exists yet).
+// three only has to be changed here. Everything stays off until GA4_MEASUREMENT_ID is filled in.
 window.LeskoAnalytics = (function () {
   // The id of the GA4 data stream, like 'G-XXXXXXXXXX'. Empty = analytics off: no script is loaded,
-  // no cookie is set, nothing is queued or sent from any page.
-  var GA4_MEASUREMENT_ID = '';
+  // no cookie is set, nothing is queued or sent from any page. Filled in 2026-09-30 (DECISION BY
+  // MARTIN): 'G-6K847LXFE7' is the leskobusiness.com web stream on the GA4 property he created that
+  // day, enhanced measurement on except Form interactions.
+  var GA4_MEASUREMENT_ID = 'G-6K847LXFE7';
 
   // Plan code (the ?plan= value used everywhere on the site: the checkout links, checkout.html and
   // welcome.html) -> what that plan costs. Must match the pricing cards in index.html and
