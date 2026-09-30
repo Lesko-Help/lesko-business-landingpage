@@ -64,6 +64,17 @@ dead; removing that Vercel project is Martin's to do.
 `CLAUDE.md`, `docs/`, `.werk.conf` and the rest off leskobusiness.com. Add
 any new non-page file there, and check it 404s after landing.
 
+**A push can be missed.** On 2026-09-30 Workers Builds never started a build
+for `682b52f` (no check-run, no deployment after 12+ minutes; the previous
+push built fine). Check with `CLOUDFLARE_ACCOUNT_ID=c75d24d09764e8db455eaf601ba3b377
+npx wrangler deployments list --name lesko-business-landingpage` (read-only).
+The fix is a hand deploy from a clean main checkout equal to `origin/main`:
+Martin types `! cd ~/Lesko/lesko-business-landingpage &&
+CLOUDFLARE_ACCOUNT_ID=c75d24d09764e8db455eaf601ba3b377 npx wrangler deploy`
+(Claude's auto mode blocks a production deploy). A hand deploy uploads the
+folder as it is on disk, so anything untracked there goes public unless
+`.assetsignore` hides it — it once published `.wrangler/tmp/…/worker.js.map`.
+
 ## Where the buttons go, and why
 
 Since 2026-09-30 (~13:20 UTC, commit `d3b2562`, DECISION BY MARTIN "step over
