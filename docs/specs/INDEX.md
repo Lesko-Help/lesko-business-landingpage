@@ -1,0 +1,41 @@
+# lesko-business-landingpage
+Status: as-built 2026-09-30
+
+The business landing page at leskobusiness.com: one static `index.html` on a
+Cloudflare Worker, three buttons to Recurly's hosted checkout. It owns the
+page and nothing behind it; payment, provisioning and email live in
+lesko-provisioning, lesko-checkout and kit-pipeline.
+
+## Goal
+See `docs/specs/goal.md`.
+
+## Architecture
+See `docs/specs/architecture.md`.
+
+## Modules
+
+| Module | What it does | Deploy | Spec |
+|---|---|---|---|
+| page | `index.html` + `llms.txt` + `sitemap.xml`: the sales page and its checkout links | push to `main` (Cloudflare Workers Builds) | `docs/specs/modules/page.md` |
+| worker | `worker.js`: the `/api/videos` feed, unused by the page since 2026-09-29 | push to `main` | `docs/specs/modules/worker.md` |
+
+## Open questions
+
+- PR #2 (`fix/dead-footer-links`) and PR #4 (`analytics/ga4-tag`) are open,
+  mergeable, and wait on Martin; the overseer may land them with the same
+  review a worktree gets.
+- No GA4 property exists; the tag in PR #4 stays off until Martin creates
+  one (EU region) and its id goes into `GA4_MEASUREMENT_ID` and into
+  Recurly's Hosted Page Settings.
+- Recurly hosted pages collect no VAT or company number (DECISION BY MARTIN
+  2026-09-29: collect and print, do not charge); the switch is in Recurly
+  admin, not in this repo.
+- The ClickFunnels pages `www.leskohelp.com/business-*` still work and
+  `/business-monthly` charges `business-yearly` ($149.95); fix or unpublish
+  in the CF dashboard.
+- Is `worker.js` still needed at all, now that the playlist is hard-coded?
+- `worker.js` is the only reason this is a Worker rather than plain static
+  hosting; if it goes, `wrangler.jsonc` loses `main`.
+- The Vercel copy should be deleted (Martin).
+
+<!-- spec:template -->

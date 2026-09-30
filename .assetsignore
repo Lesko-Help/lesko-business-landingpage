@@ -2,3 +2,12 @@ leskohelp-onepager.zip
 wrangler.jsonc
 .assetsignore
 worker.js
+# Everything in the repo folder is served by Cloudflare (wrangler.jsonc assets.directory = "."),
+# so anything that is not the page itself must be listed here or it appears on leskobusiness.com.
+CLAUDE.md
+docs/
+.werk.conf
+.gitignore
+.claude/
+.git/
+README.md

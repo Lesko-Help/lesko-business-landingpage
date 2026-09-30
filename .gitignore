@@ -1,0 +1,3 @@
+# Worktrees are cut into this folder by ~/.werk/wt-new.sh; never commit them.
+.claude/worktrees/
+.DS_Store
