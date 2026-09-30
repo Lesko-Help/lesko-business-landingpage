@@ -214,5 +214,22 @@ function isSharedAnalyticsSrc(src) {
   check(file + ': sends nothing when GA4_MEASUREMENT_ID is forced empty', events(w).length === 0); // depend on what the file ships today
 });
 
+// ── shipped id: assets/site-events.js is the only place the real GA4 id goes ────────────────
+// Input: the directory under test, unpatched. Output: two checks, both on the file as it actually
+// ships (not the in-memory patch above) — that the production id is exactly what Martin's GA4
+// property uses, and that no page pastes Google's own snippet or calls gtag.js directly, since that
+// would send a second, unconsented copy of every hit outside this file's consent and stripping rules.
+(function () {
+  const shipped = fs.readFileSync(path.join(dir, 'assets/site-events.js'), 'utf8');
+  check("assets/site-events.js ships GA4_MEASUREMENT_ID = 'G-6K847LXFE7'",
+    /GA4_MEASUREMENT_ID = 'G-6K847LXFE7'/.test(shipped));
+
+  const directGtag = ['index.html', 'checkout.html', 'welcome.html'].some(function (file) {
+    const html = fs.readFileSync(path.join(dir, file), 'utf8');
+    return html.indexOf('googletagmanager.com') !== -1 || html.indexOf('gtag.js') !== -1 || /\bgtag\(/.test(html);
+  });
+  check('no page loads gtag.js or googletagmanager.com directly outside site-events.js', !directGtag);
+})();
+
 console.log(failCount === 0 ? 'ALL PASS' : failCount + ' CHECK(S) FAILED');
 process.exit(failCount === 0 ? 0 : 1);
