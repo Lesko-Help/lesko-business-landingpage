@@ -44,16 +44,21 @@ function extractScripts(html) {
   return { scripts, stripped };
 }
 
-// Input: a page's file name, the URL it should believe it was loaded at, and (for the shipped-empty
-// vs. forced-G-TEST runs) an id to substitute into assets/analytics.js's own empty default. Output:
-// the JSDOM `window` after every script on that page ran once, in order, exactly as authored. Why:
-// every check below needs a page's own click/submit handlers to have actually run, the same way a
+// Input: a page's file name, the URL it should believe it was loaded at, an id to substitute into
+// assets/site-events.js's own empty default (or null to leave it shipped-empty), and whether to
+// simulate site-events.js failing to load (an ad blocker or a network error: the browser just never
+// runs that file, nothing throws). Output: the JSDOM `window` after every remaining script on that
+// page ran, in order, exactly as authored, plus window.__scriptErrors (any error thrown by a script
+// block, kept instead of raised — a real browser stops only the block that threw, not the whole
+// page, and this test needs to check what happened to the *other* blocks on that page). Why: every
+// check below needs a page's own click/submit handlers to have actually run, the same way a
 // visitor's browser would run them, but offline and without installing anything into the repo itself.
-function loadPage(file, url, forcedId) {
+function loadPage(file, url, forcedId, blockAnalytics) {
   const html = fs.readFileSync(path.join(dir, file), 'utf8');
   const { scripts, stripped } = extractScripts(html);
   const dom = new JSDOM(stripped, { url, runScripts: 'dangerously', pretendToBeVisual: true });
   const { window } = dom;
+  window.__scriptErrors = [];
   window.fetch = function () { return Promise.reject(new Error('no network in this test')); };
   // jsdom has no IntersectionObserver; index.html uses one for an unrelated scroll effect that
   // this test does not check, so a harmless stub lets that code run without touching analytics.
@@ -63,17 +68,23 @@ function loadPage(file, url, forcedId) {
   // jsdom has no layout, so scrollIntoView (used by checkout.html's error banner) is a no-op here.
   window.Element.prototype.scrollIntoView = function () {};
   for (const s of scripts) {
+    let code;
     if (s.src) {
       if (!s.src.startsWith('/')) continue; // external CDN scripts (Recurly, GA itself) — not local, not needed
-      let code = fs.readFileSync(path.join(dir, s.src.replace(/^\//, '')), 'utf8');
-      if (forcedId && s.src === '/assets/analytics.js') {
+      if (blockAnalytics && isSharedAnalyticsSrc(s.src)) continue; // blocked: this <script> tag never runs at all
+      code = fs.readFileSync(path.join(dir, s.src.replace(/^\//, '')), 'utf8');
+      if (forcedId && isSharedAnalyticsSrc(s.src)) {
         const before = code;
         code = code.replace("GA4_MEASUREMENT_ID = ''", "GA4_MEASUREMENT_ID = '" + forcedId + "'");
         if (code === before) throw new Error('could not patch GA4_MEASUREMENT_ID in ' + s.src);
       }
-      window.eval(code);
     } else {
-      window.eval(s.code);
+      code = s.code;
+    }
+    try {
+      window.eval(code);
+    } catch (e) {
+      window.__scriptErrors.push(e); // one block's error must not stop the next <script> tag, same as a real browser
     }
   }
   return window;
@@ -92,6 +103,13 @@ function findEvent(window, name) {
 }
 
 const FORCED_ID = 'G-TEST';
+
+// Input: a script's src attribute. Output: whether it is the one shared GA4 file, under either its
+// current name (site-events.js) or its old one (analytics.js) — so this same harness can also be
+// pointed at a scratch copy of an older commit and still recognise which file to patch or block.
+function isSharedAnalyticsSrc(src) {
+  return src === '/assets/site-events.js' || src === '/assets/analytics.js';
+}
 
 // ── index.html ──────────────────────────────────────────────────────────────
 (function () {
@@ -159,6 +177,29 @@ const FORCED_ID = 'G-TEST';
   w.eval(inline.code);
   const purchaseCount = events(w).filter(function (e) { return e[0] === 'event' && e[1] === 'purchase'; }).length;
   check('welcome.html: purchase does not fire again on a simulated reload', purchaseCount === 1);
+})();
+
+// ── site-events.js blocked (ad blocker / network error): checkout and welcome must still work ──
+(function () {
+  const w = loadPage('checkout.html', 'https://leskobusiness.com/checkout?plan=yearly', null, true);
+  check('checkout.html: still shows the plan summary when site-events.js is blocked',
+    w.document.getElementById('headPlan').textContent === '12 months' &&
+    w.document.getElementById('sumPrice').textContent === '$149.95');
+
+  ['first_name', 'last_name', 'address1', 'city', 'state', 'postal_code'].forEach(function (id) {
+    w.document.getElementById(id).value = 'x';
+  });
+  w.document.getElementById('email').value = 'buyer@example.com';
+  w.document.getElementById('payForm').dispatchEvent(new w.Event('submit', { bubbles: true, cancelable: true }));
+  check('checkout.html: pressing Pay does not throw when site-events.js is blocked', w.__scriptErrors.length === 0);
+})();
+
+(function () {
+  const url = 'https://leskobusiness.com/welcome?email=' + encodeURIComponent('buyer@example.com') + '&plan=yearly';
+  const w = loadPage('welcome.html', url, null, true);
+  check('welcome.html: still shows the buyer\'s email when site-events.js is blocked',
+    w.document.getElementById('emailBox').textContent === 'buyer@example.com');
+  check('welcome.html: does not throw when site-events.js is blocked', w.__scriptErrors.length === 0);
 })();
 
 // ── off state: empty id sends nothing, on any page ──────────────────────────
