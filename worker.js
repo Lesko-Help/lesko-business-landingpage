@@ -72,6 +72,81 @@ async function withinSubscribeLimit(request, env) {
   return success;
 }
 
+// Buyer-facing text for the Recurly `transaction_error.code` values worth
+// naming individually, grouped by what the shopper actually did (and can
+// fix). A code not listed here falls through to Recurly's own `message`,
+// then to a generic line — see declineMessage() below. Source: Recurly's
+// transaction-error table, API v2021-02-25 (docs.recurly.com/recurly-
+// subscriptions/docs/api-transaction-errors, checked 2026-09-30).
+const DECLINE_MESSAGES = {
+  // Not enough money in the account right now.
+  insufficient_funds: 'Your card was declined for insufficient funds. Please try a different card or contact your bank.',
+  partial_approval: 'Your card was declined for insufficient funds. Please try a different card or contact your bank.',
+
+  // The card itself has expired, or the expiration date typed does not match it.
+  expired_card: 'Your card has expired. Please use a different card.',
+  declined_expiration_date: 'The expiration date does not match your card. Please check it and try again.',
+
+  // The CVV security code did not match.
+  declined_security_code: 'The security code (CVV) does not match your card. Please check it and try again.',
+  fraud_security_code: 'The security code (CVV) does not match your card. Please check it and try again.',
+
+  // The billing address or ZIP does not match what the bank has on file (AVS).
+  fraud_address: 'The billing address or ZIP code does not match your card. Please check it and try again.',
+  fraud_address_recurly: 'The billing address or ZIP code does not match your card. Please check it and try again.',
+  roku_zip_code_mismatch: 'The billing address or ZIP code does not match your card. Please check it and try again.',
+
+  // The card number itself is not valid.
+  declined_card_number: 'That card number is not valid. Please check it and try again.',
+  invalid_card_number: 'That card number is not valid. Please check it and try again.',
+  invalid_account_number: 'That card number is not valid. Please check it and try again.',
+  roku_invalid_card_number: 'That card number is not valid. Please check it and try again.',
+
+  // The card's network or type is not one we can accept.
+  card_type_not_accepted: 'That card type is not accepted here. Please try a different card.',
+  payment_not_accepted: 'That card type is not accepted here. Please try a different card.',
+  invalid_issuer: 'That card is not accepted here. Please try a different card.',
+
+  // The bank itself is asking for a phone call before it allows the charge.
+  call_issuer: 'Your bank wants you to call them before this card can be used here. Please contact your bank, or try a different card.',
+  call_issuer_update_cardholder_data: 'Your bank wants you to call them before this card can be used here. Please contact your bank, or try a different card.',
+  restricted_card: 'Your bank has restricted this card. Please contact your bank, or try a different card.',
+  restricted_card_chargeback: 'Your bank has restricted this card. Please contact your bank, or try a different card.',
+  card_not_activated: 'This card has not been activated yet. Please contact your bank, or try a different card.',
+
+  // The payment system itself is briefly down — nothing the buyer did wrong.
+  gateway_unavailable: 'The payment system is temporarily unavailable. Please try again in a minute.',
+  processor_unavailable: 'The payment system is temporarily unavailable. Please try again in a minute.',
+  processor_not_available: 'The payment system is temporarily unavailable. Please try again in a minute.',
+  gateway_timeout: 'The payment system is temporarily unavailable. Please try again in a minute.',
+  gateway_error: 'The payment system is temporarily unavailable. Please try again in a minute.',
+  too_busy: 'The payment system is temporarily unavailable. Please try again in a minute.',
+
+  // The exact same charge was already submitted moments ago.
+  duplicate_transaction: 'This looks like the same charge was just submitted. Please wait a few minutes and try again.'
+};
+
+// Any fraud_* code not named above: never say WHY the fraud check fired —
+// that would help a card-testing script tune around it — only ever one of
+// these two buyer-actionable hints (DECISION IN BRIEF 2026-09-30).
+const FRAUD_FALLBACK = 'Your card was declined. Please check your billing address and ZIP code, or try a different card.';
+
+// Turns Recurly's `transaction_error` for a declined card into a message
+// the buyer can act on, without leaking gateway or fraud-rule jargon.
+// Input: the `transaction_error` object from Recurly's purchase response
+// (fields `code`, `category`, `message`, `merchant_advice`,
+// `gateway_error_code` — any may be missing). Output: a plain-language
+// string safe to show the buyer. Why: Recurly's own `message` is written
+// for a merchant's general UI, and an unlisted fraud code must never say
+// more than "check your billing address/ZIP" or "try another card".
+function declineMessage(te) {
+  te = te || {};
+  if (te.code && DECLINE_MESSAGES[te.code]) return DECLINE_MESSAGES[te.code];
+  if (te.code && /^fraud_/.test(te.code)) return FRAUD_FALLBACK;
+  if (te.message) return te.message;
+  return 'Your card was declined. Please try another card or contact your bank.';
+}
+
 async function subscribe(request, env) {
   if (!(await withinSubscribeLimit(request, env))) {
     return json({ ok: false, error: 'rate-limited', message: 'Too many attempts. Please wait a minute and try again, or email ' + SUPPORT + '.' }, 429);
@@ -128,8 +203,10 @@ async function subscribe(request, env) {
   }
   if (err.type === 'transaction' || err.transaction_error) {
     const te = err.transaction_error || {};
-    console.log('subscribe declined', plan, te.code || '', te.message || err.message || '');
-    return json({ ok: false, error: 'declined', message: te.message || 'Your card was declined. Please try another card or contact your bank.' }, 402);
+    // Log only the two ids, for support/debugging — never the buyer-facing
+    // message text, and never any card or email data.
+    console.log('subscribe declined', plan, te.code || '', te.gateway_error_code || '');
+    return json({ ok: false, error: 'declined', message: declineMessage(te) }, 402);
   }
   if (err.type === 'validation' || err.type === 'invalid_api_version' || res.status === 422) {
     const detail = Array.isArray(err.params) && err.params.length ? err.params.map(p => (p.param ? p.param + ' ' : '') + p.message).join('; ') : (err.message || '');
