@@ -20,7 +20,7 @@ See `docs/specs/architecture.md`.
 
 | Module | What it does | Deploy | Spec |
 |---|---|---|---|
-| `page` | `index.html` + `llms.txt` + `sitemap.xml`: the sales page and its checkout links | push to `main` (Cloudflare Workers Builds) | `docs/specs/modules/page.md` |
+| `page` | `index.html` + `checkout.html` + `welcome.html` (+ `llms.txt`, `sitemap.xml`): the sales page, our one-step checkout and the thank-you page | push to `main` (Cloudflare Workers Builds) | `docs/specs/modules/page.md` |
 
 ### Helpers
 
