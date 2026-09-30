@@ -31,7 +31,7 @@ None of this repo's own. It writes no table. What a visitor does is
 recorded elsewhere: a purchase lands in Recurly and, through
 lesko-provisioning's webhook rail, in `provisioning.wh_recurly` and
 `provisioning_models.stg_recurly_transactions` (origin `hpp`); a newsletter
-signup lands in Kit. With the GA4 tag on (PR #4, off until a measurement id
+signup lands in Kit. With the GA4 tag on (landed 2026-09-30, off until a measurement id
 exists) page views and button clicks would land in a GA4 property Martin
 still has to create.
 

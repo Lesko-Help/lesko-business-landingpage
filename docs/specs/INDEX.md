@@ -21,10 +21,7 @@ See `docs/specs/architecture.md`.
 
 ## Open questions
 
-- PR #2 (`fix/dead-footer-links`) and PR #4 (`analytics/ga4-tag`) are open,
-  mergeable, and wait on Martin; the overseer may land them with the same
-  review a worktree gets.
-- No GA4 property exists; the tag in PR #4 stays off until Martin creates
+- No GA4 property exists; the tag (PR #4, merged 2026-09-30) stays off until Martin creates
   one (EU region) and its id goes into `GA4_MEASUREMENT_ID` and into
   Recurly's Hosted Page Settings.
 - Recurly hosted pages collect no VAT or company number (DECISION BY MARTIN

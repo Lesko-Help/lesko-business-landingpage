@@ -37,9 +37,9 @@ Who: a business owner Matthew sent here · Where: web, one static HTML file
 
 The page has no functions of its own beyond the inline scripts (reveal on
 scroll, FAQ toggles, the sticky bar, the YouTube carousel). The one that
-matters for money is the GA4 block in PR #4, not yet landed:
+matters for money is the GA4 block from PR #4 (merged 2026-09-30):
 
-### GA4 tag (inline `<script>` at the end of `<body>`, PR #4)
+### GA4 tag (inline `<script>` at the end of `<body>`)
 
 *Signature:* `var GA4_MEASUREMENT_ID = ''` — empty means off.
 

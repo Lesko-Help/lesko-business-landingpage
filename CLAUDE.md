@@ -99,9 +99,9 @@ is empty, so after paying the buyer sees Recurly's default page.
 
 ## Analytics
 
-The page had none. PR #4 (`analytics/ga4-tag`, `cdaf3cc`) adds a GA4 block at
-the end of `index.html` that stays off until `GA4_MEASUREMENT_ID` is filled
-in; events `begin_checkout` (plan + price), `join_button_click`,
+The page had none until PR #4 (`analytics/ga4-tag`, merged by Martin
+2026-09-30 13:07 CEST): a GA4 block at the end of `index.html` that stays
+off until `GA4_MEASUREMENT_ID` is filled in; events `begin_checkout` (plan + price), `join_button_click`,
 `generate_lead`; EU/EEA/UK/CH visitors get no analytics cookies (no consent
 banner). Martin owns no GA4 property yet (see memory
 `project_lesko_ga4_analytics`); until he creates one the tag has nothing to
@@ -144,9 +144,9 @@ whether that field accepts a `G-` id is unverified.
   leskohelp.com.
 - **The old footer links** to `free.lesko.com/...` all redirect to the sales
   VSL; most of the ClickFunnels funnel is dead (memory
-  `reference_lesko_clickfunnels_link_traps`). PR #2 (`fix/dead-footer-links`)
-  points them at the MN sign-in, the privacy policy and the in-page guarantee
-  band; there is no standalone guarantee page on any domain.
+  `reference_lesko_clickfunnels_link_traps`). PR #2 (`fix/dead-footer-links`,
+  merged 2026-09-30) points them at the MN sign-in, the privacy policy and the
+  in-page guarantee band; there is no standalone guarantee page on any domain.
 - **`llms.txt` and `sitemap.xml` repeat the checkout links** — update them
   with `index.html`.
 
