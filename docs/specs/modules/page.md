@@ -75,27 +75,31 @@ Who: a business owner Matthew sent here · Where: web, three static HTML files
 The pages have no functions of their own beyond the inline scripts (reveal
 on scroll, FAQ toggles, the sticky bar, the YouTube carousel, the checkout
 and welcome scripts described under Screens). The one that matters for
-money is the GA4 block from PR #4 (merged 2026-09-30):
+money is GA4, shared by all three pages since `ga4-all-pages` (landed
+2026-09-30, `815fbf2`):
 
-### GA4 tag (inline `<script>` at the end of `index.html`'s `<body>`)
+### GA4 (`assets/site-events.js`, used by `index.html`, `checkout.html`, `welcome.html`)
 
-*Signature:* `var GA4_MEASUREMENT_ID = ''` — empty means off.
+*Signature:* `window.LeskoAnalytics = { init(extraConfig), track(name, params), isOn(), planPriceUSD(plan) }`; `var GA4_MEASUREMENT_ID = ''` at the top of the file — empty means off. Each page loads the file, then a no-op stand-in `window.LeskoAnalytics = window.LeskoAnalytics || {…}`; the page's own click and submit handlers call `track()`, never `gtag` directly.
 
 *What it does:*
-- R1: when `GA4_MEASUREMENT_ID` is empty, it returns before loading anything — no request to Google, no cookie.
-- R2: when set, it loads gtag.js and sends `page_view`; visitors whose region is in `CONSENT_REQUIRED_REGIONS` (EU/EEA/UK/CH) get consent `denied` and therefore no analytics cookie.
-- R3: a click on a link whose href matches `leskohelp.recurly.com/subscribe/<plan>` sends `begin_checkout` with `currency: USD`, `value` from `PLAN_PRICES_USD[plan]`, `items[0].item_id = plan`, plus `button_text` and `button_section`. *(as-built, broken: since the buttons moved to `/checkout` on 2026-09-30 no link matches, so `begin_checkout` never fires. Worktree `ga4-all-pages` fixes this and moves the tag to a shared `assets/analytics.js` on all three pages; this section is rewritten when it lands.)*
-- R4: a click on `href="#pricing"` sends `join_button_click`; a submit of a form whose action contains `app.kit.com/forms/` sends `generate_lead` with `form_name: newsletter`.
+- R1: while `GA4_MEASUREMENT_ID` is empty, `init()` returns `false` and `track()` does nothing — no request to Google, no cookie, nothing in `dataLayer`, on any page.
+- R2: when set, `init()` loads gtag.js and sends `page_view`; visitors whose region is in `CONSENT_REQUIRED_REGIONS` (EU/EEA/UK/CH) get consent `denied` and therefore no analytics cookie. No linker to `leskohelp.recurly.com` (removed: nothing links there any more).
+- R3: `/`: a click on a link whose href has `/checkout…?plan=<plan>` sends `begin_checkout` with `currency: USD`, `value` from `planPriceUSD(plan)`, `items[0].item_id = plan`, plus `button_text` and `button_section`.
+- R4: `/`: a click on `href="#pricing"` sends `join_button_click`; a submit of a form whose action contains `app.kit.com/forms/` sends `generate_lead` with `form_name: newsletter`.
+- R5: `/checkout`: `page_view` carries `plan`; pressing Pay with a valid form sends `add_payment_info` (plan, price, USD) before Recurly is asked for a card token, so declines still count.
+- R6: `/welcome`: `page_location` has `email`, `account_code` and `account` stripped, so the buyer's email never reaches Google; `purchase` (plan, price, USD; a `business-` prefix is stripped) fires once per tab (`sessionStorage` key `leskoPurchaseSent`).
+- R7: if `site-events.js` is blocked or fails to load, the stand-in makes every call harmless: the checkout still shows the plan and can pay, the welcome page still shows the email.
 
-*Examples:* (before 2026-09-30) click the yearly card's button -> `begin_checkout {value: 149.95, items: [{item_id: 'business-yearly'}], button_section: 'pricing'}`; click "Let's find my money →" in the hero -> `join_button_click`.
+*Examples:* click the yearly card's button -> `begin_checkout {value: 149.95, items: [{item_id: 'yearly'}], button_section: 'pricing'}`; open `/welcome?email=a@b.co&plan=business-monthly` -> `purchase {value: 29.95, items: [{item_id: 'monthly'}]}`, `page_location` without `email`.
 
-*Inputs:* the three constants at the top of the block; the DOM.
+*Inputs:* the constants at the top of `site-events.js` (id, `PLAN_PRICES_USD`, `CONSENT_REQUIRED_REGIONS`); the DOM; the page URL.
 
-*Outputs:* gtag events; nothing stored on the page.
+*Outputs:* gtag events; `leskoPurchaseSent` in `sessionStorage` on `/welcome`.
 
-*Errors:* none surfaced to the visitor; with a wrong id Google silently drops the hits — check Realtime in the GA4 property after landing.
+*Errors:* none surfaced to the visitor; with a wrong id Google silently drops the hits — check Realtime in the GA4 property after filling in the id. `PLAN_PRICES_USD` is one more hand-typed copy of the prices (with `index.html`, `checkout.html` and Recurly).
 
-*Test:* tested by hand in real Chrome on 2026-09-29 with the id empty (no request to googletagmanager.com) and with a fake id (requests fire, `begin_checkout` carries the right plan) — no automated test on `main` yet; `ga4-all-pages` brings `scripts/test-ga4-events.sh` (jsdom), red against `origin/main`.
+*Test:* `scripts/test-ga4-events.sh .` — jsdom runs each page's scripts in order, patches `G-TEST` in memory only, fires the clicks and submits and reads `dataLayer` back: 21 checks, R1–R7. Red first against `origin/main` (`begin_checkout` dead) and against round 1 (the 4 "file blocked" checks for R7).
 
 ## Decisions
 
@@ -104,6 +108,7 @@ money is the GA4 block from PR #4 (merged 2026-09-30):
 - 2026-09-29: GA4 tag off until a property exists; no consent banner, EU visitors simply get no analytics cookie. Why: no property yet, and a banner on a sales page costs conversions.
 - 2026-09-29: the YouTube section shows a fixed playlist of six business-grant videos instead of the channel's latest (Giulia). Why: the latest videos were not about business grants.
 - 2026-09-30 (`d3b2562`): buttons go to our own one-step `/checkout` (Martin: "step over to the branded pages as fast as possible, fix the issues one by one later"). Why: a branded page instead of Recurly's hosted one. The route is not yet proven by a real purchase.
+- 2026-09-30 (`815fbf2`): one shared GA4 file for all three pages, named `site-events.js` so ad blockers are less likely to drop it, with a no-op stand-in on each page. Why: one id and one consent rule for the whole funnel, and a blocked analytics file must never stop a buyer from paying.
 - 2026-09-30: `checkout.html`, `welcome.html` and `assets/flow.css` are part of this module, not a module of their own. Why: they are static pages deployed and edited the same way; the Worker side is `worker`.
 
 <!-- spec:template -->
