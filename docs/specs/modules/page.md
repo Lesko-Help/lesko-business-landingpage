@@ -1,6 +1,7 @@
 # page
 Status: as-built 2026-09-30
 Kind: app
+Summary: `index.html` + `llms.txt` + `sitemap.xml`: the sales page and its checkout links
 Part of: `docs/specs/INDEX.md` · Deploy: push to `main` (Cloudflare Workers Builds) · Updated: 2026-09-30
 Reads: nothing at runtime; the YouTube playlist is hard-coded in the file.
 Writes: nothing of its own; sends the visitor to Recurly (checkout), Kit (newsletter form) and YouTube (embed).

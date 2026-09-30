@@ -1,6 +1,7 @@
 # worker
 Status: as-built 2026-09-30
 Kind: helper
+Summary: `worker.js`: the `/api/videos` feed, unused by the page since 2026-09-29
 Part of: `docs/specs/INDEX.md` · Deploy: push to `main` (Cloudflare Workers Builds) · Updated: 2026-09-30
 Reads: YouTube's public RSS feed for Matthew's channel (`UCwKJZfa7sWV_qKxQnLBUpjA`), no auth.
 Writes: nothing; answers `GET /api/videos` with JSON and caches it 30 minutes in Cloudflare's cache.
