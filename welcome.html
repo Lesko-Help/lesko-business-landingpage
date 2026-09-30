@@ -14,8 +14,19 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,600;1,9..144,700&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/assets/flow.css">
 <!-- Shared GA4 setup (measurement id, consent rule, plan prices) — same file as index.html and
-     checkout.html. Off until the id in that file is filled in. -->
-<script src="/assets/analytics.js"></script>
+     checkout.html, named site-events.js (not analytics.js) so ad blockers don't drop it. Off
+     until the id in that file is filled in. If it fails to load anyway (blocked, network error),
+     the stub below keeps every LeskoAnalytics call on this page harmless, so a buyer can always
+     see their email and next steps here even with analytics missing entirely. -->
+<script src="/assets/site-events.js"></script>
+<script>
+  window.LeskoAnalytics = window.LeskoAnalytics || {
+    init: function () { return false; },
+    track: function () {},
+    isOn: function () { return false; },
+    planPriceUSD: function () {}
+  };
+</script>
 </head>
 <body>
 
@@ -100,20 +111,25 @@
   ['email', 'account_code', 'account'].forEach(function (p) { cleanUrl.searchParams.delete(p); });
   var gaConfig = { page_location: cleanUrl.toString() };
   if (plan) gaConfig.plan = plan.replace(/^business-/, '');
-  window.LeskoAnalytics.init(gaConfig);
 
-  // One purchase per visit: sessionStorage survives a reload of this tab but starts empty on a new
-  // one, so refreshing /welcome (or opening the confirmation link twice) does not double-count it.
-  if (plan && !sessionStorage.getItem('leskoPurchaseSent')) {
-    sessionStorage.setItem('leskoPurchaseSent', '1');
-    var gaPlan = plan.replace(/^business-/, '');
-    var price = window.LeskoAnalytics.planPriceUSD(gaPlan);
-    window.LeskoAnalytics.track('purchase', {
-      currency: 'USD',
-      value: price,
-      items: [{ item_id: gaPlan, item_name: gaPlan, price: price, quantity: 1 }]
-    });
-  }
+  // Everything analytics-related is wrapped: sessionStorage throws in some browsers when storage
+  // is blocked (private mode, strict cookie settings), and this page's own job — showing the
+  // buyer their email and next steps below — must keep working even then.
+  try {
+    window.LeskoAnalytics.init(gaConfig);
+    // One purchase per visit: sessionStorage survives a reload of this tab but starts empty on a
+    // new one, so refreshing /welcome (or opening the confirmation link twice) does not double-count it.
+    if (plan && !sessionStorage.getItem('leskoPurchaseSent')) {
+      sessionStorage.setItem('leskoPurchaseSent', '1');
+      var gaPlan = plan.replace(/^business-/, '');
+      var price = window.LeskoAnalytics.planPriceUSD(gaPlan);
+      window.LeskoAnalytics.track('purchase', {
+        currency: 'USD',
+        value: price,
+        items: [{ item_id: gaPlan, item_name: gaPlan, price: price, quantity: 1 }]
+      });
+    }
+  } catch (e) {}
 
   var box = document.getElementById('emailBox');
   var note = document.getElementById('emailNote');

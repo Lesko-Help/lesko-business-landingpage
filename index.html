@@ -3167,10 +3167,21 @@
      What it measures on this page: page visits, clicks on the join buttons,
      clicks on the three checkout links (with plan and price), and newsletter
      sign-ups. The shared setup — the measurement id, consent rule and plan
-     prices — lives in assets/analytics.js, so checkout.html and welcome.html
-     follow the same rules. It stays completely off until the id in that file
-     is filled in. -->
-<script src="/assets/analytics.js"></script>
+     prices — lives in assets/site-events.js (named that way, not
+     assets/analytics.js, so ad blockers that target "analytics" filenames
+     don't drop it), so checkout.html and welcome.html follow the same rules.
+     It stays completely off until the id in that file is filled in. If it
+     ever fails to load, window.LeskoAnalytics below is a harmless no-op
+     stand-in, so a blocked or missing file never breaks this page. -->
+<script src="/assets/site-events.js"></script>
+<script>
+  window.LeskoAnalytics = window.LeskoAnalytics || {
+    init: function () { return false; },
+    track: function () {},
+    isOn: function () { return false; },
+    planPriceUSD: function () {}
+  };
+</script>
 <script>
 (function () {
   var LA = window.LeskoAnalytics;

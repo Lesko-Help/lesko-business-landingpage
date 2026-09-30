@@ -18,8 +18,19 @@
      The site's Recurly public key is served by the Worker (/api/config), not stored here. -->
 <script src="https://js.recurly.com/v4/recurly.js"></script>
 <!-- Shared GA4 setup (measurement id, consent rule, plan prices) — same file as index.html and
-     welcome.html. Off until the id in that file is filled in. -->
-<script src="/assets/analytics.js"></script>
+     welcome.html, named site-events.js (not analytics.js) so ad blockers don't drop it. Off
+     until the id in that file is filled in. If it fails to load anyway (blocked, network error),
+     the stub below keeps every LeskoAnalytics call on this page harmless, so a buyer can always
+     see the plan, fill the card field and press Pay even with analytics missing entirely. -->
+<script src="/assets/site-events.js"></script>
+<script>
+  window.LeskoAnalytics = window.LeskoAnalytics || {
+    init: function () { return false; },
+    track: function () {},
+    isOn: function () { return false; },
+    planPriceUSD: function () {}
+  };
+</script>
 </head>
 <body>
 
