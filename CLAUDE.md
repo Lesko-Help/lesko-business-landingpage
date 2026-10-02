@@ -159,12 +159,17 @@ USD price:
 - `/welcome`: `purchase`, once per tab. The email is stripped from
   `page_location`, so it never reaches Google.
 
-EU/EEA/UK/CH visitors get no analytics cookies (no consent banner). Each page
-carries a no-op `window.LeskoAnalytics` stand-in, so a blocked
+Since `ga4-consent-all` (landed 2026-10-02, `68b9961`; DECISION BY MARTIN
+2026-10-01, taken knowing it goes against the EU ePrivacy consent rule) every
+visitor, EU included, gets `analytics_storage: 'granted'` and no consent
+banner; `ad_storage`, `ad_user_data` and `ad_personalization` stay `'denied'`
+for everyone. Before that, EU/EEA/UK/CH visits were not counted at all. Each
+page carries a no-op `window.LeskoAnalytics` stand-in, so a blocked
 `site-events.js` never stops a checkout — keep it when editing a page. Test:
-`scripts/test-ga4-events.sh .` (23 checks, including that the shipped id is
-exactly `G-6K847LXFE7` and that no page loads gtag.js itself — change that
-check with the id). `PLAN_PRICES_USD` in that file is one more hand-typed
+`scripts/test-ga4-events.sh .` (26 checks, including that the shipped id is
+exactly `G-6K847LXFE7`, that no page loads gtag.js itself — change that
+check with the id — and that there is exactly one consent default, with no
+`region` key and analytics granted). `PLAN_PRICES_USD` in that file is one more hand-typed
 copy of the prices: change it with the others.
 
 Proof that Google receives the hits is GA4 › Reports › Realtime (Martin's;

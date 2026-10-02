@@ -2,7 +2,7 @@
 Status: as-built 2026-09-30
 Kind: app
 Summary: `index.html` + `checkout.html` + `welcome.html` (+ `llms.txt`, `sitemap.xml`): the sales page, our one-step checkout and the thank-you page
-Part of: `docs/specs/INDEX.md` · Deploy: push to `main` (Cloudflare Workers Builds) · Updated: 2026-09-30
+Part of: `docs/specs/INDEX.md` · Deploy: push to `main` (Cloudflare Workers Builds) · Updated: 2026-10-02
 Reads: `/api/config` (checkout only); nothing else at runtime — the YouTube playlist is hard-coded.
 Writes: `/api/subscribe` (checkout); the buyer's email, company and plan in the browser's `localStorage` key `leskoCheckout`; the newsletter email straight to Kit.
 
@@ -13,7 +13,7 @@ Writes: `/api/subscribe` (checkout); the buyer's email, company and plan in the 
 *What it depends on:* the `worker` module's `/api/config` and `/api/subscribe`; Recurly.js v4 from `js.recurly.com`; the three Recurly plans at the prices the pages show.
 *Public entry points:* `GET /`, `GET /checkout?plan=monthly|half-year|yearly`, `GET /welcome?email=…&plan=…`; the `#pricing`, `#guarantee` and `#faq` anchors.
 *Not in scope:* the purchase itself (`worker`), provisioning and emails (lesko-provisioning), the ClickFunnels pages on leskohelp.com, Recurly's hosted pages.
-*Personal data:* the checkout sends name, email, optional company and address to Recurly and keeps email, company and plan in `localStorage` on the buyer's device (welcome reads it for 24 h). The email is in the `/welcome` URL. The newsletter form posts the email to Kit. With GA4 on, EU/EEA/UK/CH visitors get no analytics cookies.
+*Personal data:* the checkout sends name, email, optional company and address to Recurly and keeps email, company and plan in `localStorage` on the buyer's device (welcome reads it for 24 h). The email is in the `/welcome` URL. The newsletter form posts the email to Kit. With GA4 on, every visitor (EU included) gets an analytics cookie; there is no consent banner.
 
 Who: a business owner Matthew sent here · Where: web, three static HTML files
 
@@ -84,7 +84,7 @@ money is GA4, shared by all three pages since `ga4-all-pages` (landed
 
 *What it does:*
 - R1: while `GA4_MEASUREMENT_ID` is empty, `init()` returns `false` and `track()` does nothing — no request to Google, no cookie, nothing in `dataLayer`, on any page.
-- R2: when set, `init()` loads gtag.js and sends `page_view`; visitors whose region is in `CONSENT_REQUIRED_REGIONS` (EU/EEA/UK/CH) get consent `denied` and therefore no analytics cookie. No linker to `leskohelp.recurly.com` (removed: nothing links there any more).
+- R2: when set, `init()` loads gtag.js and sends `page_view`; one consent default applies to every visitor, with no `region` key: `analytics_storage` `granted`, `ad_storage`, `ad_user_data` and `ad_personalization` `denied`. No linker to `leskohelp.recurly.com` (removed: nothing links there any more).
 - R3: `/`: a click on a link whose href has `/checkout…?plan=<plan>` sends `begin_checkout` with `currency: USD`, `value` from `planPriceUSD(plan)`, `items[0].item_id = plan`, plus `button_text` and `button_section`.
 - R4: `/`: a click on `href="#pricing"` sends `join_button_click`; a submit of a form whose action contains `app.kit.com/forms/` sends `generate_lead` with `form_name: newsletter`.
 - R5: `/checkout`: `page_view` carries `plan`; pressing Pay with a valid form sends `add_payment_info` (plan, price, USD) before Recurly is asked for a card token, so declines still count.
@@ -93,13 +93,13 @@ money is GA4, shared by all three pages since `ga4-all-pages` (landed
 
 *Examples:* click the yearly card's button -> `begin_checkout {value: 149.95, items: [{item_id: 'yearly'}], button_section: 'pricing'}`; open `/welcome?email=a@b.co&plan=business-monthly` -> `purchase {value: 29.95, items: [{item_id: 'monthly'}]}`, `page_location` without `email`.
 
-*Inputs:* the constants at the top of `site-events.js` (id, `PLAN_PRICES_USD`, `CONSENT_REQUIRED_REGIONS`); the DOM; the page URL.
+*Inputs:* the constants at the top of `site-events.js` (id, `PLAN_PRICES_USD`); the DOM; the page URL.
 
 *Outputs:* gtag events; `leskoPurchaseSent` in `sessionStorage` on `/welcome`.
 
 *Errors:* none surfaced to the visitor; with a wrong id Google silently drops the hits — check Realtime in the GA4 property after filling in the id. `PLAN_PRICES_USD` is one more hand-typed copy of the prices (with `index.html`, `checkout.html` and Recurly).
 
-*Test:* `scripts/test-ga4-events.sh .` — jsdom runs each page's scripts in order, patches `G-TEST` in memory only, fires the clicks and submits and reads `dataLayer` back: 23 checks, R1–R7, plus two on the file as shipped (id exactly `G-6K847LXFE7`; no page loads gtag.js itself). R1 is tested with the id forced to `''`, so it holds whatever id ships. Red first against `origin/main` (`begin_checkout` dead) and against round 1 (the 4 "file blocked" checks for R7).
+*Test:* `scripts/test-ga4-events.sh .` — jsdom runs each page's scripts in order, patches `G-TEST` in memory only, fires the clicks and submits and reads `dataLayer` back: 26 checks, R1–R7 (three on R2: one consent default, no `region` key, analytics granted; red against the old two-default code), plus two on the file as shipped (id exactly `G-6K847LXFE7`; no page loads gtag.js itself). R1 is tested with the id forced to `''`, so it holds whatever id ships. Red first against `origin/main` (`begin_checkout` dead) and against round 1 (the 4 "file blocked" checks for R7).
 
 ## Decisions
 
@@ -111,5 +111,6 @@ money is GA4, shared by all three pages since `ga4-all-pages` (landed
 - 2026-09-30 (`815fbf2`): one shared GA4 file for all three pages, named `site-events.js` so ad blockers are less likely to drop it, with a no-op stand-in on each page. Why: one id and one consent rule for the whole funnel, and a blocked analytics file must never stop a buyer from paying.
 - 2026-09-30 (`682b52f`): GA4 switched on with `G-6K847LXFE7`, the leskobusiness.com web stream of Martin's new property, set only in `site-events.js`; no Google snippet, no GTM (Martin). Why: the funnel events need somewhere to go; one id in one file keeps the consent and email-stripping rules in force.
 - 2026-09-30: `checkout.html`, `welcome.html` and `assets/flow.css` are part of this module, not a module of their own. Why: they are static pages deployed and edited the same way; the Worker side is `worker`.
+- 2026-10-01 (landed 2026-10-02, `68b9961`): the EU/EEA/UK/CH consent rule is dropped, still no banner — every visitor gets `analytics_storage` granted, ads stay denied (Martin, told it goes against the EU ePrivacy consent rule). Why: GA4 counted no EU visits at all, including Martin's own test visits, so the funnel could not be read. Replaces the 2026-09-29 line's "EU visitors simply get no analytics cookie".
 
 <!-- spec:template -->
