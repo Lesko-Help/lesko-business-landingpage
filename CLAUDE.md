@@ -109,8 +109,10 @@ wrangler login sees two accounts, so set `CLOUDFLARE_ACCOUNT_ID` or wrangler
 stops.
 
 Known issues, accepted for the fast go-live and to be fixed one by one:
-`/api/subscribe` has no bot or rate limit (card-testing risk); the Recurly
-account code is the email the buyer types; the private key has full scope.
+`/api/subscribe` has no bot check (card-testing risk; since `5e7b1dd`,
+2026-09-30, it does rate-limit: 5 requests per 60 s per caller IP, then
+429); the Recurly account code is the email the buyer types; the private
+key has full scope.
 
 From 2026-09-29 (PR #3, `ac57980`) to the go-live the buttons went to
 Recurly's hosted pages `https://leskohelp.recurly.com/subscribe/<plan>`;
