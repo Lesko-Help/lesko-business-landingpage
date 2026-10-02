@@ -18,14 +18,6 @@ window.LeskoAnalytics = (function () {
     'yearly': 149.95
   };
 
-  // Countries where a visitor must agree before analytics cookies are set. The site has no consent
-  // banner, so a visitor here gets an anonymous, cookieless signal instead of being asked.
-  var CONSENT_REQUIRED_REGIONS = [
-    'AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'FI', 'FR', 'DE', 'GR', 'HU',
-    'IE', 'IT', 'LV', 'LT', 'LU', 'MT', 'NL', 'PL', 'PT', 'RO', 'SK', 'SI', 'ES',
-    'SE', 'IS', 'LI', 'NO', 'GB', 'CH'
-  ];
-
   var started = false;
 
   // Input: an optional object of extra GA4 config params for the calling page (e.g. { plan: 'yearly' }
@@ -45,17 +37,15 @@ window.LeskoAnalytics = (function () {
     function gtag() { window.dataLayer.push(arguments); }
     window.gtag = gtag;
 
-    var everythingDenied = {
-      ad_storage: 'denied', ad_user_data: 'denied',
-      ad_personalization: 'denied', analytics_storage: 'denied'
-    };
-    var analyticsOnly = {
+    // Input: nothing (fixed values). Output: one gtag consent call, the same for every visitor,
+    // no matter where they are. Why: DECISION BY MARTIN 2026-10-01 drops the EU/EEA/UK/CH rule —
+    // every visitor is counted in GA4 like everyone else, so analytics_storage is 'granted' with
+    // no `region` key narrowing it; ad_storage/ad_user_data/ad_personalization stay 'denied'
+    // because this site never does ad targeting or remarketing.
+    gtag('consent', 'default', {
       ad_storage: 'denied', ad_user_data: 'denied',
       ad_personalization: 'denied', analytics_storage: 'granted'
-    };
-    gtag('consent', 'default', analyticsOnly);
-    everythingDenied.region = CONSENT_REQUIRED_REGIONS;
-    gtag('consent', 'default', everythingDenied);
+    });
 
     gtag('js', new Date());
     gtag('config', GA4_MEASUREMENT_ID, extraConfig || {});

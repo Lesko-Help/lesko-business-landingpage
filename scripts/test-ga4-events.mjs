@@ -180,6 +180,29 @@ function isSharedAnalyticsSrc(src) {
   check('welcome.html: purchase does not fire again on a simulated reload', purchaseCount === 1);
 })();
 
+// ── consent default: every visitor granted, no region narrows it (DECISION BY MARTIN 2026-10-01) ──
+// Input: a freshly loaded index.html (any page would do; each one calls init() once). Output: three
+// checks across every gtag('consent', 'default', ...) call init() makes, not just the first one —
+// a second, region-scoped call (the old EU carve-out) would pass a first-element-only check while
+// still narrowing some visitors, so this looks at all of them. Checks: exactly one such call is made;
+// none of them carries a `region` key (a region key would mean some visitors get a different,
+// narrower default); analytics_storage is 'granted' in it, never 'denied'. Why: the EU/EEA/UK/CH
+// carve-out was dropped, so either a `region` key reappearing or an analytics_storage of 'denied'
+// is exactly the regression this guards against.
+(function () {
+  const w = loadPage('index.html', 'https://leskobusiness.com/', FORCED_ID);
+  const consentDefaults = events(w).filter(function (e) { return e[0] === 'consent' && e[1] === 'default'; });
+  check('exactly one consent default is set', consentDefaults.length === 1);
+  check('consent default carries no region key', consentDefaults.every(function (e) {
+    return !(e[2] && 'region' in e[2]);
+  }));
+  check('consent default grants analytics_storage to every visitor', consentDefaults.some(function (e) {
+    return e[2] && e[2].analytics_storage === 'granted';
+  }) && consentDefaults.every(function (e) {
+    return !e[2] || e[2].analytics_storage !== 'denied';
+  }));
+})();
+
 // ── site-events.js blocked (ad blocker / network error): checkout and welcome must still work ──
 (function () {
   const w = loadPage('checkout.html', 'https://leskobusiness.com/checkout?plan=yearly', null, true);
