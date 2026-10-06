@@ -114,16 +114,16 @@
             <p class="msg">Please enter your city.</p>
           </div>
           <div class="field">
-            <label for="state">State</label>
-            <input id="state" name="state" type="text" autocomplete="address-level1" data-recurly="state" required>
-            <p class="msg">Please enter your state.</p>
+            <label for="state">State / Province / Region</label>
+            <input id="state" name="state" type="text" autocomplete="address-level1" data-recurly="state">
+            <p class="msg">Please enter your state, province or region.</p>
           </div>
         </div>
         <div class="field-row">
           <div class="field">
-            <label for="postal_code">ZIP code</label>
-            <input id="postal_code" name="postal_code" type="text" inputmode="numeric" autocomplete="postal-code" data-recurly="postal_code" required>
-            <p class="msg">Please enter your ZIP code.</p>
+            <label for="postal_code">Postal code</label>
+            <input id="postal_code" name="postal_code" type="text" autocomplete="postal-code" data-recurly="postal_code">
+            <p class="msg">Please enter your postal code.</p>
           </div>
           <div class="field">
             <label for="country">Country</label>
@@ -260,6 +260,28 @@
   var echo = document.getElementById('emailEcho');
   var echoText = document.getElementById('emailEchoText');
   var cardField = document.getElementById('cardField');
+  var countrySelect = document.getElementById('country');
+  var stateInput = document.getElementById('state');
+  var postalInput = document.getElementById('postal_code');
+
+  // ── Which address fields a country needs. Street and city are required everywhere (set in the
+  // HTML); these two lists are the exceptions, decided 2026-10-06: a region is required only where
+  // the payment gateway checks it, a postal code everywhere except the few countries with none. ──
+  var REGION_REQUIRED_COUNTRIES = ['US', 'CA', 'AU'];
+  var NO_POSTAL_COUNTRIES = ['AE', 'BS', 'JM', 'TT', 'GH'];
+
+  // Input: nothing (reads the current country select). Output: none; sets `required` on the state
+  // and postal inputs to match that country, and drops any error highlight a field no longer needs
+  // to pass. Runs on load (for the page's default country) and again on every country change.
+  function updateAddressRequirements() {
+    var country = countrySelect.value;
+    stateInput.required = REGION_REQUIRED_COUNTRIES.indexOf(country) !== -1;
+    postalInput.required = NO_POSTAL_COUNTRIES.indexOf(country) === -1;
+    if (!stateInput.required) stateInput.closest('.field').classList.remove('err');
+    if (!postalInput.required) postalInput.closest('.field').classList.remove('err');
+  }
+  countrySelect.addEventListener('change', updateAddressRequirements);
+  updateAddressRequirements();
 
   function valid(v) { return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v); }
   function refreshEcho() {
@@ -276,10 +298,28 @@
     if (saved && saved.company) { company.value = saved.company; }
   } catch (e) {}
 
-  function showError(text) {
+  // Input: the message to show, and the element to scroll to (the payMsg box itself when there is
+  // no single field to blame, e.g. a card or server error). Output: none; always leaves the buyer
+  // with a visible reason — decided 2026-10-06, after a blocked Pay press used to return in silence.
+  function showError(text, scrollTo) {
     payMsg.textContent = text;
     payMsg.classList.add('show');
-    payMsg.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    (scrollTo || payMsg).scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }
+
+  // Input: one of this form's required <input> or <select> elements. Output: a short name for it,
+  // for the "Please enter …" message a blocked Pay press shows.
+  function fieldLabel(el) {
+    switch (el.id) {
+      case 'first_name': return 'your first name';
+      case 'last_name': return 'your last name';
+      case 'email': return 'a valid email address';
+      case 'address1': return 'your street address';
+      case 'city': return 'your city';
+      case 'state': return 'your state, province or region';
+      case 'postal_code': return 'your postal code';
+      default: return 'this field';
+    }
   }
   function busy(on, label) {
     btn.disabled = on;
@@ -290,9 +330,12 @@
   var elements = null;
   function setupCard(publicKey) {
     if (!window.recurly || !publicKey) return;
+    // Only the fields every country needs go here (decided 2026-10-06, with the rule above): state
+    // and postal code are required or not by country, which Recurly itself has no say in, so this
+    // list never changes with the country select — only our own `required` attributes do.
     recurly.configure({
       publicKey: publicKey,
-      required: ['first_name', 'last_name', 'address1', 'city', 'state', 'postal_code', 'country']
+      required: ['first_name', 'last_name', 'address1', 'city', 'country']
     });
     elements = recurly.Elements();
     var card = elements.CardElement({
@@ -312,15 +355,25 @@
     .catch(function () {});
 
   // ── Submit: Recurly turns the card into a token, our server creates the membership
+  // Input: nothing (reads the form). Output: whether every required field is filled in (email
+  // also checked for shape); as a side effect, marks each bad field `.err` and, on failure, shows
+  // which field is missing in `#payMsg` and scrolls to it — so a blocked Pay press is never silent,
+  // even when the first missing field sits outside the visible area (decided 2026-10-06, after a
+  // buyer's address fields in section 2 went unseen below the Pay button in the side column).
   function collect() {
-    var ok = true;
-    form.querySelectorAll('.field input[required]').forEach(function (el) {
+    var firstBad = null;
+    form.querySelectorAll('.field input[required], .field select[required]').forEach(function (el) {
       var f = el.closest('.field');
       var bad = el.id === 'email' ? !valid(el.value.trim()) : !el.value.trim();
       f.classList.toggle('err', bad);
-      if (bad && ok) { ok = false; el.focus(); }
+      if (bad && !firstBad) firstBad = el;
     });
-    return ok;
+    if (firstBad) {
+      showError('Please enter ' + fieldLabel(firstBad) + '.', firstBad.closest('.field'));
+      firstBad.focus();
+      return false;
+    }
+    return true;
   }
 
   function subscribe(tokenId, threeDSResultId) {
