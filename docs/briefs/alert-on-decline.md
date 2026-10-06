@@ -204,61 +204,80 @@ reversible. **Settling test, Martin's, not yet run:** mail
 `nobody@leskobusiness.com` from Gmail; a bounce means the apex MX is
 decorative and the free Email-Routing route is back on the table.
 
-**Why European cards decline — NOT closed. Corrected 2026-10-06 ~21:00
-CEST after reading the memory bank.** An earlier version of this section
-called it closed. That was wrong twice over, and the correction is the
-point of this paragraph.
+**Why European cards decline — answered 2026-10-06 ~21:30 CEST from
+BigQuery, and the previous two answers in this file were both wrong.**
+Source: `lesko-486515.provisioning_models.stg_authnet_unsettled` and
+`…stg_recurly_transactions` (read-only `bq query`, no credentials read).
 
-What is established: Recurly's Authorize.Net page says supported
-currencies are "AUD, CAD, EUR, GBP, NZD, PLN, and USD" but
-**"Gateway-specific 3DS2 supported — No — Authorize.net does not support
-3DS"**. Both of this site's gateways are Authorize.Net. Recurly has never
-returned a `three_d_secure_action_token_id`, so the SCA branch in
-`checkout.html` and `worker.js` has never once run. No European card has
-ever been approved on this account in any record the team holds: Martin's
-Belgian Mastercard and Giulia's card both declined at $29.95 through
-`/checkout` on 2026-10-06, and her four ClickFunnels attempts at $149.95
-declined on 2026-09-29.
+**Read this first — the table trap.** `provisioning_models.stg_authnet`
+is built only from Authorize.Net `failed_payment_notification` webhooks,
+so it is **decline-only by construction**: 23,612 declines, 160
+generalErrors, zero approvals, ever. Computing an approval rate from it
+produces "nothing ever succeeds", which is false. Approvals live in
+**`stg_authnet_unsettled`** (the API pull) and in
+**`stg_recurly_transactions`**. The earlier claim in the memory bank that
+this account has "11,101 declines and 3 successes" comes from the
+decline-only table and should not be trusted.
 
-What is NOT established — two explanations still produce the identical
-Authorize.Net gateway code 2, and nothing we hold separates them:
-- **(A) Europe cannot be authenticated on this rail.** No 3DS, no AVS, so
-  an EU issuer is asked to approve a cross-border mandate blind, and
-  refuses. Fix: a 3DS-capable gateway (Recurly Payments is Adyen; or add
-  Adyen/Braintree/Stripe directly).
-- **(B) The high-risk merchant account does not accept international
-  cards.** Authorize.Net reports an acquirer-level block as the same
-  generic code 2. Fix: a call to the acquirer, not a gateway swap.
-  Supporting hint: rrc 34 "merchant account not configured properly" has
-  been seen twice on this account.
+**What the data actually shows.**
+- *The account is healthy.* 126 approvals on 2026-10-06; the daily
+  approval rate has sat between 19% and 53% every day since 2026-09-15
+  with no collapse. The low absolute rate is a dunning-heavy book, not a
+  fault.
+- *Europe is approvable on this Authorize.Net gateway.* Belgium has **9
+  approvals out of 28 attempts**, including **$29.95 and $89.95 both
+  captured on 2026-09-29 16:46 and 16:49 UTC**. Approvals also exist from
+  GE, FM, AU, LV, NZ and UM. Explanation **(B) "the merchant account
+  refuses international cards" is dead**, and so is the earlier claim
+  that no European card has ever been approved here.
+- *The branded `/checkout` sells.* Recurly origin **`token_api`** —
+  which is our `/api/subscribe` path, shown in the Recurly dashboard as
+  "Recurly.js" — has successful purchases on 2026-10-03 (17:01 and 18:39,
+  $149.95), 2026-10-04 (04:02 $29.95; 20:01 $149.95) and more. Three
+  "Lesko Business - Monthly" invoices captured on 2026-10-06 alone
+  (291121, 291172, 291182). **The rail is not broken and 3DS is not
+  stopping sales.**
+- *Currency is ruled out conclusively.* All **46,626** Recurly
+  transactions on this account, for all time, are **USD**. Not one has
+  ever been presented in any other currency.
 
-**Do not cite AVS as evidence either way.** A 2026-08-21 probe found
-`avs_response='P'` on all 111 probed transactions, on all 11,101 declines
-in `stg_authnet` *and* on the 3 successes. AVS is never evaluated on this
-account although billing zip and country do reach the gateway, so "AVS:
-postal code matches" on the 18:52 transaction is a constant, not a signal.
-CVV Match is a separate field and is not known to be constant. Fraud-filter
-(FDS) actions were zero, so FDS is not a cause.
+**So why did Martin's and Giulia's cards fail on 2026-10-06?** It is
+card-specific, and the Merchant Advice Code says so per card:
+- **Martin's Mastercard: MAC `01` "New account information" on every one
+  of six attempts** (14:17 ×2, 14:18 ×2, 15:21, 15:56 UTC). Mastercard's
+  MAC 01 means the issuer holds newer account details than the card
+  presented — the card has been reissued or updated. The same card was
+  approved on 2026-09-06 and 2026-09-01. Action: use the current card.
+- **Giulia's Visa: MAC `2` "Issuer cannot approve at this time"** (14:39,
+  15:38, 15:40 UTC) — a soft, temporary refusal. The same Visa was
+  approved for $29.95 and $89.95 on 2026-09-29. Four attempts inside an
+  hour on a card that already holds those subscriptions is the classic
+  shape of an issuer velocity/duplicate block. Her Mastercard got MAC 01
+  at 15:42, same story as Martin's.
+- CVV came back `M` (match) on most of these, so CVV is a real signal on
+  this account even though AVS is not.
 
-**Currency is ruled out** (asked by Martin 2026-10-06). Charges are USD;
-Authorize.Net accepts USD; a currency the gateway cannot process fails at
-the gateway with a configuration error, not with an issuer code 2.
+**3DS remains a genuine gap but is not the blocker.** Authorize.Net
+cannot do 3DS ("Gateway-specific 3DS2 supported — No"), Recurly has never
+returned a `three_d_secure_action_token_id`, and the SCA branch in
+`checkout.html` and `worker.js` has still never run. A 3DS-capable
+gateway is worth having for rates and for issuers that do demand SCA — it
+is not what stopped these two cards, and the Recurly Payments
+application should be chased on its own merits, not as a Europe fix.
 
-**The control test that separates A from B:** one US-issued card through
-`/checkout?plan=monthly`. US approves → (A). US also declines → (B).
-**A second, non-card route:** the issuer's Merchant Advice Code never
-reaches Recurly — it lives only in Authorize.Net's `merchantAdvice`
-object, landed in `stg_authnet.merchant_advice_code`, joined on
-`gateway_reference`. That is the only place a "never approve" vs "retry
-after N days" verdict can be read, and it belongs to lesko-provisioning
-(`webhooks/authnet.py get_transaction_details`), reachable from the i7 and
-not from a laptop on the Orange link. Authorize.Net's unsettled list keeps
-only ~22h, so the same-day window on the 18:52 transaction has closed.
+**Do not cite AVS as evidence.** `avs_response='P'` on every transaction
+sampled — declines and approvals alike. AVS is never evaluated on this
+account.
 
-Separately, the Recurly gateway page shows "Your application for the
-Recurly Payment Gateway is pending" and "Your Recurly account is past
-due"; the admin is unclickable, consistent with a restricted state. The
-past-due balance is a live production risk under either explanation.
+**Loose end.** `docs/specs/modules/worker.md:124` records the decline at
+"18:52 CEST" (16:52 UTC). No transaction exists in either table in the
+16:00–18:10 UTC window on 2026-10-06; the latest Belgian attempt is 15:56
+UTC (17:56 CEST). The spec's timestamp is unexplained — do not build on
+it. That correction is the overseer's to make; a worktree may not edit
+`docs/specs/`.
+
+**For the lesko-checkout overseer:** purchases through the branded
+checkout carry Recurly origin **`token_api`**, not `api` and not `hpp`.
 
 **Traps (keep, they are short).**
 - 2026-10-06: never `wrangler email routing enable leskobusiness.com` —
@@ -282,6 +301,6 @@ past-due balance is a live production risk under either explanation.
 **Next, all Martin's and all off this branch.** (1) Clear the Recurly
 past-due balance — it is a live production risk and likely what holds
 the gateway application. (2) Chase the Recurly Payments application.
-(3) The US-issued card test through `/checkout?plan=monthly`, which
-separates (A) no-SCA from (B) no-international-cards — it does NOT merely
-confirm 3DS. (4) Decide park-or-revive for this branch.
+(3) The US-issued card test is no longer needed — US cards already
+approve daily through `token_api`. Martin: try a current card, and
+tell Giulia to wait a day and attempt once. (4) Decide park-or-revive.
