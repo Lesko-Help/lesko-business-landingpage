@@ -220,6 +220,16 @@ Hosted Page Settings; whether that field accepts a `G-` id is unverified.
   in-page guarantee band; there is no standalone guarantee page on any domain.
 - **`llms.txt` and `sitemap.xml` repeat the checkout links** — update them
   with `index.html`.
+- **Never enable Cloudflare Email Routing on `leskobusiness.com`.** The apex
+  already receives mail through GoDaddy (`MX 0 smtp.secureserver.net`,
+  `MX 10 mailstore1.secureserver.net`, SPF `include:spf.em.secureserver.net`),
+  and switching Email Routing on for a zone replaces its MX records with
+  Cloudflare's own — inbound mail to the domain stops. Checked 2026-10-06,
+  when the `alert-on-decline` brief listed `wrangler email routing enable
+  leskobusiness.com` as a harmless one-time step; it is not. A Worker that
+  sends mail sends from a **subdomain** (DECISION BY MARTIN 2026-10-06).
+  Destination addresses are a separate, account-level thing
+  (`wrangler email routing addresses …`) and change no DNS.
 
 ## Working agreements
 
