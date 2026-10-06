@@ -32,12 +32,28 @@
   // sendDeclineAlertEmail), instead of a BTB_ALERT line in Workers Logs
   // that nothing yet notifies on. destination_address is a safety rail:
   // this binding can only ever send to that one address, even if the
-  // code changes. One-time account setup this binding depends on, not
-  // done by this deploy: `wrangler email routing enable
-  // leskobusiness.com` (Email Routing must be on for the zone the FROM
-  // address lives on) and `wrangler email routing addresses create
-  // martin.j.menke@gmail.com` + clicking the verification link Cloudflare
-  // sends — Cloudflare refuses to deliver to an unverified destination.
+  // code changes.
+  //
+  // The FROM address (worker.js's DECLINE_ALERT_FROM) is on the subdomain
+  // alerts.leskobusiness.com, not the bare apex — leskobusiness.com
+  // already has live inbound mail through GoDaddy (MX
+  // smtp.secureserver.net / mailstore1.secureserver.net), and Cloudflare
+  // Email Routing is zone-level: `wrangler email routing enable
+  // leskobusiness.com` would silently replace those MX records and break
+  // that mail. DO NOT run that command on the apex. The one-time account
+  // setup this binding actually needs, not done by this deploy:
+  //   1. `wrangler email sending enable alerts.leskobusiness.com` — Email
+  //      Sending (a separate Cloudflare product from Email Routing) can
+  //      onboard a subdomain directly; its own DNS additions all live
+  //      under cf-bounce.alerts.leskobusiness.com, never on the apex.
+  //      Gated to the Workers Paid plan regardless of destination
+  //      verification — confirm the account is already on it before
+  //      running this.
+  //   2. `wrangler email routing addresses create martin.j.menke@gmail.com`
+  //      + clicking the verification link Cloudflare sends — this is
+  //      account-scoped (no DNS change either way) and shared by both
+  //      Email Routing and Email Sending.
+  // Cloudflare refuses to deliver to an unverified destination.
   "send_email": [
     {
       "name": "SEND_EMAIL",

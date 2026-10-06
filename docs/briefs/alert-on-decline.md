@@ -70,14 +70,32 @@ sends no new data to the browser) and nothing in docs/specs/ (overseer-only).
 Push to `main` (Cloudflare Workers Builds), same as every other `worker`
 change. Before the email can actually deliver, two one-time Cloudflare
 account actions this worktree deliberately did NOT run (production DNS /
-account-level, outside "worktree writes code, overseer deploys"):
-`wrangler email routing enable leskobusiness.com` (adds Email Routing DNS
-records to the live zone) and `wrangler email routing addresses create
-martin.j.menke@gmail.com` then clicking the verification link Cloudflare
-mails to that address (Martin's own action). Until both are done,
-`sendDeclineAlertEmail()` is a documented no-op (`if (!env.SEND_EMAIL)
-return;`) — a decline still logs its BTB_ALERT line exactly as before,
-nothing regresses.
+account-level, outside "worktree writes code, overseer deploys"), in this
+order:
+
+1. `wrangler email sending enable alerts.leskobusiness.com` — onboards the
+   subdomain the FROM address (`decline-alert@alerts.leskobusiness.com`)
+   lives on to Cloudflare's Email Sending product. Its DNS additions are
+   confined to `cf-bounce.alerts.leskobusiness.com`; it never touches
+   `leskobusiness.com`'s own MX record. Gated to the Workers Paid plan —
+   confirm the account is already on it before running this (open
+   question, see State).
+2. `wrangler email routing addresses create martin.j.menke@gmail.com` then
+   clicking the verification link Cloudflare mails to that address
+   (Martin's own action) — account-scoped, no DNS change, shared by both
+   Email Routing and Email Sending.
+
+**Never run `wrangler email routing enable leskobusiness.com` (or any
+`email routing enable` on the bare apex).** `leskobusiness.com` already
+has live inbound mail through GoDaddy (MX `smtp.secureserver.net`); Email
+Routing's enable step is zone-level and would silently replace those MX
+records, breaking that mail. This was the original version of this
+section's mistake, caught by Martin before landing — see State for the
+full finding.
+
+Until both of the two steps above are done, `sendDeclineAlertEmail()` is a
+documented no-op (`if (!env.SEND_EMAIL) return;`) — a decline still logs
+its BTB_ALERT line exactly as before, nothing regresses.
 
 ## Context
 
@@ -122,10 +140,15 @@ For `docs/specs/modules/worker.md`, Functions section, once this lands:
   historical line itself was retained) stays open pending the overseer's
   dashboard check (see Done when, part 1).
 - Add a wrangler.jsonc Decisions line: the `send_email` binding was added
-  with a fixed `destination_address`, and the two one-time Cloudflare
-  account actions it depends on (Email Routing enabled on
-  leskobusiness.com, the destination address verified) are intentionally
-  left for the overseer/Martin, not run from this worktree.
+  with a fixed `destination_address`, and its FROM address lives on
+  `alerts.leskobusiness.com` (Email Sending, onboarded per-subdomain),
+  never on the bare apex — `leskobusiness.com` already has live GoDaddy
+  inbound mail, and Email Routing (the other Cloudflare product, the one
+  that would also satisfy the binding's "onboarded to Email Service"
+  requirement) is zone-level and would replace that apex MX outright.
+  Both the subdomain's Email Sending onboarding and the destination
+  address's verification are intentionally left for the overseer/Martin,
+  not run from this worktree.
 
 ## State
 
@@ -198,24 +221,36 @@ Done:
     Martin per the brief's own "stop before adding a paid plan" clause,
     distinct from the apex-MX question the overseer asked about.
 
-In flight: about to change `DECLINE_ALERT_FROM` to a subdomain address
-(proposing `decline-alert@alerts.leskobusiness.com`, subdomain
-`alerts.leskobusiness.com`) and correct wrangler.jsonc's comment + the
-brief's account-steps, then re-run all 5 tests (no test asserts the exact
-FROM value today, confirmed by grep, so this should stay green without
-test changes) — not yet done.
+- Changed `DECLINE_ALERT_FROM` in worker.js from the apex
+  `alerts@leskobusiness.com` to the subdomain
+  `decline-alert@alerts.leskobusiness.com`, with a comment explaining why
+  (apex MX belongs to GoDaddy; Email Sending onboards the subdomain on its
+  own without touching it). No test asserts the literal FROM value
+  (confirmed by grep), so no test file needed editing.
+- Rewrote wrangler.jsonc's `send_email` comment: names
+  `wrangler email sending enable alerts.leskobusiness.com` as the FROM-side
+  one-time step, keeps `wrangler email routing addresses create
+  martin.j.menke@gmail.com` as the TO-side step, and adds an explicit
+  "DO NOT run `email routing enable` on the apex" warning with the reason.
+- Rewrote this brief's Deploy implied and Spec proposals sections to match
+  (same two corrected steps, same apex warning, same subdomain rationale).
+- Re-ran all 5 test scripts against the current worker.js: all green
+  (`test-raillog-alert.js` takes only a raillog.js path, not two args —
+  confirmed by reading it, not a regression).
+
+In flight: none — all four of the overseer's tasks are done. About to
+report back.
 
 Next:
-1. Make the subdomain FROM-address change above; re-run all 5 tests.
-2. Rewrite wrangler.jsonc's `send_email` comment and this brief's Deploy
-   implied / Spec proposals sections with the exact `wrangler email
-   sending enable alerts.leskobusiness.com` (not `email routing enable
-   leskobusiness.com`) command, plus an explicit warning against ever
-   running `email routing enable` on the apex.
-3. Commit, then report back to the overseer with: the apex-MX finding
-   above (Email Routing can't do this, Email Sending on a subdomain can),
-   the Workers-Paid-plan question Martin needs to confirm before anyone
-   runs the real `email sending enable`, and the corrected commands.
+1. `git add -N .`, confirm clean tree, re-run `wt-done.sh --check
+   alert-on-decline` until it passes.
+2. Commit the worker.js / wrangler.jsonc / brief changes.
+3. Report back to the overseer (landing-opzichter) with: the Email
+   Routing vs Email Sending finding (apex MX is unavoidable with Routing;
+   Email Sending onboards a subdomain cleanly), the chosen subdomain/FROM
+   address and why, the corrected exact commands now in wrangler.jsonc and
+   the brief, confirmation all 5 tests are green, and the still-open
+   Workers-Paid-plan question only Martin can resolve.
 4. Still DO NOT run any account mutation, still DO NOT push to main —
    those remain the overseer's/Martin's.
 

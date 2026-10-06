@@ -51,15 +51,20 @@ const PLAN_CODES = {
 };
 const SUPPORT = 'support@lesko.help';
 
-// Where a decline's email alert comes from and goes to. FROM is any
-// address on leskobusiness.com (the send_email binding only requires the
-// zone itself to have Email Routing on — it needs no inbox of its own,
-// since nothing replies to it). TO is Martin's own address; Cloudflare's
-// send_email binding refuses to mail an address that is not either on one
-// of our own routed zones or added and verified as a destination address
-// first (`wrangler email routing addresses create`) — a one-time account
-// step, done once, not by this Worker.
-const DECLINE_ALERT_FROM = 'alerts@leskobusiness.com';
+// Where a decline's email alert comes from and goes to. FROM is on the
+// subdomain alerts.leskobusiness.com, not the bare apex: leskobusiness.com
+// already has live inbound mail through GoDaddy (MX smtp.secureserver.net),
+// and Cloudflare Email Routing — the feature a send_email binding's FROM
+// domain needs onboarded — is zone-level and would replace that apex MX
+// outright. Email Sending (the separate Cloudflare product that can send
+// without ever touching the apex's own MX) onboards a subdomain on its own,
+// adding only cf-bounce.alerts.leskobusiness.com records — see
+// wrangler.jsonc's send_email comment for the exact one-time account step
+// this needs (not run by this Worker; Martin's, and gated to the Workers
+// Paid plan). TO is Martin's own address, added and verified once as a
+// destination address (`wrangler email routing addresses create` —
+// account-scoped, touches no DNS) — also not run by this Worker.
+const DECLINE_ALERT_FROM = 'decline-alert@alerts.leskobusiness.com';
 const DECLINE_ALERT_TO = 'martin.j.menke@gmail.com';
 
 function json(body, status) {
