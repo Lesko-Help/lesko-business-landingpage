@@ -1,5 +1,5 @@
 # page
-Status: as-built 2026-09-30, with two to-build rules under the checkout (2026-10-06)
+Status: as-built 2026-10-06
 Kind: app
 Summary: `index.html` + `checkout.html` + `welcome.html` (+ `llms.txt`, `sitemap.xml`): the sales page, our one-step checkout and the thank-you page
 Part of: `docs/specs/INDEX.md` · Deploy: push to `main` (Cloudflare Workers Builds) · Updated: 2026-10-06
@@ -43,9 +43,9 @@ Who: a business owner Matthew sent here · Where: web, three static HTML files
 - What it shows: the chosen plan and its total (an unknown or missing `plan`
   falls back to `monthly`), then first and last name, email (echoed back
   under the field), optional business name, Recurly's card field, street,
-  city, state/province, postal code, country, and a "Pay $… now" button.
-  *(as-built 2026-10-02: the labels read "State" and "ZIP code", both
-  always required — see the billing-address rules below.)*
+  city, region, postal code, country, and a "Pay $… now" button. Which of
+  the address fields are required depends on the country — see the
+  billing-address rules below.
 - Reads / Writes: `GET /api/config` for the Recurly public key; Recurly.js
   turns the card into a token; `POST /api/subscribe` with plan, token, names,
   email and company. On `ok` it saves `{email, company, plan, t}` in
@@ -58,7 +58,7 @@ Who: a business owner Matthew sent here · Where: web, three static HTML files
   bank check shows "The bank check did not go through…". *(as-built: if
   `/api/config` fails, the card field silently never appears.)*
 
-- Billing address *(to build, decided 2026-10-06)*: the **country select is
+- Billing address *(as-built 2026-10-06)*: the **country select is
   what decides which address fields a buyer must fill in**, so a non-US buyer
   can finish the form. Street and city are required everywhere. The region
   field is required only for `US`, `CA` and `AU` (the three in the list whose
@@ -71,13 +71,24 @@ Who: a business owner Matthew sent here · Where: web, three static HTML files
   that are needed in every country — `first_name`, `last_name`, `address1`,
   `city`, `country` — so the per-country part is ours alone and Recurly is
   never configured twice.
-- A blocked Pay press always says something *(to build, decided 2026-10-06)*:
-  when the form check fails, the red `#payMsg` box names the first missing
-  field and the page scrolls to it. As built the submit handler returns in
-  silence, so a buyer whose only error is out of sight (the Pay button sits in
-  the right-hand column, the address fields in section 2) sees a dead button
-  and no reason — the most likely cause of Martin's failed Belgian attempt on
-  2026-10-05.
+- A blocked Pay press always says something *(as-built 2026-10-06)*: when
+  the form check fails, the red `#payMsg` box names the first missing field
+  and the page scrolls to it. Before this the submit handler returned in
+  silence, so a buyer whose only error was out of sight (the Pay button sits
+  in the right-hand column, the address fields in section 2) saw a dead
+  button and no reason — the most likely cause of Martin's failed Belgian
+  attempt on 2026-10-05.
+- *Test:* `scripts/test-checkout-address.sh .` — jsdom loads the real
+  `checkout.html`, stubs Recurly.js, and presses Pay: an empty form, then a
+  US form filled in one field at a time, must each name the first missing
+  field in `#payMsg` (never fail silently); a Belgian address with the region
+  left blank must reach the card-token call, proving Pay was not blocked.
+  It also checks the labels, the absent `inputmode`, the per-country
+  required flags for DE/AE/BS/JM/TT/GH, and that Recurly's own `required:`
+  list no longer names region or postal code. Proven red first against
+  `35b2e3e`, the commit before the build: 17 of the checks fail there, among
+  them the empty-form press saying nothing at all and the Belgian address
+  never getting past the required `State`.
 
 ### The thank-you page (`/welcome?email=…&plan=…`)
 
