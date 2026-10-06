@@ -2,6 +2,8 @@
 // Static assets are served before this worker runs; only unmatched
 // routes (like /api/videos) land here.
 
+import { alert } from './raillog.js';
+
 const CHANNEL_ID = 'UCwKJZfa7sWV_qKxQnLBUpjA'; // @MatthewLesko
 const FEED_URL = 'https://www.youtube.com/feeds/videos.xml?channel_id=' + CHANNEL_ID;
 const MAX_VIDEOS = 12;
@@ -97,6 +99,20 @@ function buildPurchase(ip, plan, token, email, first, last, company, tds) {
   const account = { code: email, email, first_name: first, last_name: last, billing_info: billing };
   if (company) account.company = company;
   return { currency: 'USD', account, subscriptions: [{ plan_code: plan }] };
+}
+
+// Alerts on every card decline, so Recurly's own answer becomes visible
+// here instead of only as a screenshot (CLAUDE.md "Unattended code reports
+// its own failure"). Input: the plan code and Recurly's transaction_error
+// object (code, gateway_error_code — never te.message, which is the
+// buyer-facing text, and never any card or email data). Output: nothing —
+// prints one BTB_ALERT line through raillog.js's alert() and returns. Its
+// own function so scripts/test-subscribe-decline-alert.js can call it
+// directly, the same way scripts/test-decline-reasons.js already calls
+// declineMessage() directly, without needing a live Recurly decline.
+function logDecline(plan, te) {
+  alert('api-subscribe', 'PAYMENT_DECLINED',
+    'plan=' + plan + ' code=' + (te.code || '') + ' gateway_error_code=' + (te.gateway_error_code || ''));
 }
 
 // Buyer-facing text for the Recurly `transaction_error.code` values worth
@@ -227,9 +243,9 @@ async function subscribe(request, env) {
   }
   if (err.type === 'transaction' || err.transaction_error) {
     const te = err.transaction_error || {};
-    // Log only the two ids, for support/debugging — never the buyer-facing
+    // Alerts on the two ids, for support/debugging — never the buyer-facing
     // message text, and never any card or email data.
-    console.log('subscribe declined', plan, te.code || '', te.gateway_error_code || '');
+    logDecline(plan, te);
     return json({ ok: false, error: 'declined', message: declineMessage(te) }, 402);
   }
   if (err.type === 'validation' || err.type === 'invalid_api_version' || res.status === 422) {
