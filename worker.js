@@ -3,6 +3,7 @@
 // routes (like /api/videos) land here.
 
 import { alert } from './raillog.js';
+import { EmailMessage } from 'cloudflare:email';
 
 const CHANNEL_ID = 'UCwKJZfa7sWV_qKxQnLBUpjA'; // @MatthewLesko
 const FEED_URL = 'https://www.youtube.com/feeds/videos.xml?channel_id=' + CHANNEL_ID;
@@ -49,6 +50,17 @@ const PLAN_CODES = {
   'yearly':    'business-yearly'
 };
 const SUPPORT = 'support@lesko.help';
+
+// Where a decline's email alert comes from and goes to. FROM is any
+// address on leskobusiness.com (the send_email binding only requires the
+// zone itself to have Email Routing on — it needs no inbox of its own,
+// since nothing replies to it). TO is Martin's own address; Cloudflare's
+// send_email binding refuses to mail an address that is not either on one
+// of our own routed zones or added and verified as a destination address
+// first (`wrangler email routing addresses create`) — a one-time account
+// step, done once, not by this Worker.
+const DECLINE_ALERT_FROM = 'alerts@leskobusiness.com';
+const DECLINE_ALERT_TO = 'martin.j.menke@gmail.com';
 
 function json(body, status) {
   return new Response(JSON.stringify(body), {
@@ -115,6 +127,36 @@ function buildPurchase(ip, plan, token, email, first, last, company, tds) {
 function logDecline(plan, te) {
   alert('api-subscribe', 'PAYMENT_DECLINED',
     'plan=' + plan + ' code=' + (te.code || '') + ' gateway_error_code=' + (te.gateway_error_code || ''));
+}
+
+// Mails Martin directly on every card decline, so the BTB_ALERT line
+// logDecline() already writes does not depend on him (or anyone) watching
+// Workers Logs to ever be seen — the thing this task exists to fix.
+// Input: env (for the SEND_EMAIL binding configured in wrangler.jsonc),
+// the plan code, and Recurly's transaction_error object — carrying only
+// plan, code and gateway_error_code into the email, same rule as
+// logDecline(): never te.message (the buyer-facing text), never the
+// buyer's email or card. Output: nothing; sends one email and returns.
+// The raw MIME message is built by hand, not with a library — this repo
+// has no package.json, and the brief for this task says prefer
+// Cloudflare's own binding over a new dependency, so there is deliberately
+// nothing here to npm install. If SEND_EMAIL is not bound yet (the account
+// step in the comment above DECLINE_ALERT_FROM/TO not done yet), this is a
+// no-op: the BTB_ALERT log line is still written by logDecline() either
+// way, so a decline is never silently unobserved.
+async function sendDeclineAlertEmail(env, plan, te) {
+  if (!env.SEND_EMAIL) return;
+  const body = 'plan=' + plan + ' code=' + (te.code || '') + ' gateway_error_code=' + (te.gateway_error_code || '');
+  const raw =
+    'From: ' + DECLINE_ALERT_FROM + '\r\n' +
+    'To: ' + DECLINE_ALERT_TO + '\r\n' +
+    'Subject: BTB-ALERT lesko-business-landingpage\r\n' +
+    'Content-Type: text/plain; charset=utf-8\r\n' +
+    'MIME-Version: 1.0\r\n' +
+    '\r\n' +
+    body + '\r\n';
+  const message = new EmailMessage(DECLINE_ALERT_FROM, DECLINE_ALERT_TO, raw);
+  await env.SEND_EMAIL.send(message);
 }
 
 // Buyer-facing text for the Recurly `transaction_error.code` values worth
@@ -192,7 +234,7 @@ function declineMessage(te) {
   return 'Your card was declined. Please try another card or contact your bank.';
 }
 
-async function subscribe(request, env) {
+async function subscribe(request, env, ctx) {
   const ip = callerIp(request);
   if (!(await withinSubscribeLimit(ip, env))) {
     return json({ ok: false, error: 'rate-limited', message: 'Too many attempts. Please wait a minute and try again, or email ' + SUPPORT + '.' }, 429);
@@ -246,8 +288,12 @@ async function subscribe(request, env) {
   if (err.type === 'transaction' || err.transaction_error) {
     const te = err.transaction_error || {};
     // Alerts on the two ids, for support/debugging — never the buyer-facing
-    // message text, and never any card or email data.
+    // message text, and never any card or email data. The email runs
+    // through ctx.waitUntil so a slow or failing send never delays or
+    // breaks the buyer's own 402 response below; the BTB_ALERT line above
+    // already happened regardless of whether the email goes through.
     logDecline(plan, te);
+    if (ctx) ctx.waitUntil(sendDeclineAlertEmail(env, plan, te).catch((e) => console.log('decline alert email failed', e.message)));
     return json({ ok: false, error: 'declined', message: declineMessage(te) }, 402);
   }
   if (err.type === 'validation' || err.type === 'invalid_api_version' || res.status === 422) {
@@ -264,7 +310,7 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
-    if (url.pathname === '/api/subscribe') return subscribe(request, env);
+    if (url.pathname === '/api/subscribe') return subscribe(request, env, ctx);
 
     // The checkout page asks for the site's Recurly PUBLIC key here, so no key
     // is stored in the repo. Set RECURLY_PUBLIC_KEY as a Worker variable.
