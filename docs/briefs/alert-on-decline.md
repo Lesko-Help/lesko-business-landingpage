@@ -136,39 +136,88 @@ Done:
   thread `ctx` through. Added `DECLINE_ALERT_FROM`/`DECLINE_ALERT_TO`
   constants and the `cloudflare:email` import.
 - wrangler.jsonc: added a `send_email` binding `SEND_EMAIL` with
-  `destination_address: martin.j.menke@gmail.com`, commented with the two
-  one-time account steps it needs.
-- Fixed the import-stripping regex (`m` -> `gm` flag) in
-  `scripts/test-decline-reasons.js`, `scripts/test-subscribe-build-purchase.js`,
-  `scripts/test-subscribe-decline-alert.js` — confirmed red
-  (`Cannot use import statement outside a module`) before the fix, green
-  after.
-- Wrote `scripts/test-subscribe-decline-email.js`: composes the real
-  `subscribe()` decline branch with the real `sendDeclineAlertEmail()`.
-  Proved red against a scratch copy of `7d2765b` (this branch's pre-task
-  tip, via `git archive`): `FAIL: sendDeclineAlertEmail is not defined`.
-  Proved green on this branch after two fixes mid-writing (a missing
-  `Response` stub for `json()`'s `new Response(...)`; the body-assertion
-  string corrected from `plan=monthly` to `plan=business-monthly`, matching
-  `PLAN_CODES['monthly']`) — all 9 named checks pass. Re-ran all five test
-  scripts together afterward; all five pass.
-- Investigated part 1 (historical Workers Logs proof) and confirmed it is
-  genuinely not doable from this worktree with the tools available
-  (see Done when, part 1) rather than giving up without checking.
-- All four commits so far carry the required `Co-Authored-By`/
-  `Claude-Session` trailers (the first three were missing them and were
-  rewritten with `git filter-branch --msg-filter` once the gap was noticed
-  — local, unpushed, unreviewed, so rewriting was safe).
+  `destination_address: martin.j.menke@gmail.com`.
+- Fixed the import-stripping regex (`m` -> `gm` flag) in three existing
+  test scripts (worker.js grew a second `import` line) — confirmed red
+  before, green after.
+- `scripts/test-subscribe-decline-email.js`: composes the real
+  `subscribe()` with the real `sendDeclineAlertEmail()`. Proved red against
+  a scratch copy of `7d2765b` (`git archive`, no `git worktree`): `FAIL:
+  sendDeclineAlertEmail is not defined`. Green on this branch, all 9 checks
+  pass; all 5 test scripts pass together.
+- All commits so far carry `Co-Authored-By`/`Claude-Session` trailers (the
+  first three were missing them, rewritten with `git filter-branch
+  --msg-filter` while still local/unpushed).
+- First report sent to the overseer (landing-opzichter) at commit `e66eec9`.
+  Overseer verified red-proof and the 5 green tests independently, and
+  `wrangler deploy --dry-run` builds clean — but did NOT land: Martin found
+  `leskobusiness.com` already has live GoDaddy inbound mail (MX
+  smtp.secureserver.net / mailstore1.secureserver.net, SPF
+  spf.em.secureserver.net) which `wrangler email routing enable
+  leskobusiness.com` (what the brief's Deploy-implied section told Martin
+  to run) would silently replace — the brief's account-steps section was
+  wrong, not just incomplete. DECISION BY MARTIN (2026-10-06, relayed by
+  the overseer): send the alert from a subdomain instead, apex MX
+  untouched. New task: (1) settle from Cloudflare's own docs whether
+  `send_email` can send from a subdomain at all, (2) if so pick the
+  subdomain and update code/docs, (3) correct the wrangler.jsonc comment
+  and brief's account-steps with exact commands + an explicit apex-MX
+  warning, (4) re-run all five tests. Must not run any account mutation,
+  must not touch credentials (both already denied once, unchanged), must
+  not push to main.
+- Researched via WebFetch/curl against developers.cloudflare.com (fetched
+  page markdown directly, not just AI-summarized) and confirmed with exact
+  quotes:
+  - `send_email` with `destination_address` fixed to one verified address
+    (our exact case) is free on **all** plans "even when only Email
+    Routing is configured" — no paid Email Sending product needed for
+    this alert specifically.
+  - BUT enabling **Email Routing** on a zone adds MX records "to your root
+    domain" (confirmed exact wording) — it is zone-level and always
+    touches the apex. Its "subdomain" feature (dashboard: apex domain ->
+    Settings -> Subdomains) is additive ON TOP of an apex already onboarded
+    to Email Routing, not a substitute — so Email Routing can never avoid
+    touching the apex MX, on a subdomain or not. The overseer/Martin's
+    "send from a subdomain" plan cannot be done via Email Routing.
+  - **Email Sending** (a separate, newer product) CAN be onboarded directly
+    on a subdomain (`wrangler email sending enable <subdomain>`, confirmed
+    this exact CLI command exists via `--help`, distinct from `email
+    routing enable`) and its own DNS footprint is entirely scoped to a
+    `cf-bounce.<that-subdomain>` subdomain — confirmed exact wording, it
+    never touches the root domain's own MX, whichever domain/subdomain you
+    onboard. This is the one path that actually satisfies "subdomain,
+    apex MX untouched."
+  - Catch: Email Sending the product is gated to the Workers Paid plan —
+    pricing table lists it "Not available" on Free, flatly, with no
+    verified-destination carve-out (unlike Email Routing's free path above)
+    — $5/mo base if not already paid, usage itself still free since sends
+    to a verified destination don't count against the 3,000/mo quota. I
+    could not determine from this worktree whether the Freelesko account
+    is already on Workers Paid (no CLI surfaces billing plan; it's a
+    dashboard-only fact) — this is a second, separate thing to flag to
+    Martin per the brief's own "stop before adding a paid plan" clause,
+    distinct from the apex-MX question the overseer asked about.
 
-In flight: none.
+In flight: about to change `DECLINE_ALERT_FROM` to a subdomain address
+(proposing `decline-alert@alerts.leskobusiness.com`, subdomain
+`alerts.leskobusiness.com`) and correct wrangler.jsonc's comment + the
+brief's account-steps, then re-run all 5 tests (no test asserts the exact
+FROM value today, confirmed by grep, so this should stay green without
+test changes) — not yet done.
 
 Next:
-1. Commit `scripts/test-subscribe-decline-email.js` on its own.
-2. Merge `origin/main` once, run `wt-done.sh --check alert-on-decline`,
-   fix anything it refuses on.
-3. Report to the overseer: branch, commit range, the part-1 blocker and
-   exactly what dashboard check it needs, the two one-time account actions
-   under Deploy implied, and the Spec proposals above.
+1. Make the subdomain FROM-address change above; re-run all 5 tests.
+2. Rewrite wrangler.jsonc's `send_email` comment and this brief's Deploy
+   implied / Spec proposals sections with the exact `wrangler email
+   sending enable alerts.leskobusiness.com` (not `email routing enable
+   leskobusiness.com`) command, plus an explicit warning against ever
+   running `email routing enable` on the apex.
+3. Commit, then report back to the overseer with: the apex-MX finding
+   above (Email Routing can't do this, Email Sending on a subdomain can),
+   the Workers-Paid-plan question Martin needs to confirm before anyone
+   runs the real `email sending enable`, and the corrected commands.
+4. Still DO NOT run any account mutation, still DO NOT push to main —
+   those remain the overseer's/Martin's.
 
 Traps (with dates):
 - 2026-10-06: `wrangler tail` is live-only — no historical query, no
