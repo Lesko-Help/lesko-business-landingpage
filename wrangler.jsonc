@@ -9,6 +9,15 @@
     "html_handling": "auto-trailing-slash",
     "not_found_handling": "none"
   },
+  // Keeps the console.log/console.error lines subscribe() already writes
+  // queryable in the dashboard (Workers Logs) instead of vanishing when
+  // the invocation ends - before this, a decline reached us only as a
+  // screenshot. head_sampling_rate defaults to 1 (100%) when omitted, but
+  // is written out here: an alert line must never be silently sampled out.
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
   // Card-testing guard for /api/subscribe: 5 requests per 60s per caller IP.
   // Cloudflare creates the namespace from this config on deploy, no
   // dashboard step needed (unlike the two Recurly secrets).
