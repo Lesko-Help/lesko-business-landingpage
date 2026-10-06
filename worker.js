@@ -59,17 +59,44 @@ function clean(v, max) {
   return typeof v === 'string' ? v.trim().slice(0, max) : '';
 }
 
+// Cloudflare sets this header itself from the actual TCP connection, so it
+// cannot be spoofed by the client the way an X-Forwarded-For could be.
+// Input: the incoming request. Output: the caller's IP as a string, or ''
+// if Cloudflare did not supply one (should not happen in production, but
+// an empty string — not a fake IP — is the honest answer if it does).
+function callerIp(request) {
+  return request.headers.get('CF-Connecting-IP') || '';
+}
+
 // Card-testing guard: a script trying many stolen card numbers fast looks
 // like a burst of POSTs from one place, so we key on the caller's IP (not
 // email — an attacker picks a new email every request, so it gates nothing).
 // Checked before the method, the key or Recurly, so a blocked caller never
-// reaches any of those. Input: the request (for its IP header) and the
-// SUBSCRIBE_LIMIT binding from wrangler.jsonc. Output: true if this call is
-// allowed to continue.
-async function withinSubscribeLimit(request, env) {
-  const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
-  const { success } = await env.SUBSCRIBE_LIMIT.limit({ key: ip });
+// reaches any of those. Input: the caller's IP (from callerIp(), 'unknown'
+// if Cloudflare gave none — a shared bucket for all such callers, so they
+// still gate each other) and the SUBSCRIBE_LIMIT binding from
+// wrangler.jsonc. Output: true if this call is allowed to continue.
+async function withinSubscribeLimit(ip, env) {
+  const { success } = await env.SUBSCRIBE_LIMIT.limit({ key: ip || 'unknown' });
   return success;
+}
+
+// Builds the exact object POSTed to Recurly's /purchases. Input: the
+// caller's IP (from callerIp(), '' if none) plus the validated form
+// fields. Output: the purchase payload, with billing_info.ip_address set
+// only when there is a real IP to send — Recurly's own client libraries
+// mark that field *STRONGLY RECOMMENDED* (checked against the v3 API,
+// v2021-02-25, 2026-10-06): without it, Authorize.net's IP-based fraud
+// filters (velocity, geolocation) have nothing to run on. Its own function
+// so scripts/test-subscribe-build-purchase.js can prove this without a
+// live Recurly call.
+function buildPurchase(ip, plan, token, email, first, last, company, tds) {
+  const billing = { token_id: token };
+  if (ip) billing.ip_address = clean(ip, 45); // 45 chars covers the longest IPv6 text form
+  if (tds) billing.three_d_secure_action_result_token_id = tds;
+  const account = { code: email, email, first_name: first, last_name: last, billing_info: billing };
+  if (company) account.company = company;
+  return { currency: 'USD', account, subscriptions: [{ plan_code: plan }] };
 }
 
 // Buyer-facing text for the Recurly `transaction_error.code` values worth
@@ -148,7 +175,8 @@ function declineMessage(te) {
 }
 
 async function subscribe(request, env) {
-  if (!(await withinSubscribeLimit(request, env))) {
+  const ip = callerIp(request);
+  if (!(await withinSubscribeLimit(ip, env))) {
     return json({ ok: false, error: 'rate-limited', message: 'Too many attempts. Please wait a minute and try again, or email ' + SUPPORT + '.' }, 429);
   }
   if (request.method !== 'POST') return json({ ok: false, message: 'Method not allowed' }, 405);
@@ -170,11 +198,7 @@ async function subscribe(request, env) {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return json({ ok: false, message: 'Please enter a valid email address.' }, 400);
   if (!first || !last) return json({ ok: false, message: 'Please enter your first and last name.' }, 400);
 
-  const billing = { token_id: token };
-  if (tds) billing.three_d_secure_action_result_token_id = tds;
-  const account = { code: email, email, first_name: first, last_name: last, billing_info: billing };
-  if (company) account.company = company;
-  const purchase = { currency: 'USD', account, subscriptions: [{ plan_code: plan }] };
+  const purchase = buildPurchase(ip, plan, token, email, first, last, company, tds);
 
   let res, data;
   try {
