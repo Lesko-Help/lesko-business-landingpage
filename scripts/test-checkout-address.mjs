@@ -205,10 +205,15 @@ await (async function () {
 await (async function () {
   // A working Recurly stub, so the form gets past "the secure card field is not ready" (a real,
   // separate error this test is not about) and only our own required-field check is on trial.
+  // token() records that it was reached: collect() returning true is what lets the submit handler
+  // get this far, so "recurly.token was asked for a token" is the positive proof this case needs —
+  // unlike "no error box appeared", which also holds on the unfixed page, where collect() returns
+  // false in silence and nothing ever shows an error box either.
+  var tokenCalled = false;
   const recurlyStub = {
     configure: function () {},
     Elements: function () { return { CardElement: function () { return { attach: function () {}, on: function () {} }; } }; },
-    token: function () {}, // never calls back: this test only needs collect() to let Pay proceed
+    token: function () { tokenCalled = true; }, // never calls back: reaching it is all this test needs
     Risk: function () { return {}; }
   };
   const w = loadCheckout(recurlyStub, { recurly_public_key: 'pk-test' });
@@ -220,9 +225,8 @@ await (async function () {
     // no state: Belgium is not in the region-required list, and this must not block Pay.
   });
   submit(w);
-  const payMsg = w.document.getElementById('payMsg');
-  check('checkout.html: a Belgian address with no state fills every required field and does not block Pay',
-    !payMsg.classList.contains('show'));
+  check('checkout.html: a Belgian address with no state reaches Recurly for a card token (Pay was not blocked)',
+    tokenCalled === true);
 })();
 
 process.exit(failCount > 0 ? 1 : 0);
