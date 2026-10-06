@@ -142,23 +142,31 @@ Done:
   `scripts/test-decline-reasons.js`, `scripts/test-subscribe-build-purchase.js`,
   `scripts/test-subscribe-decline-alert.js` — confirmed red
   (`Cannot use import statement outside a module`) before the fix, green
-  after. All four existing test scripts pass now.
+  after.
+- Wrote `scripts/test-subscribe-decline-email.js`: composes the real
+  `subscribe()` decline branch with the real `sendDeclineAlertEmail()`.
+  Proved red against a scratch copy of `7d2765b` (this branch's pre-task
+  tip, via `git archive`): `FAIL: sendDeclineAlertEmail is not defined`.
+  Proved green on this branch after two fixes mid-writing (a missing
+  `Response` stub for `json()`'s `new Response(...)`; the body-assertion
+  string corrected from `plan=monthly` to `plan=business-monthly`, matching
+  `PLAN_CODES['monthly']`) — all 9 named checks pass. Re-ran all five test
+  scripts together afterward; all five pass.
 - Investigated part 1 (historical Workers Logs proof) and confirmed it is
   genuinely not doable from this worktree with the tools available
   (see Done when, part 1) rather than giving up without checking.
+- All four commits so far carry the required `Co-Authored-By`/
+  `Claude-Session` trailers (the first three were missing them and were
+  rewritten with `git filter-branch --msg-filter` once the gap was noticed
+  — local, unpushed, unreviewed, so rewriting was safe).
 
-In flight: none — about to write
-`scripts/test-subscribe-decline-email.js` next (not yet created).
+In flight: none.
 
 Next:
-1. Write `scripts/test-subscribe-decline-email.js`, prove it red (revert
-   worker.js in a scratch copy or check against `origin/main`) then green.
-2. `git add -N .`, `git diff HEAD` self-check, commit in logical pieces
-   (brief first [this commit], then worker.js+wrangler.jsonc, then the
-   test-file regex fixes, then the new test).
-3. Merge `origin/main` once, run `wt-done.sh --check alert-on-decline`,
+1. Commit `scripts/test-subscribe-decline-email.js` on its own.
+2. Merge `origin/main` once, run `wt-done.sh --check alert-on-decline`,
    fix anything it refuses on.
-4. Report to the overseer: branch, commit range, the part-1 blocker and
+3. Report to the overseer: branch, commit range, the part-1 blocker and
    exactly what dashboard check it needs, the two one-time account actions
    under Deploy implied, and the Spec proposals above.
 
