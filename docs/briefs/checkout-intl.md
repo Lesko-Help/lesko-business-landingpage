@@ -110,19 +110,21 @@ Done:
   `test-ga4-events.sh` re-run too, still green (no regression).
 - `git status` clean except this brief; ready for `wt-done.sh --check`.
 
-In flight: none — about to commit this State update, then check and report.
+In flight: none.
 
-Next:
-- Commit this brief update on its own (one idea: "record the false-guard
-  fix and its red-then-green proof").
-- `git fetch && git merge origin/main` (check nothing moved under us,
-  Giulia pushes to `main` directly too).
-- `git add -N .`, `git status` clean, then `wt-done.sh --check checkout-intl`
-  until it exits 0.
-- Report to `landing-opzichter` with branch, commit range, HEAD sha, the
-  red-then-green proof for the corrected check, and that this is
-  `checkout.html` + test-file only (no deploy script to run beyond the
-  normal `main` push Cloudflare does on its own).
+- Reported to `landing-opzichter` (`3448079` test fix, `a0adb00` brief
+  update); it re-verified independently (27/27 on `a0adb00`, 17 FAIL/10 PASS
+  on a fresh `git archive origin/main` scratch copy with the corrected
+  Belgian check among the failures, `test-ga4-events.sh` still all-pass,
+  `checkout.html` confirmed untouched since `b86bd22`) and replied
+  **approved — nothing further to change**. One footnote, no action: its
+  count of checks that stayed green in the original red run was 11, not the
+  12 I/it had said earlier; doesn't change anything downstream.
+
+Next: nothing of mine left to do. Landing is Martin's call, not the
+overseer's or mine — standing by. The overseer runs `wt-done.sh` from the
+overseer session and closes this window once Martin says "land it". Do not
+push to `main` myself.
 
 Traps (with dates):
 - 2026-10-06: `window.fetch` resolving to an already-fulfilled Promise still
