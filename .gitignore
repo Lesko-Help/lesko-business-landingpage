@@ -1,3 +1,8 @@
 # Worktrees are cut into this folder by ~/.werk/wt-new.sh; never commit them.
 .claude/worktrees/
 .DS_Store
+
+# Local run: wrangler dev reads Recurly SANDBOX keys from .dev.vars in this
+# folder, and .wrangler/ is its local state. Neither belongs in git.
+.dev.vars
+.wrangler/

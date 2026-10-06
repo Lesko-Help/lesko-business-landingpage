@@ -15,3 +15,10 @@ scripts/
 .wrangler/
 .git/
 README.md
+
+# Local-run files: .dev.vars holds the Recurly sandbox PRIVATE key. Every file
+# in this folder is served publicly, and a hand `wrangler deploy` uploads the
+# folder as it is on disk, so without these two lines a local test would
+# publish that key on leskobusiness.com.
+.dev.vars
+.dev.vars.example
