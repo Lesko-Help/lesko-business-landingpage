@@ -84,17 +84,19 @@ async function withinSubscribeLimit(ip, env) {
 }
 
 // Builds the exact object POSTed to Recurly's /purchases. Input: the
-// caller's IP (from callerIp(), '' if none) plus the validated form
-// fields. Output: the purchase payload, with billing_info.ip_address set
-// only when there is a real IP to send — Recurly's own client libraries
-// mark that field *STRONGLY RECOMMENDED* (checked against the v3 API,
-// v2021-02-25, 2026-10-06): without it, Authorize.net's IP-based fraud
-// filters (velocity, geolocation) have nothing to run on. Its own function
-// so scripts/test-subscribe-build-purchase.js can prove this without a
-// live Recurly call.
+// caller's IP (from callerIp(), '' if none, currently unused — see below)
+// plus the validated form fields. Output: the purchase payload.
+// billing_info never carries ip_address here: Recurly's v3 /purchases
+// rejects ip_address alongside token_id outright (422 "ip_address cannot
+// be present with token_id") because a Recurly.js token already carries
+// its own billing info, so no sibling billing_info field may ride with
+// it — found 2026-10-06 when this broke every live purchase (commit
+// 265f225 had added the line on the mistaken belief Recurly needed it
+// passed separately). Its own function so
+// scripts/test-subscribe-build-purchase.js can prove this without a live
+// Recurly call.
 function buildPurchase(ip, plan, token, email, first, last, company, tds) {
   const billing = { token_id: token };
-  if (ip) billing.ip_address = clean(ip, 45); // 45 chars covers the longest IPv6 text form
   if (tds) billing.three_d_secure_action_result_token_id = tds;
   const account = { code: email, email, first_name: first, last_name: last, billing_info: billing };
   if (company) account.company = company;
