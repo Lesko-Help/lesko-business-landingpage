@@ -230,13 +230,27 @@ decline-only table and should not be trusted.
   GE, FM, AU, LV, NZ and UM. Explanation **(B) "the merchant account
   refuses international cards" is dead**, and so is the earlier claim
   that no European card has ever been approved here.
-- *The branded `/checkout` sells.* Recurly origin **`token_api`** —
-  which is our `/api/subscribe` path, shown in the Recurly dashboard as
-  "Recurly.js" — has successful purchases on 2026-10-03 (17:01 and 18:39,
-  $149.95), 2026-10-04 (04:02 $29.95; 20:01 $149.95) and more. Three
-  "Lesko Business - Monthly" invoices captured on 2026-10-06 alone
-  (291121, 291172, 291182). **The rail is not broken and 3DS is not
-  stopping sales.**
+- *The branded `/checkout` has NOT yet taken a payment.* Corrected
+  ~22:00 CEST; the bullet that stood here claimed the opposite and was
+  wrong. Recurly origin `token_api` is **not** our checkout — it goes back
+  to 2026-08-09, months before `/checkout` existed, so it is the
+  ClickFunnels pages with Recurly.js embedded. The reliable signature is
+  the **account code**: `worker.js:118` sets `account.code = email`, so a
+  sale through our page carries an email-shaped account code. Since
+  go-live (2026-09-30 13:20 UTC) there are **zero** email-shaped account
+  codes on any transaction, any status. Of 4,961 account codes seen since
+  2026-09-24, 4,776 are hex/UUID (Recurly-generated), 183 other, and
+  exactly **2** are email-shaped — both on 2026-09-29, both origin `hpp`,
+  i.e. Giulia's hosted-page test. **Coverage caveat:**
+  `stg_recurly_transactions` was last fetched **2026-10-06 03:30 UTC**, so
+  anything after 03:24 today is outside this test, including today's three
+  captures and every Belgian attempt.
+- *Business plans do sell, through the older routes.* `stg_authnet_unsettled`
+  shows "Lesko Business" charges captured most days since 2026-09-24 —
+  about 23 approvals in all, 3 of them on 2026-10-06 (invoices 291121,
+  291171/291172, 291182, all US). The plans started selling before
+  `/checkout` existed, so ClickFunnels and the hosted pages are carrying
+  them.
 - *Currency is ruled out conclusively.* All **46,626** Recurly
   transactions on this account, for all time, are **USD**. Not one has
   ever been presented in any other currency.
