@@ -79,7 +79,7 @@ and why. The overseer applies what it agrees with on main.
 Done:
 - Brief committed (first commit, `8be90fa`).
 - New suite `scripts/test-checkout-address.sh` + `.mjs` (jsdom, modelled on
-  `test-ga4-events.sh`), 26 checks. Proved red against the then-current
+  `test-ga4-events.sh`), 27 checks. Proved red against the then-current
   `checkout.html` first (every check tied to one of the two spec rules
   failed, exactly as expected; nothing failed for an unrelated reason).
 - `checkout.html` edited: `state`/`postal_code` inputs no longer hard-coded
@@ -92,23 +92,37 @@ Done:
   first bad required field and calls `showError()` naming it and scrolling
   to its `.field`, instead of returning in silence; `showError()` takes an
   optional scroll target.
-- Suite now green (26/26) on the edited `checkout.html`; `test-ga4-events.sh`
-  re-run too, still green (no regression).
-- Not yet done: commit the `checkout.html` + test changes, merge
-  `origin/main`, `wt-done.sh --check`, report to the overseer.
+- Committed `checkout.html` + the new test pair as one commit (`b86bd22`).
+- Overseer review (`landing-opzichter`): checkout.html diff "in scope and
+  reads well", no change needed there. But the Belgian-address check
+  (then line ~224) was a false guard: it asserted only `!payMsg.show`, which
+  is also true on unmodified `origin/main` — there the bug is *silent*
+  blocking, so no error box appears there either, and the check could not
+  tell fixed from broken.
+- Fixed: that check now has the stub's `token()` set a `tokenCalled` flag,
+  and asserts `tokenCalled === true` — a positive signal only the fixed
+  `collect()` lets the submit handler reach. Dropped the old
+  `!payMsg.show` assertion entirely (it was the vacuous part).
+- Re-verified red→green the same way the overseer did: `git archive
+  origin/main` into a scratch dir (not `git worktree`), ran the suite there
+  — 17 FAIL / 10 PASS, and the Belgian check is now among the FAILs (it
+  previously was not). Ran the suite on this branch again — 27/27 PASS.
+  `test-ga4-events.sh` re-run too, still green (no regression).
+- `git status` clean except this brief; ready for `wt-done.sh --check`.
 
-In flight: none — about to commit.
+In flight: none — about to commit this State update, then check and report.
 
 Next:
-- Commit the `checkout.html` edit and the new test pair as one commit
-  (one idea: "build the two to-build billing-address rules").
-- `git fetch && git merge origin/main` (not yet done this session — check
-  nothing moved under us, Giulia pushes to `main` directly too).
+- Commit this brief update on its own (one idea: "record the false-guard
+  fix and its red-then-green proof").
+- `git fetch && git merge origin/main` (check nothing moved under us,
+  Giulia pushes to `main` directly too).
 - `git add -N .`, `git status` clean, then `wt-done.sh --check checkout-intl`
   until it exits 0.
 - Report to `landing-opzichter` with branch, commit range, HEAD sha, the
-  red-then-green proof, and that this is `checkout.html` only (no deploy
-  script to run beyond the normal `main` push Cloudflare does on its own).
+  red-then-green proof for the corrected check, and that this is
+  `checkout.html` + test-file only (no deploy script to run beyond the
+  normal `main` push Cloudflare does on its own).
 
 Traps (with dates):
 - 2026-10-06: `window.fetch` resolving to an already-fulfilled Promise still
@@ -121,3 +135,9 @@ Traps (with dates):
   (not `window.recurly`) does resolve to the window global set from the
   test harness — no need to rewrite the page's own code to use `window.`
   explicitly just to make it testable.
+- 2026-10-06: a check that only asserts "no error box appeared" can be green
+  on both the fixed code and on code that fails silently — the silent
+  failure never shows the error box either. Asserting a positive signal
+  (a stub callback was reached, a busy/disabled state was entered) is the
+  only way to tell the two apart; absence-of-error is not evidence of
+  success when the known bug is silence.
