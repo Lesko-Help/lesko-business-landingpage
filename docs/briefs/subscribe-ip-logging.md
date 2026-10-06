@@ -181,7 +181,80 @@ Replaced in full each time the context guard asks you to save — never append a
 About 60 lines max. Old traps stay (they are short and worth keeping); everything else gets
 overwritten with the current picture.
 
-Done:
-In flight (file:line):
+Done (2026-10-06):
+- Brief filled in and committed (`6270b61`).
+- Wrote three red-then-green test scripts, proved each red against the
+  worker.js on this branch before any code change: `scripts/
+  test-subscribe-build-purchase.js`, `scripts/test-raillog-alert.js`,
+  `scripts/test-subscribe-decline-alert.js`.
+- Task 1 (send the IP to Recurly) implemented in `worker.js`: added
+  `callerIp(request)`, changed `withinSubscribeLimit` to take `(ip, env)`
+  instead of `(request, env)`, added `buildPurchase(ip, plan, token,
+  email, first, last, company, tds)` (sets `billing_info.ip_address` when
+  `ip` is non-empty, via `clean(ip, 45)`), `subscribe()` now computes `ip`
+  once and passes it to both. NOT YET COMMITTED. Proved green: `node
+  scripts/test-subscribe-build-purchase.js worker.js` → all PASS, exit 0.
+
+In flight: nothing mid-edit right now; the task-1 worker.js edit above is
+done and tested but still uncommitted, sitting in the working tree.
+
 Next:
+1. `git add worker.js scripts/test-subscribe-build-purchase.js` and commit
+   task 1 (one commit: "lift the IP ... send billing_info.ip_address").
+2. Task 2: add the `observability` block to `wrangler.jsonc` (`{"enabled":
+   true, "head_sampling_rate": 1}`, see Context above for why both keys are
+   explicit). Prove `npx wrangler deploy --dry-run` still exits 0 before
+   AND after (it already exits 0 unmodified — checked 2026-10-06, baseline
+   run, no account/auth needed). Commit alone.
+3. Task 3: write `raillog.js` (exports `ALERT_CODES`, `alert(runnable,
+   code, what)` — see brief's Context for the exact shape:
+   `console.error(JSON.stringify({severity:'ERROR', message:'BTB_ALERT
+   lesko-business-landingpage/<runnable> <CODE>: <what>'}))`, throws on an
+   unlisted code, `PAYMENT_DECLINED` added to the fixed 7). Run `node
+   scripts/test-raillog-alert.js raillog.js`, confirm green (it is red
+   right now — file does not exist).
+4. Wire it: in `worker.js`, add `import { alert } from './raillog.js';` at
+   the top, add `logDecline(plan, te)` (calls `alert('api-subscribe',
+   'PAYMENT_DECLINED', ...)` with plan/code/gateway_error_code, never
+   `te.message`), replace the `console.log('subscribe declined', ...)`
+   line in the `transaction_error` branch of `subscribe()` with
+   `logDecline(plan, te)`. Run `node scripts/test-subscribe-decline-alert.js
+   worker.js raillog.js`, confirm green (currently red). Also fix
+   `scripts/test-decline-reasons.js` so it still passes: it vm-runs
+   worker.js's body by cutting at `export default`, and the new leading
+   `import` line will throw a SyntaxError in that vm context — strip it
+   the same way the three new test scripts do (`source.replace(/^import\s
+   +.*?;\s*$/m, '')`) before the existing cut-at-`export default` step, and
+   add `sandbox.alert = () => {};` before running (that test only cares
+   about `declineMessage`, not `alert`). Run `node scripts/
+   test-decline-reasons.js worker.js`, confirm still green (12/12).
+   Add `raillog.js` to `.assetsignore`, next to the existing `worker.js`
+   line. One commit for all of task 3 (helper + wiring are one idea: "alert
+   on every decline").
+5. Re-run all four scripts once more together to confirm nothing regressed,
+   then `npx wrangler deploy --dry-run` once more (bundles the new
+   raillog.js import — this is the only check that the ES import itself is
+   wired correctly for a real deploy).
+6. `git add -N .`, `git status` clean, `git fetch && git merge origin/main`
+   (should be a no-op — `origin/main` has not moved since this branch
+   started), update `docs/gates/` if this repo has any (none seen so far —
+   check `ls docs/gates/` once before skipping).
+7. `wt-done.sh --check subscribe-ip-logging`, fix anything it refuses on,
+   re-run until exit 0.
+8. SendMessage to `landing-opzichter` (the overseer) — branch, commit
+   range, HEAD sha, 5-line summary, how done-when was proven red-then-
+   green, deploy implications (push to main via Workers Builds; no new
+   secret or dashboard step). Then stop and wait.
+
 Traps (with dates):
+- 2026-10-06: worker.js gained a leading ES `import` line (task 3). Any
+  future vm-based test of worker.js's body (the `export default` cut
+  trick) must strip that import line first, or the vm load throws
+  `SyntaxError: Cannot use import statement outside a module` for an
+  unrelated reason. `scripts/test-decline-reasons.js` needed exactly this
+  fix (see Next, item 4).
+- 2026-10-06: `wrangler deploy --dry-run` needs no Cloudflare login/
+  account for this repo's current config (checked against baseline before
+  any change) — safe to use as the "does it still bundle/validate" guard
+  for `wrangler.jsonc` and the new `raillog.js` import without touching
+  production.
