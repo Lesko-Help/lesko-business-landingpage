@@ -1,8 +1,8 @@
 # page
-Status: as-built 2026-09-30
+Status: as-built 2026-09-30, with two to-build rules under the checkout (2026-10-06)
 Kind: app
 Summary: `index.html` + `checkout.html` + `welcome.html` (+ `llms.txt`, `sitemap.xml`): the sales page, our one-step checkout and the thank-you page
-Part of: `docs/specs/INDEX.md` · Deploy: push to `main` (Cloudflare Workers Builds) · Updated: 2026-10-02
+Part of: `docs/specs/INDEX.md` · Deploy: push to `main` (Cloudflare Workers Builds) · Updated: 2026-10-06
 Reads: `/api/config` (checkout only); nothing else at runtime — the YouTube playlist is hard-coded.
 Writes: `/api/subscribe` (checkout); the buyer's email, company and plan in the browser's `localStorage` key `leskoCheckout`; the newsletter email straight to Kit.
 
@@ -43,7 +43,9 @@ Who: a business owner Matthew sent here · Where: web, three static HTML files
 - What it shows: the chosen plan and its total (an unknown or missing `plan`
   falls back to `monthly`), then first and last name, email (echoed back
   under the field), optional business name, Recurly's card field, street,
-  city, state, ZIP, country, and a "Pay $… now" button.
+  city, state/province, postal code, country, and a "Pay $… now" button.
+  *(as-built 2026-10-02: the labels read "State" and "ZIP code", both
+  always required — see the billing-address rules below.)*
 - Reads / Writes: `GET /api/config` for the Recurly public key; Recurly.js
   turns the card into a token; `POST /api/subscribe` with plan, token, names,
   email and company. On `ok` it saves `{email, company, plan, t}` in
@@ -55,6 +57,27 @@ Who: a business owner Matthew sent here · Where: web, three static HTML files
   error, or "The payment did not go through…" when there is none; a failed
   bank check shows "The bank check did not go through…". *(as-built: if
   `/api/config` fails, the card field silently never appears.)*
+
+- Billing address *(to build, decided 2026-10-06)*: the **country select is
+  what decides which address fields a buyer must fill in**, so a non-US buyer
+  can finish the form. Street and city are required everywhere. The region
+  field is required only for `US`, `CA` and `AU` (the three in the list whose
+  gateways check it) and optional for the other 37; its label reads
+  "State / Province / Region", and the US is not a special case in the markup,
+  only in that list. The postal field is labelled "Postal code", carries no
+  `inputmode="numeric"` (NL, GB, CA, PL postcodes contain letters) and is
+  required everywhere except `AE`, `BS`, `JM`, `TT` and `GH`, which have no
+  usable postcode. Recurly's own `required:` list is cut back to the fields
+  that are needed in every country — `first_name`, `last_name`, `address1`,
+  `city`, `country` — so the per-country part is ours alone and Recurly is
+  never configured twice.
+- A blocked Pay press always says something *(to build, decided 2026-10-06)*:
+  when the form check fails, the red `#payMsg` box names the first missing
+  field and the page scrolls to it. As built the submit handler returns in
+  silence, so a buyer whose only error is out of sight (the Pay button sits in
+  the right-hand column, the address fields in section 2) sees a dead button
+  and no reason — the most likely cause of Martin's failed Belgian attempt on
+  2026-10-05.
 
 ### The thank-you page (`/welcome?email=…&plan=…`)
 
@@ -112,5 +135,6 @@ money is GA4, shared by all three pages since `ga4-all-pages` (landed
 - 2026-09-30 (`682b52f`): GA4 switched on with `G-6K847LXFE7`, the leskobusiness.com web stream of Martin's new property, set only in `site-events.js`; no Google snippet, no GTM (Martin). Why: the funnel events need somewhere to go; one id in one file keeps the consent and email-stripping rules in force.
 - 2026-09-30: `checkout.html`, `welcome.html` and `assets/flow.css` are part of this module, not a module of their own. Why: they are static pages deployed and edited the same way; the Worker side is `worker`.
 - 2026-10-01 (landed 2026-10-02, `68b9961`): the EU/EEA/UK/CH consent rule is dropped, still no banner — every visitor gets `analytics_storage` granted, ads stay denied (Martin, told it goes against the EU ePrivacy consent rule). Why: GA4 counted no EU visits at all, including Martin's own test visits, so the funnel could not be read. Replaces the 2026-09-29 line's "EU visitors simply get no analytics cookie".
+- 2026-10-06: the checkout accepts a non-US billing address; which fields are required follows the chosen country (Martin). Why: the form demanded a US "State" and a numeric "ZIP", so a European buyer could not submit it at all — and no purchase has ever come through `/checkout`. This changes our form only; whether the gateway behind Recurly (Authorize.net, a US merchant account) actually accepts a European card is a separate, unproven question, and this change is also the cheapest way to find out.
 
 <!-- spec:template -->
