@@ -196,6 +196,37 @@ branch; this section is the current picture only.*
   1 `token_api` success** in that same window at business-plan prices. The
   counts match one for one.
 
+**How many people actually reach the page (2026-10-07)**
+
+GA4 property `556794866` (account `leskohelp 410221931`) carries **two web
+streams**, and the reports mix them: `leskobusiness.com` (`15890761111`, our
+measurement id `G-6K847LXFE7`) and **`ClickFunnels funnels` /
+www.free.lesko.com** (`15959542547`). Unfiltered the property shows 3,965
+users and 15,904 events for Sep 9 - Oct 6 — almost all of it ClickFunnels.
+Always add the report filter *Hostname contains leskobusiness.com* before
+reading anything as ours.
+
+Filtered to our hostname, Sep 9 - Oct 6 (GA4 only started collecting
+2026-09-30):
+
+| Page | Views | Active users |
+|---|---|---|
+| `/` | 15 | 5 |
+| `/checkout` | 14 | 4 |
+| `/welcome` | 1 | 1 |
+| **total** | **30** | **5** |
+
+Five people in a week, and those five are us testing. On 2026-10-07 up to the
+time of writing: **zero**. Cloudflare counts 1.7k asset requests over 7 days
+for the same Worker, which is CSS, JS, favicons, our own curl checks and bot
+scans (`/wp-admin/install.php`, `/api/session/properties`) — asset requests
+are not visitors, and the two numbers disagreeing by a factor of fifty is
+exactly what that difference looks like.
+
+The `/welcome` row carries **`purchase`, 1 event, $29.95** — so the GA4
+tail of the 14:23 sale did fire, once, with the right revenue. That closes the
+open question about whether `purchase` ever reaches Google.
+
 **Traps learned, with their dates**
 
 - *`origin = token_api` does NOT identify our checkout* (2026-10-07). Both
@@ -230,8 +261,8 @@ branch; this section is the current picture only.*
 - Tell the **overseer** that `docs/specs/modules/worker.md:124`'s "18:52 CEST"
   is now **confirmed correct** — it is the Worker log timestamp of the three
   declines. The earlier note calling it unexplained can go.
-- Still open from before: the GA4 `purchase` event on `/welcome` has not been
-  seen firing; whether the 14:23 sale provisioned MN access has not been
-  checked here (that is lesko-provisioning's rail).
+- Still open from before: whether the 14:23 sale provisioned MN access has not
+  been checked here (that is lesko-provisioning's rail). The GA4 `purchase`
+  half of that tail is now proven (see above).
 - Branch recommendation unchanged: **park, do not delete.**
 tell Giulia to wait a day and attempt once. (4) Decide park-or-revive.
