@@ -152,169 +152,86 @@ For `docs/specs/modules/worker.md`, Functions section, once this lands:
 
 ## State
 
-*(Replaced in full 2026-10-06 ~20:30 CEST. Re-derive from git + this
-section after a compaction; do not trust a conversation summary.)*
+*Replaced in full 2026-10-07. Earlier checkpoints are in `git log -p` on this
+branch; this section is the current picture only.*
 
-**Branch state.** `alert-on-decline` at `3d69fa9` (merge of `origin/main`
-@ `a55c994`). Working tree clean. **Reviewed by the overseer and NOT
-landed** — Martin has never said "land it". The code is finished and
-proven: `sendDeclineAlertEmail()` in `worker.js` (raw MIME, no new
-library, `ctx.waitUntil`, no-op when `SEND_EMAIL` is unbound), the
-`send_email` binding in `wrangler.jsonc` with `destination_address`
-pinned to Martin's address, `scripts/test-subscribe-decline-email.js`
-(9 checks, proved red against `7d2765b` first). All five test scripts
-pass together; `wrangler deploy --dry-run` builds clean at 12.89 KiB.
+**Done**
 
-**DECISION BY MARTIN 2026-10-06: option 3 — drop the email channel.**
-Asked in the same breath whether a pub/sub could carry the alert instead;
-answered (see below) but he has not chosen a replacement. Consequence:
-this branch has nothing left worth landing — the `BTB_ALERT …
-PAYMENT_DECLINED` line already exists and already fires on `main`, and
-the `/gm` regex fix in three test scripts was only needed because the
-email code added a second `import`. **Park the branch, do not delete.**
+- The alert helper `raillog.js` and the `BTB_ALERT …/api-subscribe
+  PAYMENT_DECLINED` line are live and **proven in production**. Cloudflare
+  Workers Observability shows the line firing three times on 2026-10-06 at
+  18:52:14 / 18:52:33 / 18:52:51 CEST, at level `error`, carrying
+  `plan=business-monthly code=declined`. No card number, no email, no
+  buyer-facing text in the line — the privacy rule held under real traffic.
+- The `ip_address` + `token_id` production break is fixed and landed
+  (`a6b8c00`). Its fingerprint is in the same log: 18:27:00 CEST
+  "subscribe validation business-monthly ip_address cannot be present with
+  token_id". That was the last occurrence.
+- The European-decline question is **answered and closed**, from BigQuery, not
+  from docs. It is not the currency (all 46,626 Recurly transactions ever on
+  this account are USD), not 3DS, and not a merchant account refusing
+  international cards (Belgium has 9 approvals in 28 attempts on this very
+  gateway). It is card-specific: Martin's Mastercard returns Merchant Advice
+  Code `01` "New account information" on all six attempts — the issuer holds
+  newer card details, the card has been reissued. Giulia's Visa returns MAC
+  `2` "Issuer cannot approve at this time" — soft, temporary, consistent with
+  issuer velocity blocking after four tries inside an hour.
 
-**On pub/sub (answered, not acted on).** Cloudflare has no free built-in
-alert on a log string: Logpush is Paid, Queues is a Worker binding and
-not a notifier. This org's alert kit is GCP (`raillog.py`,
-`deploy-alerts.sh`, Cloud Alerting matching `BTB_ALERT` text at
-`"severity": "ERROR"`). So the GCP route is: the Worker writes straight
-to Cloud Logging `entries:write` — NOT Pub/Sub, which would still need
-something draining the topic into logs. Cost: a Google service-account
-key as a Cloudflare secret plus RS256 JWT signing in the Worker. Set
-against $5/month for Workers Paid.
+**The big finding, 2026-10-07**
 
-**Unresolved conflict about whether email is even paid.** This worktree
-found (exact quotes from developers.cloudflare.com) that `send_email`
-with a fixed `destination_address` is free on all plans "even when only
-Email Routing is configured". The overseer found the Freelesko account
-is on **Free — $0 — Current plan** and the dashboard table reads "Email
-Sending — Free: —, Paid: Included". Both are first-hand. Not settled; a
-real deploy is the only test. Do not state either as fact.
+- **The branded `/checkout` HAS taken a real payment.** 2026-10-06 14:23:20
+  UTC, $29.95, `business-monthly`, Visa ...4337, US, gateway Authorize.Net,
+  message "Approved", subscription `zq2baa3yi8z5`, account code
+  `freelesko@gmail.com` (Matthew Lesko's own card — a live test, but a real
+  charge that really settled).
+- This **overturns commit `a9793ae`**, which said no payment had gone through.
+  That commit was not wrong in method, it was wrong in data:
+  `stg_recurly_transactions` was then stale at 2026-10-06 03:24 UTC, so the
+  sale at 14:23 was outside the window. The table refreshed 2026-10-07
+  03:30 UTC and the sale appeared.
+- Two independent sources agree, which is why this one can be trusted:
+  Cloudflare counts exactly **16 subrequests to `v3.recurly.com` in 7 days,
+  15 × 4xx and 1 × 2xx**, and `worker.js:270` is the only line in the repo
+  that calls that host; BigQuery shows exactly **15 `token_api` declines and
+  1 `token_api` success** in that same window at business-plan prices. The
+  counts match one for one.
 
-**GoDaddy / apex-MX question, 2026-10-06, still open but leaning.** All
-of `leskobusiness.com`'s mail DNS is GoDaddy's stock parked-domain
-default: MX smtp/mailstore1.secureserver.net, SPF `…secureserver.net
-?all` (neutral), DMARC `rua=…@onsecureserver.net`, and **no**
-`autodiscover`/`mail`/`email`/`pop`/`imap` records — the ones GoDaddy
-adds when a mailbox is actually provisioned. Martin's GoDaddy account
-holds no Email & Office product (GoDaddy upsells him one) and does not
-even list `leskobusiness.com`. Nameservers are Cloudflare's, so the
-records are editable in the Cloudflare zone and any change is
-reversible. **Settling test, Martin's, not yet run:** mail
-`nobody@leskobusiness.com` from Gmail; a bounce means the apex MX is
-decorative and the free Email-Routing route is back on the table.
+**Traps learned, with their dates**
 
-**Why European cards decline — answered 2026-10-06 ~21:30 CEST from
-BigQuery, and the previous two answers in this file were both wrong.**
-Source: `lesko-486515.provisioning_models.stg_authnet_unsettled` and
-`…stg_recurly_transactions` (read-only `bq query`, no credentials read).
+- *`origin = token_api` does NOT identify our checkout* (2026-10-07). Both
+  our branded `/checkout` and the older ClickFunnels Recurly.js pages
+  tokenise with Recurly.js and arrive as `token_api`; it first appears
+  2026-08-09, months before `/checkout` shipped. Do not use it to attribute.
+- *`account_code == email` identifies our successes, but not our declines*
+  (2026-10-07). `worker.js:118` sets `account.code = email`, so a sale through
+  our page is unmistakable. A **declined** purchase often persists no account
+  at all, so `account_code` comes back empty — the three 16:52 UTC declines
+  are provably ours (they match the Worker log to the second) yet carry no
+  account code. Counting declines by account code undercounts them.
+- *`stg_authnet` is decline-only by construction* (2026-10-06). It is built
+  solely from `failed_payment_notification` webhooks: 23,612 declines, zero
+  approvals ever. Any approval rate computed from it is 0% and meaningless.
+  Approvals live in `stg_authnet_unsettled` and `stg_recurly_transactions`.
+- *`avs_response = 'P'` is a constant on this account* (2026-10-06). It
+  appears on declines and approvals alike; AVS is never evaluated, so it is
+  never evidence. `cvv_response = 'M'` is a real signal.
+- *`stg_recurly_transactions` lags by hours* (2026-10-07). Always read
+  `MAX(fetched_at)` before concluding anything from an absence.
+- *Workers Observability only began logging 2026-10-06 ~18:27 CEST.* Earlier
+  attempts that day leave no log line, only a Recurly transaction row.
 
-**Read this first — the table trap.** `provisioning_models.stg_authnet`
-is built only from Authorize.Net `failed_payment_notification` webhooks,
-so it is **decline-only by construction**: 23,612 declines, 160
-generalErrors, zero approvals, ever. Computing an approval rate from it
-produces "nothing ever succeeds", which is false. Approvals live in
-**`stg_authnet_unsettled`** (the API pull) and in
-**`stg_recurly_transactions`**. The earlier claim in the memory bank that
-this account has "11,101 declines and 3 successes" comes from the
-decline-only table and should not be trusted.
+**Next**
 
-**What the data actually shows.**
-- *The account is healthy.* 126 approvals on 2026-10-06; the daily
-  approval rate has sat between 19% and 53% every day since 2026-09-15
-  with no collapse. The low absolute rate is a dunning-heavy book, not a
-  fault.
-- *Europe is approvable on this Authorize.Net gateway.* Belgium has **9
-  approvals out of 28 attempts**, including **$29.95 and $89.95 both
-  captured on 2026-09-29 16:46 and 16:49 UTC**. Approvals also exist from
-  GE, FM, AU, LV, NZ and UM. Explanation **(B) "the merchant account
-  refuses international cards" is dead**, and so is the earlier claim
-  that no European card has ever been approved here.
-- *The branded `/checkout` has NOT yet taken a payment.* Corrected
-  ~22:00 CEST; the bullet that stood here claimed the opposite and was
-  wrong. Recurly origin `token_api` is **not** our checkout — it goes back
-  to 2026-08-09, months before `/checkout` existed, so it is the
-  ClickFunnels pages with Recurly.js embedded. The reliable signature is
-  the **account code**: `worker.js:118` sets `account.code = email`, so a
-  sale through our page carries an email-shaped account code. Since
-  go-live (2026-09-30 13:20 UTC) there are **zero** email-shaped account
-  codes on any transaction, any status. Of 4,961 account codes seen since
-  2026-09-24, 4,776 are hex/UUID (Recurly-generated), 183 other, and
-  exactly **2** are email-shaped — both on 2026-09-29, both origin `hpp`,
-  i.e. Giulia's hosted-page test. **Coverage caveat:**
-  `stg_recurly_transactions` was last fetched **2026-10-06 03:30 UTC**, so
-  anything after 03:24 today is outside this test, including today's three
-  captures and every Belgian attempt.
-- *Business plans do sell, through the older routes.* `stg_authnet_unsettled`
-  shows "Lesko Business" charges captured most days since 2026-09-24 —
-  about 23 approvals in all, 3 of them on 2026-10-06 (invoices 291121,
-  291171/291172, 291182, all US). The plans started selling before
-  `/checkout` existed, so ClickFunnels and the hosted pages are carrying
-  them.
-- *Currency is ruled out conclusively.* All **46,626** Recurly
-  transactions on this account, for all time, are **USD**. Not one has
-  ever been presented in any other currency.
-
-**So why did Martin's and Giulia's cards fail on 2026-10-06?** It is
-card-specific, and the Merchant Advice Code says so per card:
-- **Martin's Mastercard: MAC `01` "New account information" on every one
-  of six attempts** (14:17 ×2, 14:18 ×2, 15:21, 15:56 UTC). Mastercard's
-  MAC 01 means the issuer holds newer account details than the card
-  presented — the card has been reissued or updated. The same card was
-  approved on 2026-09-06 and 2026-09-01. Action: use the current card.
-- **Giulia's Visa: MAC `2` "Issuer cannot approve at this time"** (14:39,
-  15:38, 15:40 UTC) — a soft, temporary refusal. The same Visa was
-  approved for $29.95 and $89.95 on 2026-09-29. Four attempts inside an
-  hour on a card that already holds those subscriptions is the classic
-  shape of an issuer velocity/duplicate block. Her Mastercard got MAC 01
-  at 15:42, same story as Martin's.
-- CVV came back `M` (match) on most of these, so CVV is a real signal on
-  this account even though AVS is not.
-
-**3DS remains a genuine gap but is not the blocker.** Authorize.Net
-cannot do 3DS ("Gateway-specific 3DS2 supported — No"), Recurly has never
-returned a `three_d_secure_action_token_id`, and the SCA branch in
-`checkout.html` and `worker.js` has still never run. A 3DS-capable
-gateway is worth having for rates and for issuers that do demand SCA — it
-is not what stopped these two cards, and the Recurly Payments
-application should be chased on its own merits, not as a Europe fix.
-
-**Do not cite AVS as evidence.** `avs_response='P'` on every transaction
-sampled — declines and approvals alike. AVS is never evaluated on this
-account.
-
-**Loose end.** `docs/specs/modules/worker.md:124` records the decline at
-"18:52 CEST" (16:52 UTC). No transaction exists in either table in the
-16:00–18:10 UTC window on 2026-10-06; the latest Belgian attempt is 15:56
-UTC (17:56 CEST). The spec's timestamp is unexplained — do not build on
-it. That correction is the overseer's to make; a worktree may not edit
-`docs/specs/`.
-
-**For the lesko-checkout overseer:** purchases through the branded
-checkout carry Recurly origin **`token_api`**, not `api` and not `hpp`.
-
-**Traps (keep, they are short).**
-- 2026-10-06: never `wrangler email routing enable leskobusiness.com` —
-  zone-level, replaces the apex MX. See repo CLAUDE.md.
-- 2026-10-06: Email Routing's dashboard "subdomain" feature is additive
-  on an apex already onboarded, never a substitute. Only **Email
-  Sending** (`wrangler email sending enable <subdomain>`) onboards a
-  subdomain alone; its DNS stays under `cf-bounce.<subdomain>`.
-- 2026-10-06: `wrangler email sending list`/`settings` return
-  `Unauthorized [code: 2036]` — this machine's OAuth token has no Email
-  Sending scope. The CLI cannot inspect that side at all.
-- 2026-10-06: `scripts/test-raillog-alert.js` takes **`raillog.js`** as
-  its only argument. Passing `worker.js` fails misleadingly with "Cannot
-  use import statement outside a module".
-- 2026-10-06: Recurly captures the buyer's IP at tokenisation; never
-  send `ip_address` beside `token_id` (422, broke production 16:17–16:47
-  UTC).
-- Standing: no credential reads (keychain, OAuth token) — denied. No
-  real card test — Martin's. Never push to `main` from a worktree.
-
-**Next, all Martin's and all off this branch.** (1) Clear the Recurly
-past-due balance — it is a live production risk and likely what holds
-the gateway application. (2) Chase the Recurly Payments application.
-(3) The US-issued card test is no longer needed — US cards already
-approve daily through `token_api`. Martin: try a current card, and
+- Tell the **lesko-checkout** overseer: buyers through the branded
+  `/checkout` arrive as Recurly origin **`token_api`**, not `api` and not
+  `hpp` — and `token_api` is shared with the ClickFunnels pages, so their
+  models cannot split the two on origin alone. `account_code` containing `@`
+  is the only clean split, and only for successes.
+- Tell the **overseer** that `docs/specs/modules/worker.md:124`'s "18:52 CEST"
+  is now **confirmed correct** — it is the Worker log timestamp of the three
+  declines. The earlier note calling it unexplained can go.
+- Still open from before: the GA4 `purchase` event on `/welcome` has not been
+  seen firing; whether the 14:23 sale provisioned MN access has not been
+  checked here (that is lesko-provisioning's rail).
+- Branch recommendation unchanged: **park, do not delete.**
 tell Giulia to wait a day and attempt once. (4) Decide park-or-revive.
