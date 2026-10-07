@@ -152,117 +152,89 @@ For `docs/specs/modules/worker.md`, Functions section, once this lands:
 
 ## State
 
-*Replaced in full 2026-10-07. Earlier checkpoints are in `git log -p` on this
-branch; this section is the current picture only.*
+Last rewritten 2026-10-07 ~19:00 CEST. Read this section, Goal and Done when;
+the rest of the brief is background.
 
 **Done**
 
-- The alert helper `raillog.js` and the `BTB_ALERT …/api-subscribe
-  PAYMENT_DECLINED` line are live and **proven in production**. Cloudflare
-  Workers Observability shows the line firing three times on 2026-10-06 at
-  18:52:14 / 18:52:33 / 18:52:51 CEST, at level `error`, carrying
-  `plan=business-monthly code=declined`. No card number, no email, no
-  buyer-facing text in the line — the privacy rule held under real traffic.
-- The `ip_address` + `token_id` production break is fixed and landed
-  (`a6b8c00`). Its fingerprint is in the same log: 18:27:00 CEST
-  "subscribe validation business-monthly ip_address cannot be present with
-  token_id". That was the last occurrence.
-- The European-decline question is **answered and closed**, from BigQuery, not
-  from docs. It is not the currency (all 46,626 Recurly transactions ever on
-  this account are USD), not 3DS, and not a merchant account refusing
-  international cards (Belgium has 9 approvals in 28 attempts on this very
-  gateway). It is card-specific: Martin's Mastercard returns Merchant Advice
-  Code `01` "New account information" on all six attempts — the issuer holds
-  newer card details, the card has been reissued. Giulia's Visa returns MAC
-  `2` "Issuer cannot approve at this time" — soft, temporary, consistent with
-  issuer velocity blocking after four tries inside an hour.
+- The decline alert is **proven in production**. Cloudflare Observability,
+  2026-10-06, three `error`-level lines at 18:52:14.502 / 18:52:33.747 /
+  18:52:51.379 CEST, each `BTB_ALERT lesko-business-landingpage/api-subscribe
+  PAYMENT_DECLINED: plan=business-monthly code=declined gatew…`. No card data,
+  no email, no buyer-facing text. They match three real Recurly declines at
+  16:52:13 / 16:52:32 / 16:52:50 UTC to the second.
+- The production break is fixed (`a6b8c00`): `buildPurchase` may never send
+  `ip_address` beside `token_id`. Last occurrence of that error 2026-10-06
+  18:27:00.287 CEST.
+- The European-decline question is **closed**: the gateway is not refusing
+  euros. Giulia's Mastercard came back with Merchant Advice Code `01`, "new
+  account information" — the card was reissued and the issuer holds newer
+  details. `cvv_response = 'M'` means the CVV matched.
+- **The branded `/checkout` has taken a real payment.** 2026-10-06 14:23:20
+  UTC, origin `token_api`, success, **$29.95 `business-monthly`**, subscription
+  `zq2baa3yi8z5`, account_code/email `freelesko@gmail.com`, Visa ...4337,
+  gateway Authorize.Net, message "Approved". Two independent counts agree:
+  Cloudflare logged **16 subrequests to `v3.recurly.com` in 7 days, 15×4xx +
+  1×2xx**, and `worker.js:270` is the only line that calls that host;
+  BigQuery shows exactly 15 `token_api` declines and 1 `token_api` success in
+  that window at business-plan prices.
+- The GA4 tail of that sale is proven: `/welcome` shows `purchase` ×1,
+  $29.95.
 
-**The big finding, 2026-10-07**
+**Traffic, as of 2026-10-07 18:56 CEST**
 
-- **The branded `/checkout` HAS taken a real payment.** 2026-10-06 14:23:20
-  UTC, $29.95, `business-monthly`, Visa ...4337, US, gateway Authorize.Net,
-  message "Approved", subscription `zq2baa3yi8z5`, account code
-  `freelesko@gmail.com` (Matthew Lesko's own card — a live test, but a real
-  charge that really settled).
-- This **overturns commit `a9793ae`**, which said no payment had gone through.
-  That commit was not wrong in method, it was wrong in data:
-  `stg_recurly_transactions` was then stale at 2026-10-06 03:24 UTC, so the
-  sale at 14:23 was outside the window. The table refreshed 2026-10-07
-  03:30 UTC and the sale appeared.
-- Two independent sources agree, which is why this one can be trusted:
-  Cloudflare counts exactly **16 subrequests to `v3.recurly.com` in 7 days,
-  15 × 4xx and 1 × 2xx**, and `worker.js:270` is the only line in the repo
-  that calls that host; BigQuery shows exactly **15 `token_api` declines and
-  1 `token_api` success** in that same window at business-plan prices. The
-  counts match one for one.
-
-**How many people actually reach the page (2026-10-07)**
-
-GA4 property `556794866` (account `leskohelp 410221931`) carries **two web
-streams**, and the reports mix them: `leskobusiness.com` (`15890761111`, our
-measurement id `G-6K847LXFE7`) and **`ClickFunnels funnels` /
-www.free.lesko.com** (`15959542547`). Unfiltered the property shows 3,965
-users and 15,904 events for Sep 9 - Oct 6 — almost all of it ClickFunnels.
-Always add the report filter *Hostname contains leskobusiness.com* before
-reading anything as ours.
-
-Filtered to our hostname, Sep 9 - Oct 6 (GA4 only started collecting
-2026-09-30):
-
-| Page | Views | Active users |
-|---|---|---|
-| `/` | 15 | 5 |
-| `/checkout` | 14 | 4 |
-| `/welcome` | 1 | 1 |
-| **total** | **30** | **5** |
-
-Five people in a week, and those five are us testing. On 2026-10-07 up to the
-time of writing: **zero**. Cloudflare counts 1.7k asset requests over 7 days
-for the same Worker, which is CSS, JS, favicons, our own curl checks and bot
-scans (`/wp-admin/install.php`, `/api/session/properties`) — asset requests
-are not visitors, and the two numbers disagreeing by a factor of fifty is
-exactly what that difference looks like.
-
-The `/welcome` row carries **`purchase`, 1 event, $29.95** — so the GA4
-tail of the 14:23 sale did fire, once, with the right revenue. That closes the
-open question about whether `purchase` ever reaches Google.
+- The site **is** serving: `/`, `/checkout?plan=monthly`, `/welcome`,
+  `assets/site-events.js` and `/api/config` all 200. `/api/config` hands out
+  the public key. 80 Worker events today, **0 errors**.
+- Payments **are** switched on: `/api/subscribe` with an empty body answers
+  400 "Unknown plan", and the `RECURLY_API_KEY` check at `worker.js:248` runs
+  *before* the plan check at `worker.js:261` — so a 400 instead of a 503
+  proves the secret is present.
+- **No human traffic.** GA4 filtered to our hostname: Sep 9 – Oct 6 is 30
+  views and **5 active users** (`/` 15/5, `/checkout` 14/4, `/welcome` 1/1);
+  2026-10-07 is **0**. Those five were us testing.
+- **No checkout attempts today.** Exactly one `/api/subscribe` in today's
+  Worker logs, 18:54:58 CEST, and that was this session's health probe.
+- What Cloudflare's 1.7k/7d asset requests actually are: CSS, JS, favicons,
+  our own curl checks, and bots probing `/wp-admin/install.php`,
+  `/api/session/properties` and `/.git/HEAD`. Checked 2026-10-07: `.git/`,
+  `CLAUDE.md`, `docs/`, `worker.js`, `wrangler.jsonc`, `.werk.conf` and
+  `.dev.vars` all 404 on the live site. `.assetsignore` is holding.
 
 **Traps learned, with their dates**
 
-- *`origin = token_api` does NOT identify our checkout* (2026-10-07). Both
-  our branded `/checkout` and the older ClickFunnels Recurly.js pages
-  tokenise with Recurly.js and arrive as `token_api`; it first appears
-  2026-08-09, months before `/checkout` shipped. Do not use it to attribute.
-- *`account_code == email` identifies our successes, but not our declines*
-  (2026-10-07). `worker.js:118` sets `account.code = email`, so a sale through
-  our page is unmistakable. A **declined** purchase often persists no account
-  at all, so `account_code` comes back empty — the three 16:52 UTC declines
-  are provably ours (they match the Worker log to the second) yet carry no
-  account code. Counting declines by account code undercounts them.
-- *`stg_authnet` is decline-only by construction* (2026-10-06). It is built
-  solely from `failed_payment_notification` webhooks: 23,612 declines, zero
-  approvals ever. Any approval rate computed from it is 0% and meaningless.
-  Approvals live in `stg_authnet_unsettled` and `stg_recurly_transactions`.
-- *`avs_response = 'P'` is a constant on this account* (2026-10-06). It
-  appears on declines and approvals alike; AVS is never evaluated, so it is
-  never evidence. `cvv_response = 'M'` is a real signal.
-- *`stg_recurly_transactions` lags by hours* (2026-10-07). Always read
-  `MAX(fetched_at)` before concluding anything from an absence.
-- *Workers Observability only began logging 2026-10-06 ~18:27 CEST.* Earlier
-  attempts that day leave no log line, only a Recurly transaction row.
+- *GA4 property `556794866` holds two web streams* (2026-10-07):
+  `leskobusiness.com` (`15890761111`, `G-6K847LXFE7`) and `ClickFunnels
+  funnels`/www.free.lesko.com (`15959542547`). Unfiltered it reads 3,965
+  users — 99% ClickFunnels. Always filter *Hostname contains
+  leskobusiness.com* first.
+- *`origin = token_api` does NOT identify our checkout* (2026-10-07). The
+  ClickFunnels Recurly.js pages arrive as `token_api` too; it first appears
+  2026-08-09, before `/checkout` shipped.
+- *`account_code == email` finds our successes, not our declines*
+  (2026-10-07). `worker.js:118` sets `account.code = email`, but a declined
+  purchase often persists no account, so the code comes back empty.
+- *`stg_recurly_transactions` lags by hours* (2026-10-07). It was 13.4h stale
+  at 16:55 UTC today (fetched to 03:30). Reading an absence from it is what
+  made `a9793ae` wrong. Always read `MAX(fetched_at)` first.
+- *`stg_authnet` is decline-only by construction* (2026-10-06): built from
+  `failed_payment_notification` webhooks only, 23,612 declines, zero
+  approvals ever. Approvals live in `stg_authnet_unsettled` and
+  `stg_recurly_transactions`.
+- *`avs_response = 'P'` is a constant on this account* (2026-10-06) — on
+  declines and approvals alike, so never evidence. `cvv_response` is real.
+- *Workers Observability only began logging 2026-10-06 ~18:27 CEST.*
 
 **Next**
 
-- Tell the **lesko-checkout** overseer: buyers through the branded
-  `/checkout` arrive as Recurly origin **`token_api`**, not `api` and not
-  `hpp` — and `token_api` is shared with the ClickFunnels pages, so their
-  models cannot split the two on origin alone. `account_code` containing `@`
-  is the only clean split, and only for successes.
-- Tell the **overseer** that `docs/specs/modules/worker.md:124`'s "18:52 CEST"
-  is now **confirmed correct** — it is the Worker log timestamp of the three
-  declines. The earlier note calling it unexplained can go.
-- Still open from before: whether the 14:23 sale provisioned MN access has not
-  been checked here (that is lesko-provisioning's rail). The GA4 `purchase`
-  half of that tail is now proven (see above).
+- Tell the **lesko-checkout** overseer: our buyers arrive as Recurly origin
+  `token_api`, shared with ClickFunnels, so origin alone cannot split them;
+  `account_code` containing `@` is the only clean split, and only for
+  successes.
+- Tell the **overseer** that `docs/specs/modules/worker.md:124`'s "18:52
+  CEST" is confirmed correct; the "unexplained" note can go.
+- Open: whether the 14:23 sale provisioned MN access (lesko-provisioning's
+  rail, not this repo's).
+- The checkout works and sells. The missing thing is visitors, which is not
+  this branch's job.
 - Branch recommendation unchanged: **park, do not delete.**
-tell Giulia to wait a day and attempt once. (4) Decide park-or-revive.
