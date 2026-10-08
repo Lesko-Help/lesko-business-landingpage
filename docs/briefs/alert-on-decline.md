@@ -152,89 +152,177 @@ For `docs/specs/modules/worker.md`, Functions section, once this lands:
 
 ## State
 
-Last rewritten 2026-10-07 ~19:00 CEST. Read this section, Goal and Done when;
-the rest of the brief is background.
+Last rewritten 2026-10-08 ~18:40 CEST. Read only this section plus **Goal**
+and **Done when**; everything above is background.
 
-**Done**
+### Done
 
-- The decline alert is **proven in production**. Cloudflare Observability,
-  2026-10-06, three `error`-level lines at 18:52:14.502 / 18:52:33.747 /
-  18:52:51.379 CEST, each `BTB_ALERT lesko-business-landingpage/api-subscribe
-  PAYMENT_DECLINED: plan=business-monthly code=declined gatew…`. No card data,
-  no email, no buyer-facing text. They match three real Recurly declines at
-  16:52:13 / 16:52:32 / 16:52:50 UTC to the second.
-- The production break is fixed (`a6b8c00`): `buildPurchase` may never send
-  `ip_address` beside `token_id`. Last occurrence of that error 2026-10-06
-  18:27:00.287 CEST.
-- The European-decline question is **closed**: the gateway is not refusing
-  euros. Giulia's Mastercard came back with Merchant Advice Code `01`, "new
-  account information" — the card was reissued and the issuer holds newer
-  details. `cvv_response = 'M'` means the CVV matched.
-- **The branded `/checkout` has taken a real payment.** 2026-10-06 14:23:20
-  UTC, origin `token_api`, success, **$29.95 `business-monthly`**, subscription
-  `zq2baa3yi8z5`, account_code/email `freelesko@gmail.com`, Visa ...4337,
-  gateway Authorize.Net, message "Approved". Two independent counts agree:
-  Cloudflare logged **16 subrequests to `v3.recurly.com` in 7 days, 15×4xx +
-  1×2xx**, and `worker.js:270` is the only line that calls that host;
-  BigQuery shows exactly 15 `token_api` declines and 1 `token_api` success in
-  that window at business-plan prices.
-- The GA4 tail of that sale is proven: `/welcome` shows `purchase` ×1,
-  $29.95.
+- The decline alert is proven in production (three `BTB_ALERT` lines,
+  2026-10-07 18:52 CEST, Workers Observability).
+- `a6b8c00` fixed the production break where `ip_address` rode beside
+  `token_id` in the Recurly purchase (Recurly 422s that outright).
+- The real $29.95 sale through the branded `/checkout` is confirmed twice
+  over: Recurly 2026-10-06 14:23:20 UTC, and GA4 `purchase` on `/welcome`.
 
-**Traffic, as of 2026-10-07 18:56 CEST**
+### Why Martin's mother's card got blocked (2026-10-08)
 
-- The site **is** serving: `/`, `/checkout?plan=monthly`, `/welcome`,
-  `assets/site-events.js` and `/api/config` all 200. `/api/config` hands out
-  the public key. 80 Worker events today, **0 errors**.
-- Payments **are** switched on: `/api/subscribe` with an empty body answers
-  400 "Unknown plan", and the `RECURLY_API_KEY` check at `worker.js:248` runs
-  *before* the plan check at `worker.js:261` — so a 400 instead of a 503
-  proves the secret is present.
-- **No human traffic.** GA4 filtered to our hostname: Sep 9 – Oct 6 is 30
-  views and **5 active users** (`/` 15/5, `/checkout` 14/4, `/welcome` 1/1);
-  2026-10-07 is **0**. Those five were us testing.
-- **No checkout attempts today.** Exactly one `/api/subscribe` in today's
-  Worker logs, 18:54:58 CEST, and that was this session's health probe.
-- What Cloudflare's 1.7k/7d asset requests actually are: CSS, JS, favicons,
-  our own curl checks, and bots probing `/wp-admin/install.php`,
-  `/api/session/properties` and `/.git/HEAD`. Checked 2026-10-07: `.git/`,
-  `CLAUDE.md`, `docs/`, `worker.js`, `wrangler.jsonc`, `.werk.conf` and
-  `.dev.vars` all 404 on the live site. `.assetsignore` is holding.
+Her bank called it "a very unusual checkout" and blocked the card. The data
+says the bank was reading the transaction correctly. Four things stack up,
+and together they are the textbook profile a European issuer blocks:
 
-**Traps learned, with their dates**
+1. **The gateway is Authorize.Net** (`gateway_name` on every row). A US
+   acquirer. For a Belgian cardholder that makes every charge
+   *cross-border* — what the schemes call "one leg out".
+2. **The amount is always USD.** `buildPurchase` in `worker.js` hard-codes
+   `currency: 'USD'`. A Belgian debit card being asked for dollars by a US
+   merchant is a foreign-currency charge, with its own fee and its own
+   fraud score.
+3. **No 3-D Secure actually happens.** Because the acquirer is outside the
+   EEA, PSD2 strong authentication is not legally forced — so nothing
+   authenticates the cardholder, and the issuer carries the whole risk. An
+   unauthenticated cross-border card-not-present charge is exactly what an
+   EU fraud engine blocks.
+4. **The same card was retried over and over.** On 2026-10-06, card
+   `…6349` was attempted **seven** times between 14:17 and 16:52 and card
+   `…1780` **three** times between 14:39 and 15:40 — all declined, all
+   from Belgium. To an issuer that cadence reads as card testing, and the
+   answer to card testing is to block the card, not just the attempt.
 
-- *GA4 property `556794866` holds two web streams* (2026-10-07):
-  `leskobusiness.com` (`15890761111`, `G-6K847LXFE7`) and `ClickFunnels
-  funnels`/www.free.lesko.com (`15959542547`). Unfiltered it reads 3,965
-  users — 99% ClickFunnels. Always filter *Hostname contains
-  leskobusiness.com* first.
-- *`origin = token_api` does NOT identify our checkout* (2026-10-07). The
-  ClickFunnels Recurly.js pages arrive as `token_api` too; it first appears
-  2026-08-09, before `/checkout` shipped.
-- *`account_code == email` finds our successes, not our declines*
-  (2026-10-07). `worker.js:118` sets `account.code = email`, but a declined
-  purchase often persists no account, so the code comes back empty.
-- *`stg_recurly_transactions` lags by hours* (2026-10-07). It was 13.4h stale
-  at 16:55 UTC today (fetched to 03:30). Reading an absence from it is what
-  made `a9793ae` wrong. Always read `MAX(fetched_at)` first.
-- *`stg_authnet` is decline-only by construction* (2026-10-06): built from
-  `failed_payment_notification` webhooks only, 23,612 declines, zero
-  approvals ever. Approvals live in `stg_authnet_unsettled` and
-  `stg_recurly_transactions`.
-- *`avs_response = 'P'` is a constant on this account* (2026-10-06) — on
-  declines and approvals alike, so never evidence. `cvv_response` is real.
-- *Workers Observability only began logging 2026-10-06 ~18:27 CEST.*
+Every Belgian attempt came back `gateway_response_code = 2`,
+`gateway_message = "Declined"`, `status_message` "The customer's bank has
+declined their card" — the issuer refusing, not a 3-D Secure challenge.
 
-**Next**
+### The 3-D Secure branch reads the wrong level (defect, unfixed)
 
-- Tell the **lesko-checkout** overseer: our buyers arrive as Recurly origin
-  `token_api`, shared with ClickFunnels, so origin alone cannot split them;
-  `account_code` containing `@` is the only clean split, and only for
-  successes.
-- Tell the **overseer** that `docs/specs/modules/worker.md:124`'s "18:52
-  CEST" is confirmed correct; the "unexplained" note can go.
-- Open: whether the 14:23 sale provisioned MN access (lesko-provisioning's
-  rail, not this repo's).
-- The checkout works and sells. The missing thing is visitors, which is not
-  this branch's job.
-- Branch recommendation unchanged: **park, do not delete.**
+`worker.js:290` (production: `worker.js:243`) does
+
+    if (err.three_d_secure_action_token_id)
+
+where `err = data.error`. Recurly v3 puts that token one level deeper, in
+`error.transaction_error.three_d_secure_action_token_id` (its Node client
+exposes it as `transactionError.threeDSecureActionTokenId`). So the test is
+always `undefined`, the 3-D Secure branch never fires, and the request
+falls through to the decline branch — the buyer is told "your card was
+declined" at the one moment the bank was willing to approve after a check.
+
+`checkout.html` is fine: lines 404-415 wire `recurly.Risk().ThreeDSecure`
+correctly and re-submit with the result token, and `worker.js:117` puts
+that token in `billing_info` correctly. Only the hand-back is wrong.
+
+Not yet proven live — no 3-D Secure response has ever been observed here,
+because Authorize.Net is probably not configured for it. The fix is cheap
+and cannot break anything: read both levels. Writing it is a worktree's
+job; landing it is Martin's.
+
+### Where the checkout does not meet the rules (2026-10-08)
+
+Read off `checkout.html` and `worker.js`, not off a lawyer's opinion.
+
+What is **right**: the card field is Recurly's own (card numbers never
+reach this site or our Worker); the recurring terms are stated before Pay
+("Renews: Automatically. Cancel any time." and "Your card is charged today
+and then on each renewal until you cancel") — that is what the card schemes
+require; the 30-day refund promise is stated twice.
+
+What is **missing**:
+
+- **No Terms and Conditions anywhere on `/checkout`.** `grep -ci "terms of
+  service|terms and conditions"` → 0. The footer has FAQ, Member sign in,
+  Contact, Privacy, and nothing else.
+- **No EU right-of-withdrawal notice.** A Belgian consumer has 14 days by
+  law; for a digital service given immediately they must explicitly waive
+  it. The 30-day guarantee is more generous but is not the statutory
+  notice, and there is no waiver checkbox.
+- **No VAT, and no VAT field.** Accepted on 2026-09-30 for speed, but
+  selling a digital membership to an EU consumer creates an EU VAT
+  obligation for a US seller (OSS). This is a tax exposure, not only a
+  missing input. Martin's accountant, not a worktree.
+- **The Privacy link may be dead.** It points at
+  `https://www.free.lesko.com/privacy-policy`. `curl` gets 403 and real
+  Chrome froze on it twice, so this is **unverified** — but CLAUDE.md's
+  standing trap says every `free.lesko.com` link redirects to the sales
+  VSL. Needs a human to open it.
+- **No legal seller identity.** The footer gives "© 2026 Matthew Lesko ·
+  1851 Columbia Rd NW #402, Washington, DC 20009" — an address, but no
+  company name or registration number.
+- **No cookie consent, analytics granted in the EU.** Knowingly decided by
+  Martin 2026-10-01. Listed here for completeness, not as news.
+- **No bot or velocity check on `/api/subscribe`.** The rate limit is 5
+  requests per 60 s per caller IP (`5e7b1dd`) — which did nothing against
+  the seven attempts on card `…6349` spread over three hours. There is no
+  cap per card and none per email. Already listed as accepted in CLAUDE.md;
+  the mother's block is the first time it cost something real.
+- **PCI scope is SAQ A-EP, not SAQ A.** Recurly's hosted fields keep the
+  card off our servers, but we serve the page that loads the payment
+  script, so the page itself is in scope.
+
+### Traffic, as of 2026-10-08 18:30 CEST
+
+- All three pages serve: `/` 200 (142750 B), `/checkout?plan=monthly` 200
+  (24267 B), `/welcome` 200 (8200 B).
+- Payments are switched on: `POST /api/subscribe {}` answers **400**
+  "Unknown plan". It would answer 503 if `RECURLY_API_KEY` were missing,
+  and the key check runs first — so a 400 proves the private key is there.
+  No card, no token, nothing charged.
+- Cloudflare Observability, last 24 h: **200 events, 0 errors.** The
+  visible ones are bot scans (`/wp-admin/install.php`, `/xmlrpc.php`,
+  `/wp-sitemap.xml`, `/.git/HEAD`).
+- **One genuine `/checkout` open today**, 11:45:58 CEST — a
+  `GET https://www.leskobusiness.com/api/config`, which only
+  `checkout.html`'s own script ever calls.
+- **Nobody pressed Pay.** Needle `subscribe` over 24 h returns exactly two
+  hits, 2026-10-07 18:54:58 and 2026-10-08 18:29:37 CEST, and both are my
+  own probes. Zero real checkout attempts.
+- So: serving, yes. Selling, no.
+
+### Traps learned, with their dates
+
+1. **`stg_recurly_transactions` lags ~13 h** (fetched to 2026-10-08
+   03:30:15 UTC, 775 min stale when read). Always read `MAX(fetched_at)`
+   before concluding anything from an absence. This is what made `a9793ae`
+   wrong and made me tell Martin no payment had gone through when one had.
+2. **GA4 property `556794866` holds two web streams** —
+   `leskobusiness.com` (`G-6K847LXFE7`) and **ClickFunnels funnels**
+   (`www.free.lesko.com`). Unfiltered it reads 3,965 users / 15,904 events
+   for Sep 9 – Oct 6; ~99 % is not ours. Every read must filter
+   Hostname contains `leskobusiness.com`.
+3. **Asset requests are not visitors.** Cloudflare's ~1.7 k requests / 7 d
+   counts CSS, JS, favicons, bot scans and my own curls. GA4 filtered to
+   our hostname counts people: 5 in that week, and they were us testing.
+4. **`origin` cannot tell our buyers apart.** Both the branded `/checkout`
+   and the old ClickFunnels Recurly.js pages arrive as `token_api`; it
+   first appears 2026-08-09, before `/checkout` existed. Only
+   `account_code` containing `@` marks ours — and only for successes,
+   because a declined purchase often persists no account at all.
+5. **There is no `plan_code` and no `origin_ip_country`** on
+   `stg_recurly_transactions`. The country column is `ip_address_country`.
+6. **`avs_response = 'P'` is a constant** on this account, on approvals and
+   declines alike, so it is never evidence. `cvv_response = 'M'` is real.
+7. **`stg_authnet` is decline-only by construction** (built from
+   `failed_payment_notification` webhooks: 23,612 declines, zero approvals
+   ever). Approvals live in `stg_authnet_unsettled` and
+   `stg_recurly_transactions`.
+8. **`docs/specs/modules/worker.md:124`'s "18:52 CEST" is correct** — it is
+   the Workers Observability timestamp of the three proven declines. The
+   "unexplained" note beside it can go. A worktree may not edit
+   `docs/specs/`, so this is for the overseer.
+
+### Next
+
+- **Martin's, and the only thing that unblocks real European sales:**
+  decide whether to keep charging EU cards in USD through a US acquirer.
+  Until that changes, EU issuers will keep declining and occasionally
+  blocking cards, and no code change here prevents it. The options are a
+  European acquirer / Recurly Payments (the application is already
+  pending), charging in EUR, or accepting that the EU is not a market yet.
+- **Martin's:** open `https://www.free.lesko.com/privacy-policy` himself
+  and say whether it is a real policy or the VSL redirect.
+- **A worktree's:** fix the 3-D Secure level (read both), and add a Terms
+  link plus the withdrawal notice to `/checkout` — copy is Giulia's, so
+  the brief must say so.
+- **Tell the lesko-checkout overseer:** our buyers arrive as Recurly
+  origin `token_api`, shared with ClickFunnels, so origin alone cannot
+  split them.
+- Still open, and not this repo's: did the 14:23 sale actually provision
+  Mighty Networks access (lesko-provisioning's rail)?
+- This branch: **park, do not delete.**
