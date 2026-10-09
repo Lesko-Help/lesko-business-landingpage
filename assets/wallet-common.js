@@ -35,7 +35,11 @@ window.LeskoWallets = (function () {
     var checkout = window.LeskoCheckout;
     if (!checkout) return; // C6: inert on a page that never published the seam
 
-    var email = (buyer && buyer.email) || '';
+    // K3b: normalised once, here, before it reaches the C3 check, the GA4 event, the POST body
+    // and finish() — the same trim/lowercase checkout.html's own subscribe() applies to the card
+    // form's email, so a wallet and a card purchase by the same person make one Recurly account
+    // code, not two that differ only in case.
+    var email = ((buyer && buyer.email) || '').trim().toLowerCase();
     if (!email) {
       // C3: Recurly's account code is the email the buyer typed or the wallet reported; a
       // purchase with none cannot be built, so this never reaches the network at all.

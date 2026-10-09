@@ -420,8 +420,10 @@
   function finish(result, tokenId, buyerEmail) {
     if (result.ok) {
       // buyerEmail is the wallet's own address (K3b, docs/specs/modules/wallets.md) — the card
-      // form's #email input is empty for a wallet buyer, who never typed into it.
-      var e = buyerEmail || email.value.trim().toLowerCase();
+      // form's #email input is empty for a wallet buyer, who never typed into it. Normalise
+      // whichever source wins the same way subscribe() does, so a wallet and a card purchase by
+      // the same person never make two differently-cased Recurly account codes.
+      var e = (buyerEmail || email.value).trim().toLowerCase();
       try { localStorage.setItem(STORE, JSON.stringify({ email: e, company: company.value.trim(), plan: plan, t: Date.now() })); } catch (err) {}
       busy(true, 'Payment received. One moment…');
       location.href = '/welcome?email=' + encodeURIComponent(e) + '&plan=' + plan;
