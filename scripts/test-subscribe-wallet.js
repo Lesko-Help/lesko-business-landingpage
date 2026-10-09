@@ -6,11 +6,12 @@
 // body still needs first_name/last_name, and billing_info/first_name/last_name are set
 // unconditionally) and green (this branch) are each provable from a fresh shell.
 //
-// worker.js is an ES module (`import { alert } from './raillog.js'` at the top, `export default
-// {...}` at the bottom) but this repo has no package.json, so Node cannot `import()` it, and
-// vm's Script goal cannot run a bare `import` statement either. So: strip the leading import
-// line, cut the source off before `export default`, and run what is left as a plain script in a
-// throwaway vm context, the same way scripts/test-decline-reasons.js and
+// worker.js is an ES module (two leading `import` lines — `./raillog.js` and `cloudflare:email`
+// since alert-on-decline landed — then `export default {...}` at the bottom) but this repo has no
+// package.json, so Node cannot `import()` it, and vm's Script goal cannot run a bare `import`
+// statement either. So: strip every leading import line (not just the first — the /gm flag
+// matters once there is more than one), cut the source off before `export default`, and run what
+// is left as a plain script in a throwaway vm context, the same way scripts/test-decline-reasons.js and
 // scripts/test-subscribe-build-purchase.js already do. `alert` is stubbed directly here (recording
 // every call) rather than composed with the real raillog.js — scripts/test-subscribe-decline-alert.js
 // already proves that composition; this test only needs to see what logDecline passes it.
@@ -31,7 +32,7 @@ if (!workerPath) {
 }
 
 const source = fs.readFileSync(workerPath, 'utf8');
-const withoutImport = source.replace(/^import\s+.*?;\s*$/m, '');
+const withoutImport = source.replace(/^import\s+.*?;\s*$/gm, '');
 const cut = withoutImport.indexOf('export default');
 const scriptBody = cut === -1 ? withoutImport : withoutImport.slice(0, cut);
 
