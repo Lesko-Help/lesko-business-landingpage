@@ -430,9 +430,13 @@
   // card form's own #email input, which a wallet buyer never types into — so a wallet purchase
   // would reach /welcome with the address empty, breaking the GA4 purchase event and
   // lesko-provisioning's key. The card path passes nothing here, so it keeps reading its own field.
+  // The trim/lower-case applies to either source (amended 2026-10-09, after the obvious draft only
+  // normalised the fallback): subscribe() above already posts the card email normalised, so a wallet
+  // reporting the same address differently-cased must still resolve to the one account and the one
+  // /welcome link, never a second Recurly account for the same buyer.
   function finish(result, tokenId, buyerEmail) {
     if (result.ok) {
-      var e = (buyerEmail || email.value.trim().toLowerCase());
+      var e = (buyerEmail || email.value).trim().toLowerCase();
       try { localStorage.setItem(STORE, JSON.stringify({ email: e, company: company.value.trim(), plan: plan, t: Date.now() })); } catch (err) {}
       busy(true, 'Payment received. One moment…');
       location.href = '/welcome?email=' + encodeURIComponent(e) + '&plan=' + plan;

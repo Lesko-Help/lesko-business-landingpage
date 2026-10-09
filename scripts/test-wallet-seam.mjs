@@ -189,6 +189,21 @@ async function flushMicrotasks() {
     !!saved && saved.email === 'w@b.co', saved);
 })();
 
+// ── K3b amendment (2026-10-09): an upper-case, space-padded wallet email normalises the same way ──
+// ── the card path's own subscribe() already normalises its #email field, so one buyer never gets ──
+// ── two Recurly accounts over how a wallet happened to case their address. ─────────────────────
+(function () {
+  const w = loadCheckout('https://leskobusiness.com/checkout?plan=yearly');
+  lastNavigatedTo = null;
+  w.LeskoCheckout.finish({ ok: true }, 'tok-1', '  Buyer@Example.COM  ');
+  check('a wallet email reaches the /welcome URL lower-cased and trimmed (K3b amendment)',
+    lastNavigatedTo === 'https://leskobusiness.com/welcome?email=buyer%40example.com&plan=yearly', lastNavigatedTo);
+  let saved = null;
+  try { saved = JSON.parse(w.localStorage.getItem('leskoCheckout')); } catch (e) {}
+  check('the same wallet email reaches localStorage lower-cased and trimmed too (K3b amendment)',
+    !!saved && saved.email === 'buyer@example.com', saved);
+})();
+
 // ── K3a: the 3-D Secure retry re-submits the original tokenId it was given, never undefined ────
 await (async function () {
   let capturedToken = 'not-called';
