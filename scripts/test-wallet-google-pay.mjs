@@ -73,12 +73,14 @@ function loadCheckout(opts) {
   const dom = new JSDOM(stripped, { url: 'https://leskobusiness.com/checkout?plan=' + plan, runScripts: 'dangerously', pretendToBeVisual: true });
   const { window } = dom;
   window.__scriptErrors = [];
-  window.fetch = function (url) {
+  window.__subscribeCalls = []; // each /api/subscribe call's parsed body, for the email-casing check (K3b)
+  window.fetch = function (url, init) {
     const u = String(url);
     if (u.indexOf('/api/config') !== -1) {
       return Promise.resolve({ json: function () { return Promise.resolve({ recurly_public_key: 'pk-test' }); } });
     }
     if (u.indexOf('/api/subscribe') !== -1) {
+      window.__subscribeCalls.push(JSON.parse((init && init.body) || '{}'));
       return Promise.resolve({ json: function () { return Promise.resolve(opts.subscribeResult || { ok: true }); } });
     }
     return Promise.reject(new Error('no network in this test'));
@@ -270,6 +272,24 @@ await (async function () {
   check('wallet-google-pay.js: finish is called with the original token id (its 3DS branch re-submits beside it, K3a)', args[1] === 'tok-gp-3');
   check('wallet-google-pay.js: finish is called with the wallet\'s own email as the third argument (K3b), not the empty card form field',
     args[2] === 'wallet-buyer@example.com');
+})();
+
+// ── K3b (seam, our dependency): a wallet's email is normalised the same way the card path's own ──
+// subscribe() normalises it, so the same buyer never makes two differently-cased Recurly account
+// codes depending on how they paid ────────────────────────────────────────────────────────────────
+await (async function () {
+  const stub = makeRecurlyStub();
+  const w = loadCheckout({ recurlyStub: stub.recurlyStub, forceGooglePayOn: true, forceMerchantId: 'merchant-test-123', subscribeResult: { ok: true } });
+  await flushMicrotasks();
+  const finishCalls = [];
+  w.LeskoCheckout.finish = function () { finishCalls.push(Array.prototype.slice.call(arguments)); };
+  stub.lastInstance.fireToken({ id: 'tok-gp-4', email: '  Buyer@Example.COM  ', firstName: 'Wally', lastName: 'Et' });
+  await flushMicrotasks();
+  check('wallet-google-pay.js: an upper-case, untrimmed wallet email reaches /api/subscribe lower-cased and trimmed',
+    w.__subscribeCalls.length === 1 && w.__subscribeCalls[0].email === 'buyer@example.com');
+  const args = finishCalls[0] || [];
+  check('wallet-google-pay.js: the same email reaches checkout.finish lower-cased and trimmed, matching what subscribe() posted',
+    args[2] === 'buyer@example.com');
 })();
 
 process.exit(failCount > 0 ? 1 : 0);
