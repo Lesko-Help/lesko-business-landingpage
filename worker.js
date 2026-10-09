@@ -50,6 +50,13 @@ const PLAN_CODES = {
 };
 const SUPPORT = 'support@lesko.help';
 
+// A wallet sheet (PayPal, Apple Pay, Google Pay) hands subscribe() a token
+// the same way a card does, but no name field it can trust — so a body
+// carrying one of these three in `wallet` makes first/last name optional
+// (W1 in docs/specs/modules/wallets.md). Anything else in `wallet` is a 400,
+// so the branch below can only ever see one of these three or nothing.
+const WALLET_METHODS = ['paypal', 'apple_pay', 'google_pay'];
+
 function json(body, status) {
   return new Response(JSON.stringify(body), {
     status,
@@ -92,29 +99,38 @@ async function withinSubscribeLimit(ip, env) {
 // its own billing info, so no sibling billing_info field may ride with
 // it — found 2026-10-06 when this broke every live purchase (commit
 // 265f225 had added the line on the mistaken belief Recurly needed it
-// passed separately). Its own function so
-// scripts/test-subscribe-build-purchase.js can prove this without a live
-// Recurly call.
+// passed separately). first_name and last_name are set on the account only
+// when non-empty, the same as company already was — a wallet token rarely
+// carries a trustworthy name (W3 in docs/specs/modules/wallets.md), and an
+// empty string sent to Recurly is not the same as the field being absent.
+// Its own function so scripts/test-subscribe-build-purchase.js and
+// scripts/test-subscribe-wallet.js can prove this without a live Recurly call.
 function buildPurchase(ip, plan, token, email, first, last, company, tds) {
   const billing = { token_id: token };
   if (tds) billing.three_d_secure_action_result_token_id = tds;
-  const account = { code: email, email, first_name: first, last_name: last, billing_info: billing };
+  const account = { code: email, email, billing_info: billing };
+  if (first) account.first_name = first;
+  if (last) account.last_name = last;
   if (company) account.company = company;
   return { currency: 'USD', account, subscriptions: [{ plan_code: plan }] };
 }
 
 // Alerts on every card decline, so Recurly's own answer becomes visible
 // here instead of only as a screenshot (CLAUDE.md "Unattended code reports
-// its own failure"). Input: the plan code and Recurly's transaction_error
+// its own failure"). Input: the plan code, Recurly's transaction_error
 // object (code, gateway_error_code — never te.message, which is the
-// buyer-facing text, and never any card or email data). Output: nothing —
-// prints one BTB_ALERT line through raillog.js's alert() and returns. Its
-// own function so scripts/test-subscribe-decline-alert.js can call it
-// directly, the same way scripts/test-decline-reasons.js already calls
-// declineMessage() directly, without needing a live Recurly decline.
-function logDecline(plan, te) {
+// buyer-facing text, and never any card or email data), and which wallet
+// (or 'card') made the purchase (W2 in docs/specs/modules/wallets.md) — a
+// decline on a wallet and a decline on a card need different fixes, and
+// this alert line is the only place a decline is visible to us. Output:
+// nothing — prints one BTB_ALERT line through raillog.js's alert() and
+// returns. Its own function so scripts/test-subscribe-decline-alert.js and
+// scripts/test-subscribe-wallet.js can call it directly, the same way
+// scripts/test-decline-reasons.js already calls declineMessage() directly,
+// without needing a live Recurly decline.
+function logDecline(plan, te, wallet) {
   alert('api-subscribe', 'PAYMENT_DECLINED',
-    'plan=' + plan + ' code=' + (te.code || '') + ' gateway_error_code=' + (te.gateway_error_code || ''));
+    'plan=' + plan + ' code=' + (te.code || '') + ' gateway_error_code=' + (te.gateway_error_code || '') + ' wallet=' + (wallet || 'card'));
 }
 
 // Buyer-facing text for the Recurly `transaction_error.code` values worth
@@ -211,10 +227,14 @@ async function subscribe(request, env) {
   const last = clean(body.last_name, 60);
   const company = clean(body.company, 120);
   const tds = clean(body.three_d_secure_action_result_token_id, 100);
+  const wallet = clean(body.wallet, 20);
   if (!plan) return json({ ok: false, message: 'Unknown plan. Please go back to the website and choose a plan again.' }, 400);
   if (!token) return json({ ok: false, message: 'The card check did not complete. Please try again.' }, 400);
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return json({ ok: false, message: 'Please enter a valid email address.' }, 400);
-  if (!first || !last) return json({ ok: false, message: 'Please enter your first and last name.' }, 400);
+  if (wallet && WALLET_METHODS.indexOf(wallet) === -1) return json({ ok: false, message: 'Unknown payment method.' }, 400);
+  // A wallet sheet does not always hand back a name, so only the card path
+  // (no `wallet` field) requires one (W1 in docs/specs/modules/wallets.md).
+  if (!wallet && (!first || !last)) return json({ ok: false, message: 'Please enter your first and last name.' }, 400);
 
   const purchase = buildPurchase(ip, plan, token, email, first, last, company, tds);
 
@@ -247,7 +267,7 @@ async function subscribe(request, env) {
     const te = err.transaction_error || {};
     // Alerts on the two ids, for support/debugging — never the buyer-facing
     // message text, and never any card or email data.
-    logDecline(plan, te);
+    logDecline(plan, te, wallet);
     return json({ ok: false, error: 'declined', message: declineMessage(te) }, 402);
   }
   if (err.type === 'validation' || err.type === 'invalid_api_version' || res.status === 422) {
