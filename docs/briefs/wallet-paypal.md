@@ -98,14 +98,39 @@ Done:
 - .assetsignore checked: no new line needed (scripts/ covered as a whole;
   assets/* is meant to be served).
 
+- C3 amendment (overseer review, 2026-10-09) committed (41a5620):
+  payWithWallet now reads #email/#first_name/#last_name as a fallback,
+  only when the wallet itself reports nothing for that field — wallet's
+  own value still wins when present. Refusal (no POST) still fires only
+  when both sources are empty. 6 new checks added to
+  scripts/test-wallet-common.js (wallet-wins-over-field for email and for
+  names, field-as-fallback for email and for names normalised correctly,
+  both-empty-still-refuses, no-third-argument-does-not-throw); proved red
+  first against the pre-amendment committed file (3 of the 6 FAILed, as
+  expected), green after the edit (27/27).
+- Re-ran all four named suites plus every other scripts/test-*.sh|js in
+  the repo this segment: test-wallet-seam.sh (30/30), test-wallet-common.js
+  (27/27), test-wallet-paypal.sh (11/11), test-subscribe-wallet.js (17/17),
+  test-subscribe-build-purchase.js, test-decline-reasons.js,
+  test-subscribe-decline-alert.js worker.js raillog.js,
+  test-subscribe-decline-email.js, test-raillog-alert.js,
+  test-checkout-address.sh, test-ga4-events.sh — all green, no regression.
+  test-subscribe-rate-limit.sh . expect-429 FAILed (six 501s, no 429) —
+  unrelated to this change (spins up wrangler dev against /api/subscribe's
+  rate limiter, untouched this segment; looks like a missing-secrets/
+  environment gap in this worktree, not a regression) — flagged to the
+  overseer, not fixed here, out of this task's scope.
+
 Next:
-1. Run `wt-done.sh --check wallet-paypal` until it exits 0.
-2. Report completion to landing-opzichter via SendMessage: all four named
-   tests + K3b amendment done, commit range 48062b9..d2b2578, no
-   regression on the card path, WALLETS.paypal still ships false.
-3. scripts/test-subscribe-wallet.js has a stray mode-bit-only change
-   (100644->100755) carried over from an earlier stash restore, never
-   committed — harmless, leave it unless it blocks wt-done.sh's check.
+1. Report the C3 amendment back to landing-opzichter via SendMessage:
+   code + tests done (41a5620), red-proven, all four named suites +
+   regression set green, the one unrelated rate-limit-suite environment
+   gap flagged.
+2. Then it is Martin's call to land, via the overseer — do not push to
+   main from here.
+3. scripts/test-subscribe-wallet.js's stray mode-bit-only change is
+   already committed (d7ebe40, from the previous segment) — nothing left
+   to do there.
 
 Traps (with dates):
 - 2026-10-09: Node's global `fetch`/`Response`/`btoa` (Node 26 here) used
