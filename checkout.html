@@ -336,6 +336,21 @@
 
   // ── Recurly's secure card field. The public key comes from our Worker. ─
   var elements = null;
+  // onReady/fireReady — K6 of docs/specs/modules/wallets.md. recurly.configure() only runs after
+  // the async fetch('/api/config') below answers, which is later than DOMContentLoaded; a wallet
+  // file that mounted on DOMContentLoaded would call recurly.GooglePay()/PayPal()/ApplePay()
+  // against an unconfigured recurly, which throws (silently, since G4/P4/A4 catch it by design) —
+  // so every wallet file waits for this instead.
+  var recurlyReady = false;
+  var onReadyCallbacks = [];
+  function fireReady() {
+    recurlyReady = true;
+    onReadyCallbacks.forEach(function (cb) { cb(); });
+    onReadyCallbacks = [];
+  }
+  function onReady(callback) {
+    if (recurlyReady) callback(); else onReadyCallbacks.push(callback);
+  }
   function setupCard(publicKey) {
     if (!window.recurly || !publicKey) return;
     // Only the fields every country needs go here (decided 2026-10-06, with the rule above): state
@@ -356,6 +371,7 @@
     });
     card.attach('#recurly-card');
     card.on('change', function (state) { if (state.valid) cardField.classList.remove('err'); });
+    fireReady();
   }
   fetch('/api/config', { headers: { 'Accept': 'application/json' } })
     .then(function (r) { return r.json(); })
@@ -401,9 +417,11 @@
     }).then(function (r) { return r.json(); });
   }
 
-  function finish(result, tokenId) {
+  function finish(result, tokenId, buyerEmail) {
     if (result.ok) {
-      var e = email.value.trim().toLowerCase();
+      // buyerEmail is the wallet's own address (K3b, docs/specs/modules/wallets.md) — the card
+      // form's #email input is empty for a wallet buyer, who never typed into it.
+      var e = buyerEmail || email.value.trim().toLowerCase();
       try { localStorage.setItem(STORE, JSON.stringify({ email: e, company: company.value.trim(), plan: plan, t: Date.now() })); } catch (err) {}
       busy(true, 'Payment received. One moment…');
       location.href = '/welcome?email=' + encodeURIComponent(e) + '&plan=' + plan;
@@ -415,7 +433,10 @@
       var box = document.getElementById('threeds');
       box.hidden = false;
       var tds = recurly.Risk().ThreeDSecure({ actionTokenId: result.three_d_secure_action_token_id });
-      tds.on('token', function (t) { box.hidden = true; subscribe(tokenId, t.id).then(function (r2) { finish(r2, tokenId); }).catch(netFail); });
+      // The bank's result token rides beside the original payment token (tokenId) — not in place
+      // of it (K3a) — and buyerEmail threads through so a wallet's 3DS retry still lands on the
+      // right /welcome address.
+      tds.on('token', function (t) { box.hidden = true; subscribe(tokenId, t.id).then(function (r2) { finish(r2, tokenId, buyerEmail); }).catch(netFail); });
       tds.on('error', function () { box.hidden = true; busy(false); showError('The bank check did not go through. Please try again or use another card.'); });
       tds.attach(box);
       return;
@@ -461,7 +482,7 @@
   });
 
   // The seam a wallet file (assets/wallet-google-pay.js and friends) reads and calls into —
-  // docs/specs/modules/wallets.md, K1-K5. Every function here is the one the card path above
+  // docs/specs/modules/wallets.md, K1-K6. Every function here is the one the card path above
   // already uses, assigned as-is rather than renamed or copied, so a wallet purchase can never
   // reach a second success path or a second error box.
   window.LeskoCheckout = {
@@ -469,7 +490,8 @@
     total: function () { return parseFloat(P.total.replace(/[^0-9.]/g, '')); },
     showError: showError,
     finish: finish,
-    walletsRow: function () { return document.getElementById('wallets') || null; }
+    walletsRow: function () { return document.getElementById('wallets') || null; },
+    onReady: onReady
   };
 })();
 </script>

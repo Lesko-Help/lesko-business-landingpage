@@ -10,8 +10,12 @@
   var GOOGLE_MERCHANT_ID = '';
 
   // Input: nothing (reads the page's own globals). Output: none; mounts a Google Pay button into
-  // #wallets when, and only when, the switch, the row and a merchant id are all present — run
-  // once, on DOMContentLoaded, same as every other wallet file.
+  // #wallets when, and only when, the switch, the row and a merchant id are all present. Runs
+  // through LeskoCheckout.onReady (K6), not on DOMContentLoaded: checkout.html only calls
+  // recurly.configure() after its async fetch('/api/config') answers, which is later than
+  // DOMContentLoaded, so mounting any earlier would call recurly.GooglePay() against an
+  // unconfigured recurly — it throws, G4's own try/catch swallows that silently, and the button
+  // would never appear with nothing logged anywhere.
   function init() {
     var wallets = window.LeskoWallets;
     var checkout = window.LeskoCheckout;
@@ -58,5 +62,7 @@
     });
   }
 
-  document.addEventListener('DOMContentLoaded', init);
+  // Guard LeskoCheckout exists before calling onReady — init() still no-ops without it, but
+  // onReady is one of its own methods, so there is nothing to call without it.
+  if (window.LeskoCheckout) window.LeskoCheckout.onReady(init);
 })();

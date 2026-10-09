@@ -72,7 +72,10 @@ window.LeskoWallets = (function () {
       body: JSON.stringify(body)
     })
       .then(function (r) { return r.json(); })
-      .then(function (result) { checkout.finish(result); })
+      // C2/K3a/K3b: finish needs the original token (its 3DS branch re-submits beside it) and the
+      // buyer's email (the card form's own #email input, which finish reads otherwise, is empty
+      // for a wallet buyer who never typed into it).
+      .then(function (result) { checkout.finish(result, token, email); })
       .catch(function () {
         // C5: a wallet token is single use; nothing here retries it.
         checkout.showError('The payment did not go through. Please check your card details and try again.');
