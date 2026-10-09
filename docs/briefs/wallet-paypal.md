@@ -168,3 +168,19 @@ Traps (with dates):
   the test needs synchronously, inside the function that ran the deferred
   scripts, before it returns — that is guaranteed to land before jsdom's
   own (later, async) DOMContentLoaded fires.
+- 2026-10-09 (overseer review): `scripts/test-subscribe-rate-limit.sh`
+  hard-codes `PORT=8799`, so it is not re-runnable while more than one
+  session in this repo can run it — a `FAIL (six 501s, no 429)` seen this
+  segment was another session's `wrangler dev` already holding that port,
+  not an environment gap. Worse: its `cleanup()` runs `pkill -f "wrangler
+  dev --port 8799"` then `kill -9` on whatever still holds the port, so
+  running it can kill a *different* session's dev server as collateral,
+  failing that session's own test for no visible reason. Don't run it
+  while another worktree's session might be using port 8799; fixing the
+  script itself (a free/random port per run) is its own task, not this
+  one's.
+- 2026-10-09 (overseer review): `sendDeclineAlertEmail` (worker.js) still
+  carries only plan/code/gateway_error_code, with no `wallet=` field,
+  even though `logDecline` carries one now. Logged by the overseer as an
+  open gap on worker.md, not this branch's to fix — it touches the
+  decline path, which this task must not regress.
