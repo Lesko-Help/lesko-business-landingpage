@@ -25,16 +25,28 @@ window.LeskoWallets = (function () {
   // one success/error path the card form already uses, so a wallet purchase can never drift onto a
   // second route.
   function payWithWallet(method, token, buyer) {
-    buyer = buyer || {};
     var label = WALLET_LABELS[method] || method;
-    // Normalised once, here, before the empty check below and before it reaches the GA4 event, the
-    // POST body or finish() — the same trim/lower-case the card path's own subscribe() already
-    // applies (K3b amendment, 2026-10-09), so a wallet reporting `Buyer@Example.COM` resolves to the
-    // same Recurly account code and the same lesko-provisioning key as the lower-cased address.
-    var email = (buyer.email || '').trim().toLowerCase();
 
-    // C3: Recurly's account code is the email (worker B1) — a purchase cannot be built without one,
-    // so this is the one check made before any network call, naming the wallet in the message.
+    // C3 amendment (2026-10-09, overseer review): #wallets sits below the required
+    // #email/#first_name/#last_name fields in checkout.html's panel 1, so by the time a buyer
+    // reaches a wallet button they have almost always already typed those in. A wallet's own
+    // value still wins when it has one — it is the real payment-account address — but whether a
+    // given wallet's token event carries an email at all is unverified on this site (no live
+    // wallet-capable gateway to test against), so falling back to what the buyer already typed
+    // beats refusing a purchase that a one-line gap in a wallet SDK made look dead. Normalised
+    // once, here, before the empty check below and before it reaches the GA4 event, the POST body
+    // or finish() — the same trim/lower-case the card path's own subscribe() already applies
+    // (K3b amendment, 2026-10-09), so either source resolves to the same Recurly account code.
+    var emailField = document.getElementById('email');
+    var firstNameField = document.getElementById('first_name');
+    var lastNameField = document.getElementById('last_name');
+    var email = ((buyer && buyer.email) || (emailField ? emailField.value : '')).trim().toLowerCase();
+    var firstName = ((buyer && buyer.first_name) || (firstNameField ? firstNameField.value : '')).trim();
+    var lastName = ((buyer && buyer.last_name) || (lastNameField ? lastNameField.value : '')).trim();
+
+    // C3: Recurly's account code is the email (worker B1) — a purchase cannot be built without one
+    // from either source, so this is the one check made before any network call, naming the wallet
+    // in the message.
     if (!email) {
       window.LeskoCheckout.showError('We did not get an email address back from ' + label + '. Please pay by card instead.');
       return;
@@ -63,8 +75,8 @@ window.LeskoWallets = (function () {
       plan: plan,
       token: token,
       email: email,
-      first_name: buyer.first_name || '',
-      last_name: buyer.last_name || '',
+      first_name: firstName,
+      last_name: lastName,
       company: companyField ? companyField.value.trim() : '',
       wallet: method
     };

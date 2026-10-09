@@ -49,12 +49,18 @@ function load(opts) {
   const fetchCalls = [];
   const financeCalls = { showError: [], finish: [], track: [] };
   const companyValue = opts.companyValue === undefined ? 'Acme Co' : opts.companyValue;
+  const emailFieldValue = opts.emailFieldValue === undefined ? '' : opts.emailFieldValue;
+  const firstNameFieldValue = opts.firstNameFieldValue === undefined ? '' : opts.firstNameFieldValue;
+  const lastNameFieldValue = opts.lastNameFieldValue === undefined ? '' : opts.lastNameFieldValue;
 
   const sandbox = {
     console,
     document: {
       getElementById: function (id) {
         if (id === 'company') return { value: companyValue };
+        if (id === 'email') return { value: emailFieldValue };
+        if (id === 'first_name') return { value: firstNameFieldValue };
+        if (id === 'last_name') return { value: lastNameFieldValue };
         return null;
       }
     },
@@ -140,6 +146,60 @@ async function main() {
     check('an empty buyer.email shows an error naming the wallet (C3)',
       financeCalls.showError.length === 1 && financeCalls.showError[0].indexOf('PayPal') !== -1,
       JSON.stringify(financeCalls.showError));
+  }
+
+  // ── C3 amendment (2026-10-09): wallet-first, then the page's own #email/#first_name/#last_name
+  // fields — refuse only when both sources are empty. ──
+  {
+    const { sandbox, fetchCalls } = load({ plan: 'monthly', emailFieldValue: 'typed@example.com' });
+    sandbox.window.LeskoWallets.payWithWallet('paypal', 'tok-1', { email: 'wallet@example.com' });
+    await flushMicrotasks();
+    check('a wallet email wins over a different one already typed into #email (C3 amendment)',
+      fetchCalls.length === 1 && JSON.parse(fetchCalls[0].init.body).email === 'wallet@example.com',
+      JSON.stringify(fetchCalls));
+  }
+  {
+    const { sandbox, fetchCalls, financeCalls } = load({ plan: 'monthly', emailFieldValue: '  Typed@Example.COM  ' });
+    sandbox.window.LeskoWallets.payWithWallet('paypal', 'tok-1', {});
+    await flushMicrotasks();
+    check('no wallet email falls back to the page\'s own #email field, normalised (C3 amendment)',
+      fetchCalls.length === 1 && JSON.parse(fetchCalls[0].init.body).email === 'typed@example.com',
+      JSON.stringify(fetchCalls));
+    check('the same fallback email reaches finish() (C3 amendment)',
+      financeCalls.finish.length === 1 && financeCalls.finish[0].buyerEmail === 'typed@example.com',
+      JSON.stringify(financeCalls.finish));
+  }
+  {
+    const { sandbox, fetchCalls, financeCalls } = load({ plan: 'monthly', emailFieldValue: '' });
+    sandbox.window.LeskoWallets.payWithWallet('paypal', 'tok-1', {});
+    await flushMicrotasks();
+    check('both wallet and #email empty still makes no POST at all (C3)', fetchCalls.length === 0, JSON.stringify(fetchCalls));
+    check('both empty still shows an error naming the wallet (C3)',
+      financeCalls.showError.length === 1 && financeCalls.showError[0].indexOf('PayPal') !== -1,
+      JSON.stringify(financeCalls.showError));
+  }
+  {
+    const { sandbox, fetchCalls } = load({ plan: 'monthly', firstNameFieldValue: 'Field', lastNameFieldValue: 'Name' });
+    sandbox.window.LeskoWallets.payWithWallet('paypal', 'tok-1', { email: 'a@b.co', first_name: 'Wallet', last_name: 'Given' });
+    await flushMicrotasks();
+    const body = JSON.parse(fetchCalls[0].init.body);
+    check('a wallet name wins over the page\'s own #first_name/#last_name (C3 amendment)',
+      body.first_name === 'Wallet' && body.last_name === 'Given', JSON.stringify(body));
+  }
+  {
+    const { sandbox, fetchCalls } = load({ plan: 'monthly', firstNameFieldValue: '  Field  ', lastNameFieldValue: '  Name  ' });
+    sandbox.window.LeskoWallets.payWithWallet('paypal', 'tok-1', { email: 'a@b.co' });
+    await flushMicrotasks();
+    const body = JSON.parse(fetchCalls[0].init.body);
+    check('no wallet name falls back to the page\'s own fields, trimmed but not lower-cased (C3 amendment)',
+      body.first_name === 'Field' && body.last_name === 'Name', JSON.stringify(body));
+  }
+  {
+    const { sandbox } = load({ plan: 'monthly', emailFieldValue: 'typed@example.com' });
+    let threw = null;
+    try { sandbox.window.LeskoWallets.payWithWallet('paypal', 'tok-1'); } catch (e) { threw = e; }
+    await flushMicrotasks();
+    check('payWithWallet with no third argument at all does not throw (C6/C3 amendment)', !threw, threw && threw.message);
   }
 
   // ── C4: one add_payment_info event with payment_type set per method. ──
