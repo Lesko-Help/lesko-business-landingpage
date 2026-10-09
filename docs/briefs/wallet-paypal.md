@@ -75,88 +75,62 @@ and why. The overseer applies what it agrees with on main.
 ## State
 
 Done:
-- worker.js wallet branch + scripts/test-subscribe-wallet.js: committed
-  (1478738), proven red (7 fails) against origin/main's old worker.js and
-  green against this branch; pre-existing worker tests re-run clean.
-  SUPERSEDED BY THE MERGE BELOW — origin/main has since changed worker.js's
-  logDecline() too (alert-on-decline, landed as 677f220/020d83d/f34be49);
-  resolving that is the immediate next step, not done yet.
-- checkout.html (K1-K5 seam) + scripts/test-wallet-seam.sh/.mjs: written and
-  now green (`bash scripts/test-wallet-seam.sh .` all PASS), but NOT
-  committed — holding per the overseer's instruction below. Getting it green
-  needed three fixes beyond the first draft, kept here since they are not
-  obvious from the diff alone: (a) loadCheckout() must skip `defer` script
-  tags entirely (assets/wallet-common.js and wallet-paypal.js do not exist
-  in this worktree yet, and never need to run for K1-K5 anyway); (b) jsdom
-  does not implement `location.href = ...` navigation at all — it silently
-  no-ops rather than updating `location.href` — so proving K3's redirect
-  requires monkeypatching jsdom's own internal
-  `jsdom/lib/jsdom/living/window/navigation.js` navigate() export to record
-  the attempted URL, and that patch must land before jsdom's `Location`
-  class is first loaded, i.e. before `require('jsdom')` itself, not just
-  before `new JSDOM()`; (c) the K5 card-submit regression must fill `state`
-  and `postal_code` too, not just the other five fields — checkout.html's
-  own updateAddressRequirements() makes both required for the default
-  country (US) on load.
-- In writing this test myself (before the overseer's message arrived) I
-  independently hit the same bug the overseer flagged as 2(b): finish()
-  reads the redirect email from the `#email` DOM field, not from
-  `result.account_code`, so a wallet purchase (which never types there)
-  would redirect to `/welcome?email=&plan=...`. My test originally asserted
-  the spec's (wrong) example; I have NOT changed that assertion or
-  checkout.html's finish() — holding both for the amended spec, per below.
-
-HOLDING, per landing-opzichter's message (2026-10-09, via SendMessage):
-  two errors in the K3 spec I'm building to — finish() takes
-  (result, tokenId) not (result), and finish()'s success path needs to get
-  the email from result.account_code for a wallet purchase instead of the
-  (empty, for a wallet) #email field — plus a new onReady(callback) being
-  added to the seam so a wallet mounts only after recurly.configure()
-  succeeds. The overseer is amending docs/specs/modules/wallets.md and will
-  send the amended K/C sections. Do NOT guess the fix or commit
-  checkout.html/test-wallet-seam.* until that arrives.
-  Also told: wallet-google-pay (branch wallet-google-pay, HEAD 8a5755f,
-  parked) shipped its own assets/wallet-common.js + its own #wallets row in
-  a different spot (above #cardField, bare div, no class) because this
-  worktree had landed nothing when it started. My placement (class="wallets"
-  above #payMsg in the summary panel) is the one that lands; it drops its
-  own copy when I land. Not my action item beyond knowing this.
-  Also noted (not my task): worker.js reads
-  err.three_d_secure_action_token_id but Recurly v3 nests it under
-  error.transaction_error, so the 3DS branch can never fire today — a
-  separate, already-logged defect, not touched here.
-
-In flight (file:line):
-- Merging origin/main (fetched: f34be49, five briefs ahead of this branch's
-  a55c994 base). worker.js conflict is real: origin/main's alert-on-decline
-  added sendDeclineAlertEmail() + a Cloudflare send_email binding inside/
-  around logDecline(); this branch changed logDecline()'s signature to take
-  a 3rd `wallet` arg. Have fetched; have NOT yet run `git merge origin/main`
-  or touched the conflict. Do that next, keeping both: the decline email
-  still fires AND the alert line still appends ` wallet=<method|card>`.
-  After resolving, re-run scripts/test-subscribe-wallet.js AND the landed
-  scripts/test-subscribe-decline-email.js — both must be green before
-  moving on.
+- Merged origin/main (f34be49) into this branch as f282fe7. Resolved
+  worker.js's two conflicts by keeping both sides: logDecline(plan, te,
+  wallet) still appends ` wallet=<method|card>`, and
+  sendDeclineAlertEmail()/ctx.waitUntil()/the cloudflare:email import all
+  still fire too. scripts/test-subscribe-wallet.js needed its own fix
+  (5860469): its import-stripping regex only stripped worker.js's first
+  `import` line, and the merge gave worker.js a second one
+  (`cloudflare:email`) — added the `/gm` flag, matching the fix already
+  landed in the other worker test scripts. Both
+  scripts/test-subscribe-wallet.js and the landed
+  scripts/test-subscribe-decline-email.js are green against the merged
+  worker.js, as are the three pre-existing worker tests (decline-reasons,
+  subscribe-build-purchase, subscribe-decline-alert) — no regression.
+- Re-read docs/specs/modules/wallets.md directly (not just the relayed
+  message) for the amended K3/K3a/K3b/K6/C2 wording. One correction over
+  what I'd written here before: there is no `result.account_code` anywhere
+  in the pinned spec or in Recurly's answer — the fix is purely the third
+  `buyerEmail` argument, landing-opzichter said so explicitly after seeing
+  my first version of this section.
+- checkout.html: added `onReady(callback)` (fires once `recurly.configure()`
+  inside setupCard() has run, immediately if it already has, queued
+  otherwise); `finish()` now takes `(result, tokenId, buyerEmail)` and reads
+  `(buyerEmail || email.value...)` on the success path, passing buyerEmail
+  through the 3DS retry too so a wallet buyer's email survives a bank
+  challenge. `window.LeskoCheckout` now publishes six functions (added
+  `onReady`). K3a needed no code change beyond the new parameter — the
+  card path's own `tokenId` closure was already correct; the risk was a
+  future wallet caller, now covered by a test.
+- scripts/test-wallet-seam.mjs: extended to prove K3a (3DS retry re-submits
+  the given tokenId, not undefined — stubs `recurly.Risk().ThreeDSecure()`
+  and a fetch spy on `/api/subscribe`, fires the stub's `token` handler by
+  hand), K3b (`finish({ok:true},'tok-1','w@b.co')` with the card `#email`
+  box empty puts `w%40b.co` in both the `/welcome` URL and localStorage),
+  and K6 (onReady does not fire before `configure()` runs, fires once it
+  does having been queued, fires immediately when called after, never fires
+  if `configure()` never runs). `bash scripts/test-wallet-seam.sh .` is all
+  PASS (27 checks). Proven red first against an `origin/main` scratch copy
+  made with `git archive` (window.LeskoCheckout is undefined there, so the
+  harness itself throws/fails well before any individual check could pass).
+- checkout.html + scripts/test-wallet-seam.sh/.mjs are written and green but
+  NOT YET COMMITTED — that is the very next step below, not done yet.
 
 Next:
-1. `git merge origin/main`, resolve worker.js's logDecline() conflict
-   (keep both the email send and the wallet arg), re-run
-   test-subscribe-wallet.js and test-subscribe-decline-email.js green.
-2. Reply to landing-opzichter (SendMessage) with where the merge landed.
-3. Wait for the amended K/C sections of docs/specs/modules/wallets.md
-   before touching checkout.html, test-wallet-seam.*, or starting
-   assets/wallet-common.js / wallet-paypal.js.
-4. Once the amendment arrives: fix checkout.html's finish() (account_code
-   over the #email field, per the amendment's actual wording — do not
-   reuse my own guess above, re-read what the overseer actually sends),
-   add onReady() to the seam, re-run test-wallet-seam.sh red/green, then
-   commit checkout.html + the seam test as one commit.
-5. Write assets/wallet-common.js (C1-C6) + scripts/test-wallet-common.js,
-   then assets/wallet-paypal.js (P1-P5) + scripts/test-wallet-paypal.sh —
-   neither started.
-6. Check .assetsignore once all new files exist (scripts/ already covered
+1. Commit checkout.html + scripts/test-wallet-seam.sh/.mjs together as one
+   commit (one idea: the K1-K6 seam, to spec as amended).
+2. Reply to landing-opzichter (SendMessage) confirming the merge landed as
+   f282fe7 and the seam now matches the amended K3a/K3b/K6 spec.
+3. Write assets/wallet-common.js (C1-C6, including C2's
+   `LeskoCheckout.finish(result, token, buyer.email)` with both extra
+   arguments always) + scripts/test-wallet-common.js — not started.
+4. Write assets/wallet-paypal.js (P1-P5 — mounts only inside `onReady`,
+   per K6) + scripts/test-wallet-paypal.sh + its jsdom companion — not
+   started.
+5. Check .assetsignore once all new files exist (scripts/ already covered
    as a whole; assets/ already served — likely no new line needed).
-7. Run wt-done.sh --check wallet-paypal until it exits 0, report done to
+6. Run wt-done.sh --check wallet-paypal until it exits 0, report done to
    landing-opzichter.
 
 Traps (with dates):
@@ -165,12 +139,10 @@ Traps (with dates):
   instead of stubs from a library — works because worker.js's `subscribe()`
   builds every answer with `new Response(...)` and signs Recurly calls with
   `btoa(...)`, both real Web APIs Node already provides globally.
-- 2026-10-09: test-checkout-address.mjs's jsdom harness pattern (strip
-  `<script>` tags by regex, run each by hand via `window.eval`, because
-  jsdom does not fetch local file `src`s) is the template reused for
-  test-wallet-seam.mjs — but reimplemented standalone rather than imported,
-  so each test script still runs against a bare scratch copy of the repo
-  made with `git archive` that may carry only itself.
+- 2026-10-09: a worker.js test script that strips the leading `import` line
+  to run the file as a plain vm script must use `/gm`, not `/m` alone — a
+  second top-level `import` (added by a merge, e.g. `cloudflare:email`)
+  otherwise survives into the vm script body and throws a SyntaxError.
 - 2026-10-09: jsdom cannot do real `location.href=` navigation (logs "Not
   implemented" and leaves location unchanged) and most of its DOM objects'
   properties are non-configurable, so there is no way to intercept this
@@ -180,3 +152,7 @@ Traps (with dates):
   (not just before `new JSDOM()`) — jsdom's Location class binds to
   navigate() the first time it loads and keeps that reference, so patching
   any later is silently a no-op.
+- 2026-10-09: the K5 card-submit regression test must fill `state` and
+  `postal_code` too, not just the other five fields — checkout.html's own
+  updateAddressRequirements() makes both required for the default country
+  (US) on load.
