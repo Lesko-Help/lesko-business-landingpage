@@ -1,10 +1,10 @@
 #!/usr/bin/env node
-// Proves K1-K5 under "LeskoCheckout — the seam checkout.html publishes" in
+// Proves K1-K6 under "LeskoCheckout — the seam checkout.html publishes" in
 // docs/specs/modules/wallets.md, without a real browser. Input: a directory holding
 // checkout.html (either this repo, or a scratch copy of some other commit made with
 // `git archive`). Output: one PASS/FAIL line per check below, and a process exit code (0 only if
 // every check passed). Exists so the change from "window.LeskoCheckout is undefined" (red, on
-// origin/main) to "the five functions exist and behave as specced" (green, on this branch) is
+// origin/main) to "the six functions exist and behave as specced" (green, on this branch) is
 // provable from a fresh shell, not just asserted in prose.
 //
 // Mirrors scripts/test-checkout-address.mjs's own jsdom harness (re-implemented here rather than
@@ -145,12 +145,15 @@ async function flushMicrotasks() {
   check('showError(message) with no second argument still scrolls (to #payMsg itself)', w.__scrollTargets.indexOf(payMsg) !== -1);
 })();
 
-// ── K3: finish({ok:true,...}) saves to localStorage and goes to /welcome ────────
+// ── K3: finish(result, tokenId, buyerEmail) saves to localStorage and goes to /welcome ──────────
 (function () {
+  // The card path: no buyerEmail argument, so finish() reads the page's own #email field — the
+  // same convention the card submit handler already relies on.
   const w = loadCheckout('https://leskobusiness.com/checkout?plan=yearly');
+  w.document.getElementById('email').value = 'a@b.co';
   lastNavigatedTo = null;
-  w.LeskoCheckout.finish({ ok: true, account_code: 'a@b.co' });
-  check('finish({ok:true}) sets location.href to /welcome with the email and plan',
+  w.LeskoCheckout.finish({ ok: true }, 'tok-1');
+  check('finish({ok:true},"tok-1") with the card email box filled sets location.href to /welcome with that email and plan',
     lastNavigatedTo === 'https://leskobusiness.com/welcome?email=a%40b.co&plan=yearly', lastNavigatedTo);
 })();
 (function () {
@@ -159,7 +162,7 @@ async function flushMicrotasks() {
   // of K3 using that field, the same way the card submit handler already does.
   const w = loadCheckout('https://leskobusiness.com/checkout?plan=monthly');
   w.document.getElementById('email').value = 'buyer@example.com';
-  w.LeskoCheckout.finish({ ok: true });
+  w.LeskoCheckout.finish({ ok: true }, 'tok-1');
   let saved = null;
   try { saved = JSON.parse(w.localStorage.getItem('leskoCheckout')); } catch (e) {}
   check('finish({ok:true}) saves the email/plan to localStorage', !!saved && saved.email === 'buyer@example.com' && saved.plan === 'monthly', saved);
@@ -167,8 +170,47 @@ async function flushMicrotasks() {
 (function () {
   const w = loadCheckout('https://leskobusiness.com/checkout?plan=monthly');
   const payMsg = w.document.getElementById('payMsg');
-  w.LeskoCheckout.finish({ message: 'Your card was declined.' });
+  w.LeskoCheckout.finish({ message: 'Your card was declined.' }, 'tok-1');
   check('finish() with neither ok nor a 3DS token shows the message via showError', payMsg.textContent.includes('declined'));
+})();
+
+// ── K3b: a wallet buyer never types into #email, so finish() takes their address as a third ───
+// ── argument instead, and uses it even though the DOM field is empty. ──────────────────────────
+(function () {
+  const w = loadCheckout('https://leskobusiness.com/checkout?plan=yearly');
+  check('the card email box starts empty (this test proves K3b needs no DOM value at all)', w.document.getElementById('email').value === '');
+  lastNavigatedTo = null;
+  w.LeskoCheckout.finish({ ok: true }, 'tok-1', 'w@b.co');
+  check('finish({ok:true},"tok-1","w@b.co") with the card email box empty puts w%40b.co in the /welcome URL (K3b)',
+    lastNavigatedTo === 'https://leskobusiness.com/welcome?email=w%40b.co&plan=yearly', lastNavigatedTo);
+  let saved = null;
+  try { saved = JSON.parse(w.localStorage.getItem('leskoCheckout')); } catch (e) {}
+  check('finish(...,"w@b.co") saves buyerEmail (not the empty DOM field) to localStorage too (K3b)',
+    !!saved && saved.email === 'w@b.co', saved);
+})();
+
+// ── K3a: the 3-D Secure retry re-submits the original tokenId it was given, never undefined ────
+await (async function () {
+  let capturedToken = 'not-called';
+  const tdsHandlers = {};
+  const recurlyStub = {
+    Risk: function () {
+      return { ThreeDSecure: function () { return { on: function (ev, cb) { tdsHandlers[ev] = cb; }, attach: function () {} }; } };
+    }
+  };
+  const w = loadCheckout('https://leskobusiness.com/checkout?plan=monthly', { recurlyStub: recurlyStub });
+  w.fetch = function (u, opts) {
+    if (String(u).indexOf('/api/subscribe') !== -1) {
+      capturedToken = JSON.parse(opts.body).token;
+      return Promise.resolve({ json: function () { return Promise.resolve({ ok: true }); } });
+    }
+    return Promise.reject(new Error('unexpected fetch ' + u));
+  };
+  w.LeskoCheckout.finish({ three_d_secure_action_token_id: '3ds-action' }, 'tok-original', 'w@b.co');
+  tdsHandlers.token({ id: 'bank-result-tok' });
+  await flushMicrotasks();
+  check('the 3-D Secure retry re-submits with the tokenId finish() was given, not undefined (K3a)',
+    capturedToken === 'tok-original', capturedToken);
 })();
 
 // ── K4: walletsRow() returns #wallets, or null when the markup is missing ──────
@@ -208,6 +250,48 @@ await (async function () {
   w.document.getElementById('email').value = 'a@b.co';
   w.document.getElementById('payForm').dispatchEvent(new w.Event('submit', { bubbles: true, cancelable: true }));
   check('the card submit path still reaches recurly.token() after the seam is published', tokenCalled === true);
+})();
+
+// ── K6: onReady(callback) runs callback once recurly.configure() has succeeded — never before, ──
+// ── and immediately if called after it already has. ────────────────────────────────────────────
+await (async function () {
+  let fired = false;
+  const recurlyStub = {
+    configure: function () {},
+    Elements: function () { return { CardElement: function () { return { attach: function () {}, on: function () {} }; } }; }
+  };
+  const w = loadCheckout('https://leskobusiness.com/checkout?plan=monthly', {
+    recurlyStub: recurlyStub,
+    configResponse: { recurly_public_key: 'pk-test' }
+  });
+  w.LeskoCheckout.onReady(function () { fired = true; });
+  check('onReady has not fired synchronously, before the async /api/config answer drives configure()', fired === false);
+  await flushMicrotasks();
+  check('onReady fires once recurly.configure() succeeds, having been called before it did (K6)', fired === true);
+})();
+await (async function () {
+  let fired = false;
+  const recurlyStub = {
+    configure: function () {},
+    Elements: function () { return { CardElement: function () { return { attach: function () {}, on: function () {} }; } }; }
+  };
+  const w = loadCheckout('https://leskobusiness.com/checkout?plan=monthly', {
+    recurlyStub: recurlyStub,
+    configResponse: { recurly_public_key: 'pk-test' }
+  });
+  await flushMicrotasks();
+  w.LeskoCheckout.onReady(function () { fired = true; });
+  check('onReady fires immediately when called after recurly.configure() already succeeded (K6)', fired === true);
+})();
+await (async function () {
+  let fired = false;
+  const w = loadCheckout('https://leskobusiness.com/checkout?plan=monthly');
+  // No recurlyStub and no configResponse: window.recurly stays unset and fetch('/api/config')
+  // rejects, so setupCard() returns before ever calling recurly.configure() — onReady must never
+  // fire on a page where Recurly never configures at all.
+  w.LeskoCheckout.onReady(function () { fired = true; });
+  await flushMicrotasks();
+  check('onReady never fires when recurly.configure() never runs (K6)', fired === false);
 })();
 
 process.exit(failCount > 0 ? 1 : 0);

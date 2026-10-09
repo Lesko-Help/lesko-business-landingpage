@@ -17,6 +17,12 @@
      Card numbers go straight to Recurly and never touch this website or our server.
      The site's Recurly public key is served by the Worker (/api/config), not stored here. -->
 <script src="https://js.recurly.com/v4/recurly.js"></script>
+<!-- The wallet seam (docs/specs/modules/wallets.md): one shared file plus one file per method.
+     Both are deferred, so they run after the page is parsed — in particular after window.LeskoCheckout
+     is published below — but before DOMContentLoaded, where each file's own init() runs. Every method
+     in wallet-common.js's WALLETS switch ships false, so neither file mounts anything yet. -->
+<script src="/assets/wallet-common.js" defer></script>
+<script src="/assets/wallet-paypal.js" defer></script>
 <!-- Shared GA4 setup (measurement id, consent rule, plan prices) — same file as index.html and
      welcome.html, named site-events.js (not analytics.js) so ad blockers don't drop it. Off
      until the id in that file is filled in. If it fails to load anyway (blocked, network error),
@@ -185,6 +191,11 @@
         <div class="line line--total"><span>Due today</span><span class="v" id="sumTotal">$89.95</span></div>
         <a class="change-plan" href="/#pricing">Change plan</a>
 
+        <!-- A wallet button (PayPal, Apple Pay, Google Pay) mounts itself here. Empty and
+             invisible while every method in assets/wallet-common.js's WALLETS switch stays
+             off — see docs/specs/modules/wallets.md K4. -->
+        <div class="wallets" id="wallets"></div>
+
         <div class="pay-error" id="payMsg" role="alert"></div>
         <button class="btn-pay" id="payBtn" type="submit">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
@@ -326,6 +337,23 @@
     document.getElementById('payBtnText').textContent = on ? label : 'Pay ' + P.total + ' now';
   }
 
+  // ── K6: a wallet file must mount only once Recurly is actually configured — the async
+  // /api/config fetch below means that is later than DOMContentLoaded, so a wallet that mounted on
+  // DOMContentLoaded would call recurly.GooglePay()/PayPal()/ApplePay() against an unconfigured
+  // recurly and throw. Input: a callback. Output: nothing; the callback runs once, either right
+  // now (if recurly.configure() already succeeded) or the moment it does.
+  var recurlyReady = false;
+  var readyCallbacks = [];
+  function onReady(callback) {
+    if (recurlyReady) { callback(); } else { readyCallbacks.push(callback); }
+  }
+  function markReady() {
+    if (recurlyReady) return;
+    recurlyReady = true;
+    readyCallbacks.forEach(function (cb) { cb(); });
+    readyCallbacks.length = 0;
+  }
+
   // ── Recurly's secure card field. The public key comes from our Worker. ─
   var elements = null;
   function setupCard(publicKey) {
@@ -337,6 +365,7 @@
       publicKey: publicKey,
       required: ['first_name', 'last_name', 'address1', 'city', 'country']
     });
+    markReady();
     elements = recurly.Elements();
     var card = elements.CardElement({
       style: {
@@ -393,9 +422,17 @@
     }).then(function (r) { return r.json(); });
   }
 
-  function finish(result, tokenId) {
+  // K3: shared by the card path and every wallet. tokenId (K3a) is not optional — the 3-D Secure
+  // branch re-submits it beside the bank's own result token, so a caller that omits it would post
+  // `undefined` the one time the bank was willing to approve; the card path always has it (its own
+  // subscribe() call just above), and a wallet passes the token id it just handed to
+  // payWithWallet. buyerEmail (K3b) exists because the line below otherwise always reads the
+  // card form's own #email input, which a wallet buyer never types into — so a wallet purchase
+  // would reach /welcome with the address empty, breaking the GA4 purchase event and
+  // lesko-provisioning's key. The card path passes nothing here, so it keeps reading its own field.
+  function finish(result, tokenId, buyerEmail) {
     if (result.ok) {
-      var e = email.value.trim().toLowerCase();
+      var e = (buyerEmail || email.value.trim().toLowerCase());
       try { localStorage.setItem(STORE, JSON.stringify({ email: e, company: company.value.trim(), plan: plan, t: Date.now() })); } catch (err) {}
       busy(true, 'Payment received. One moment…');
       location.href = '/welcome?email=' + encodeURIComponent(e) + '&plan=' + plan;
@@ -407,7 +444,7 @@
       var box = document.getElementById('threeds');
       box.hidden = false;
       var tds = recurly.Risk().ThreeDSecure({ actionTokenId: result.three_d_secure_action_token_id });
-      tds.on('token', function (t) { box.hidden = true; subscribe(tokenId, t.id).then(function (r2) { finish(r2, tokenId); }).catch(netFail); });
+      tds.on('token', function (t) { box.hidden = true; subscribe(tokenId, t.id).then(function (r2) { finish(r2, tokenId, buyerEmail); }).catch(netFail); });
       tds.on('error', function () { box.hidden = true; busy(false); showError('The bank check did not go through. Please try again or use another card.'); });
       tds.attach(box);
       return;
@@ -419,6 +456,24 @@
     busy(false);
     showError('We could not reach the payment server. Please check your connection and try again.');
   }
+
+  // Publishes the seam a wallet file builds on (docs/specs/modules/wallets.md K1-K6), so every
+  // wallet reuses this page's own plan/price, error box and success/3-D-Secure path instead of
+  // writing its own — there stays exactly one way to reach /welcome and one place a buyer reads
+  // a failure. Runs before any deferred wallet script does (K5): this inline script is not itself
+  // deferred, so it finishes — this assignment included — before a `defer` script ever runs. A
+  // wallet file still has to wait for onReady (K6), though, since Recurly itself is only
+  // configured after the async /api/config fetch above resolves.
+  // Input: nothing of its own (closes over this IIFE's `plan`, `P`, `showError`, `finish` and
+  // `onReady`). Output: the six functions on window.LeskoCheckout.
+  window.LeskoCheckout = {
+    plan: function () { return plan; },
+    total: function () { return parseFloat(P.total.replace(/[^0-9.]/g, '')); },
+    showError: showError,
+    finish: finish,
+    walletsRow: function () { return document.getElementById('wallets'); },
+    onReady: onReady
+  };
 
   form.addEventListener('submit', function (e) {
     e.preventDefault();
