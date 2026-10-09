@@ -12,12 +12,14 @@
 // Both files are ES modules; this repo has no package.json, so Node
 // cannot `import()` either. raillog.js's top-level `export` keywords are
 // stripped (as in scripts/test-raillog-alert.js) and run FIRST into a vm
-// context; worker.js's leading `import { alert } from './raillog.js'`
-// line is then deleted and its body (up to `export default`, as in
-// scripts/test-decline-reasons.js) is run into THE SAME vm context, so
-// the already-defined `alert` function is the one logDecline's bare
-// `alert(...)` call resolves to — proving the wiring, not just that each
-// file works alone.
+// context; worker.js's leading import lines (`alert` from './raillog.js',
+// `EmailMessage` from 'cloudflare:email') are then deleted and its body
+// (up to `export default`, as in scripts/test-decline-reasons.js) is run
+// into THE SAME vm context, so the already-defined `alert` function is
+// the one logDecline's bare `alert(...)` call resolves to — proving the
+// wiring, not just that each file works alone. This test never calls
+// sendDeclineAlertEmail, so EmailMessage being undefined in the sandbox
+// is fine — see scripts/test-subscribe-decline-email.js for that path.
 //
 // Usage: node scripts/test-subscribe-decline-alert.js <path-to-worker.js> <path-to-raillog.js>
 
@@ -49,7 +51,7 @@ try {
 }
 
 const workerSource = fs.readFileSync(workerPath, 'utf8');
-const withoutImport = workerSource.replace(/^import\s+.*?;\s*$/m, '');
+const withoutImport = workerSource.replace(/^import\s+.*?;\s*$/gm, '');
 const cut = withoutImport.indexOf('export default');
 const workerBody = cut === -1 ? withoutImport : withoutImport.slice(0, cut);
 try {
