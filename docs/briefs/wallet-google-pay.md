@@ -104,14 +104,12 @@ Done:
   against `origin/main` via `git archive origin/main | tar -x -C <scratch>`
   (no wallet files exist there at all).
 
-In flight: none — about to run the test green on this branch
-(`scripts/test-wallet-google-pay.sh .`), via `run-suite.sh`.
+In flight: none. Test proven red against `origin/main` then green here (39
+checks), existing `test-checkout-address` and `test-ga4-events` suites still
+pass against the edited `checkout.html`. Committed (`919f050`), merged
+`origin/main` (already up to date), `wt-done.sh --check` exits 0.
 
-Next:
-- Run the suite, confirm green.
-- `git add -N .`, commit (one commit for the seam pieces + brief, test
-  separately or together — decide at commit time), merge `origin/main`,
-  `wt-done.sh --check wallet-google-pay`, then report to the overseer.
+Next: report to the overseer, then wait for its review.
 
 Traps (with dates):
 - 2026-10-09: `wallet-paypal` branch/worktree exists but had landed nothing
