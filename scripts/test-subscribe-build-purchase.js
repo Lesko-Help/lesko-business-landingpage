@@ -10,16 +10,16 @@
 // green (this branch, where the line is removed) are each provable from a
 // fresh shell, not just asserted in prose.
 //
-// worker.js is an ES module (`import ... from './raillog.js'` at the top,
-// `export default {...}` at the bottom) but this repo has no package.json,
-// so Node would refuse to `import()` it, and `vm`'s Script goal cannot run
-// a bare `import` statement either. So: strip the leading import line (the
-// only ESM import syntax in the file), cut the trailing `export default`
-// block the same way scripts/test-decline-reasons.js already does, and run
-// what is left as a plain script in a throwaway vm context. Since this
-// test never calls buildPurchase's dependency on `alert` (raillog.js's
-// export), the stripped import can simply be deleted — nothing in this
-// test's code paths references the name `alert`.
+// worker.js is an ES module (`import` lines at the top for raillog.js and
+// cloudflare:email, `export default {...}` at the bottom) but this repo
+// has no package.json, so Node would refuse to `import()` it, and `vm`'s
+// Script goal cannot run a bare `import` statement either. So: strip
+// every leading import line, cut the trailing `export default` block the
+// same way scripts/test-decline-reasons.js already does, and run what is
+// left as a plain script in a throwaway vm context. Since this test never
+// calls buildPurchase's dependencies on `alert` or `EmailMessage`, the
+// stripped imports can simply be deleted — nothing in this test's code
+// paths references either name.
 //
 // Usage: node scripts/test-subscribe-build-purchase.js <path-to-worker.js>
 
@@ -33,7 +33,7 @@ if (!workerPath) {
 }
 
 const source = fs.readFileSync(workerPath, 'utf8');
-const withoutImport = source.replace(/^import\s+.*?;\s*$/m, '');
+const withoutImport = source.replace(/^import\s+.*?;\s*$/gm, '');
 const cut = withoutImport.indexOf('export default');
 const scriptBody = cut === -1 ? withoutImport : withoutImport.slice(0, cut);
 

@@ -7,14 +7,14 @@
 // missing, on origin/main) and green (function present, on this branch)
 // are each provable from a fresh shell, not just asserted in prose.
 //
-// worker.js is an ES module (a leading `import { alert } from
-// './raillog.js'`, a trailing `export default {...}`) but this repo has
+// worker.js is an ES module (leading `import` lines for raillog.js and
+// cloudflare:email, a trailing `export default {...}`) but this repo has
 // no package.json, so Node would refuse to `import()` it, and vm's Script
-// goal cannot run a bare `import` statement either. So: strip the leading
-// import line (this test never calls anything that uses `alert`, so it
-// can simply be deleted), cut the source off before `export default`, and
-// run what is left as a plain script in a throwaway vm context — no
-// changes to worker.js's module shape needed.
+// goal cannot run a bare `import` statement either. So: strip every
+// leading import line (this test never calls anything that uses `alert`
+// or `EmailMessage`, so they can simply be deleted), cut the source off
+// before `export default`, and run what is left as a plain script in a
+// throwaway vm context — no changes to worker.js's module shape needed.
 //
 // Usage: node scripts/test-decline-reasons.js <path-to-worker.js>
 
@@ -28,7 +28,7 @@ if (!workerPath) {
 }
 
 const source = fs.readFileSync(workerPath, 'utf8');
-const withoutImport = source.replace(/^import\s+.*?;\s*$/m, '');
+const withoutImport = source.replace(/^import\s+.*?;\s*$/gm, '');
 const cut = withoutImport.indexOf('export default');
 const scriptBody = cut === -1 ? withoutImport : withoutImport.slice(0, cut);
 
