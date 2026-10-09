@@ -75,49 +75,37 @@ and why. The overseer applies what it agrees with on main.
 ## State
 
 Done:
-- Merged origin/main (f282fe7) and fixed scripts/test-subscribe-wallet.js's
-  import-stripping (5860469). All pre-existing + new worker tests green,
-  no regression.
-- checkout.html + scripts/test-wallet-seam.mjs/.sh: K1-K6 seam committed
-  (48062b9) — onReady/markReady, finish(result, tokenId, buyerEmail) with
-  the card-field fallback, both threaded through the 3DS retry. 27 checks
-  green, proven red against an origin/main scratch copy first.
-- K3b amendment (landing-opzichter, after reviewing wallet-google-pay
-  round 2): email normalisation (trim+lowercase) must apply to BOTH the
-  buyerEmail argument and the #email fallback, not just the fallback.
-  checkout.html:435 now `var e = (buyerEmail || email.value).trim().toLowerCase();`
-  — fixed, not yet committed. Added two seam tests (padded/upper-case
-  wallet email -> lower-cased, trimmed in both the /welcome URL and
-  localStorage) to scripts/test-wallet-seam.mjs, green but not committed.
-- assets/wallet-common.js written (C1-C6): WALLETS={paypal:false,
-  apple_pay:false,google_pay:false}; payWithWallet normalises
-  buyer.email once (trim+lowercase) before the C3 empty check, the GA4
-  event, the POST body and finish(); POSTs
-  {plan,token,email,first_name,last_name,company,wallet} to
-  /api/subscribe (company read straight off the page's #company field,
-  since no wallet reports it); calls finish(result, token, email) always
-  with both extra args. scripts/test-wallet-common.js written and green
-  (20 checks, incl. the normalisation amendment) — NOT YET COMMITTED.
-  Red-proof: the file does not exist on origin/main at all (git show
-  origin/main:assets/wallet-common.js fails), so the test cannot even
-  load it there.
+- Merged origin/main (f282fe7). checkout.html + test-wallet-seam.mjs/.sh:
+  K1-K6 seam committed (48062b9). K3b normalisation amendment (peer review)
+  applied and committed (50c07cb) — checkout.html's finish() and
+  wallet-common.js's payWithWallet both now do
+  `(buyerEmail||x).trim().toLowerCase()`, not just the fallback.
+- assets/wallet-common.js (C1-C6) committed (83694a3): WALLETS all false;
+  payWithWallet normalises email once, POSTs
+  {plan,token,email,first_name,last_name,company,wallet}, calls
+  finish(result,token,email) always. scripts/test-wallet-common.js: 20/20
+  green, red-proven (file absent on origin/main).
+- assets/wallet-paypal.js (P1-P5) committed (d2b2578): mounts one button
+  into #wallets only from inside onReady(); switch checked once before
+  registering onReady; token handler calls payWithWallet('paypal',
+  token.id, {email,first_name:'',last_name:''}); error -> showError;
+  cancel -> silent; PAYPAL_GATEWAY_CODE='' by default.
+  scripts/test-wallet-paypal.sh/.mjs: 11/11 green, red-proven (neither
+  wallet file nor #wallets exist on origin/main — FAILs then crashes).
+- All four spec'd tests + all pre-existing worker tests re-run this
+  segment, all green, no regression (test-subscribe-wallet.js,
+  test-subscribe-build-purchase.js, test-decline-reasons.js all PASS).
+- .assetsignore checked: no new line needed (scripts/ covered as a whole;
+  assets/* is meant to be served).
 
 Next:
-1. Commit assets/wallet-common.js + scripts/test-wallet-common.js as one
-   commit (C1-C6), and the checkout.html K3b-normalisation fix +
-   scripts/test-wallet-seam.mjs amendment as a separate commit (one idea
-   each) — neither committed yet.
-2. Write assets/wallet-paypal.js (P1-P5 — mounts only inside `onReady`,
-   per K6; PAYPAL_GATEWAY_CODE constant, empty) + scripts/test-wallet-paypal.sh
-   + its jsdom companion — not started. P3's payWithWallet call passes
-   empty first_name/last_name (PayPal's token carries no reliable name).
-3. Check .assetsignore once all new files exist (scripts/ already covered
-   as a whole; assets/ already served — likely no new line needed).
-4. Run wt-done.sh --check wallet-paypal until it exits 0.
-5. Reply to landing-opzichter (SendMessage): merge landed as f282fe7, K1-K6
-   seam committed as 48062b9, K3b normalisation amendment applied, C1-C6
-   wallet-common.js written — then report full completion once P1-P5 lands
-   too.
+1. Run `wt-done.sh --check wallet-paypal` until it exits 0.
+2. Report completion to landing-opzichter via SendMessage: all four named
+   tests + K3b amendment done, commit range 48062b9..d2b2578, no
+   regression on the card path, WALLETS.paypal still ships false.
+3. scripts/test-subscribe-wallet.js has a stray mode-bit-only change
+   (100644->100755) carried over from an earlier stash restore, never
+   committed — harmless, leave it unless it blocks wt-done.sh's check.
 
 Traps (with dates):
 - 2026-10-09: Node's global `fetch`/`Response`/`btoa` (Node 26 here) used
@@ -147,3 +135,11 @@ Traps (with dates):
   fallback, and wallet-common.js's payWithWallet once up front — a buyer
   reporting the same address differently-cased must never get two Recurly
   accounts.
+- 2026-10-09: a jsdom document fires its own real DOMContentLoaded once,
+  asynchronously, even when every <script> was stripped out of the HTML
+  and run by hand via window.eval — a test harness must never also
+  dispatch one by hand, or a deferred wallet file's init() (which listens
+  for that event) runs twice and double-mounts. Set any WALLETS.* switch
+  the test needs synchronously, inside the function that ran the deferred
+  scripts, before it returns — that is guaranteed to land before jsdom's
+  own (later, async) DOMContentLoaded fires.
