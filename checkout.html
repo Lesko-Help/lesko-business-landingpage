@@ -31,6 +31,11 @@
     planPriceUSD: function () {}
   };
 </script>
+<!-- Wallet buttons (PayPal, Apple Pay, Google Pay) — docs/specs/modules/wallets.md. Each file is
+     inert until its own switch in wallet-common.js is true; none is yet (see that spec's
+     Decisions, 2026-10-09), so these load but mount nothing a buyer can see or reach. -->
+<script src="/assets/wallet-common.js" defer></script>
+<script src="/assets/wallet-google-pay.js" defer></script>
 </head>
 <body>
 
@@ -96,6 +101,9 @@
       <section class="panel" aria-labelledby="payTitle">
         <h2 id="payTitle">2. Payment</h2>
         <p class="sub">Your card details go into Recurly's secure field and never touch this website.</p>
+        <!-- A wallet button (PayPal, Apple Pay, Google Pay) mounts here when its switch in
+             assets/wallet-common.js is on; empty and invisible while every switch is off. -->
+        <div id="wallets"></div>
         <div class="field" id="cardField">
           <label for="recurly-card">Card details</label>
           <div class="card-box" id="recurly-card" data-placeholder="Card number &nbsp; MM / YY &nbsp; CVV"></div>
@@ -451,6 +459,18 @@
       subscribe(token.id).then(function (r) { finish(r, token.id); }).catch(netFail);
     });
   });
+
+  // The seam a wallet file (assets/wallet-google-pay.js and friends) reads and calls into —
+  // docs/specs/modules/wallets.md, K1-K5. Every function here is the one the card path above
+  // already uses, assigned as-is rather than renamed or copied, so a wallet purchase can never
+  // reach a second success path or a second error box.
+  window.LeskoCheckout = {
+    plan: function () { return plan; },
+    total: function () { return parseFloat(P.total.replace(/[^0-9.]/g, '')); },
+    showError: showError,
+    finish: finish,
+    walletsRow: function () { return document.getElementById('wallets') || null; }
+  };
 })();
 </script>
 </body>
