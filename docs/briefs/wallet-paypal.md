@@ -75,55 +75,88 @@ and why. The overseer applies what it agrees with on main.
 ## State
 
 Done:
-- worker.js: wallet branch done and green. Added WALLET_METHODS const, `wallet`
-  field parsed/validated in subscribe() (400 on unknown method, name check
-  skipped when wallet present), buildPurchase() now omits first_name/last_name
-  when empty instead of sending ''), logDecline() takes a 3rd `wallet` arg and
-  appends ` wallet=<method|card>` to the alert line, call site passes `wallet`.
-- scripts/test-subscribe-wallet.js: written, proven red against
-  origin/main's worker.js (7 fails) and green against this branch's
-  worker.js (all pass). Pre-existing worker tests
-  (test-subscribe-build-purchase.js, test-subscribe-decline-alert.js,
-  test-decline-reasons.js) re-run and still pass — no regression.
-- checkout.html: added `<div class="wallets" id="wallets"></div>` above
-  `#payMsg` in the summary panel; added two deferred `<script>` tags for
-  `/assets/wallet-common.js` and `/assets/wallet-paypal.js` right after the
-  Recurly.js `<script>` tag in `<head>`; added `window.LeskoCheckout = {
-  plan, total, showError, finish, walletsRow }` inside the existing inline
-  IIFE, right after `netFail()` is defined (so it exists before any
-  deferred script runs, and closes over the IIFE's own `plan`/`P`/
-  `showError`/`finish`). No copy, price or index.html/welcome.html touched.
-- scripts/test-wallet-seam.sh + scripts/test-wallet-seam.mjs: written
-  (K1-K5), self-contained jsdom harness (does not import
-  test-checkout-address.mjs, duplicates the small bits of it needed).
-  NOT YET RUN red/green — this is the very next step.
+- worker.js wallet branch + scripts/test-subscribe-wallet.js: committed
+  (1478738), proven red (7 fails) against origin/main's old worker.js and
+  green against this branch; pre-existing worker tests re-run clean.
+  SUPERSEDED BY THE MERGE BELOW — origin/main has since changed worker.js's
+  logDecline() too (alert-on-decline, landed as 677f220/020d83d/f34be49);
+  resolving that is the immediate next step, not done yet.
+- checkout.html (K1-K5 seam) + scripts/test-wallet-seam.sh/.mjs: written and
+  now green (`bash scripts/test-wallet-seam.sh .` all PASS), but NOT
+  committed — holding per the overseer's instruction below. Getting it green
+  needed three fixes beyond the first draft, kept here since they are not
+  obvious from the diff alone: (a) loadCheckout() must skip `defer` script
+  tags entirely (assets/wallet-common.js and wallet-paypal.js do not exist
+  in this worktree yet, and never need to run for K1-K5 anyway); (b) jsdom
+  does not implement `location.href = ...` navigation at all — it silently
+  no-ops rather than updating `location.href` — so proving K3's redirect
+  requires monkeypatching jsdom's own internal
+  `jsdom/lib/jsdom/living/window/navigation.js` navigate() export to record
+  the attempted URL, and that patch must land before jsdom's `Location`
+  class is first loaded, i.e. before `require('jsdom')` itself, not just
+  before `new JSDOM()`; (c) the K5 card-submit regression must fill `state`
+  and `postal_code` too, not just the other five fields — checkout.html's
+  own updateAddressRequirements() makes both required for the default
+  country (US) on load.
+- In writing this test myself (before the overseer's message arrived) I
+  independently hit the same bug the overseer flagged as 2(b): finish()
+  reads the redirect email from the `#email` DOM field, not from
+  `result.account_code`, so a wallet purchase (which never types there)
+  would redirect to `/welcome?email=&plan=...`. My test originally asserted
+  the spec's (wrong) example; I have NOT changed that assertion or
+  checkout.html's finish() — holding both for the amended spec, per below.
+
+HOLDING, per landing-opzichter's message (2026-10-09, via SendMessage):
+  two errors in the K3 spec I'm building to — finish() takes
+  (result, tokenId) not (result), and finish()'s success path needs to get
+  the email from result.account_code for a wallet purchase instead of the
+  (empty, for a wallet) #email field — plus a new onReady(callback) being
+  added to the seam so a wallet mounts only after recurly.configure()
+  succeeds. The overseer is amending docs/specs/modules/wallets.md and will
+  send the amended K/C sections. Do NOT guess the fix or commit
+  checkout.html/test-wallet-seam.* until that arrives.
+  Also told: wallet-google-pay (branch wallet-google-pay, HEAD 8a5755f,
+  parked) shipped its own assets/wallet-common.js + its own #wallets row in
+  a different spot (above #cardField, bare div, no class) because this
+  worktree had landed nothing when it started. My placement (class="wallets"
+  above #payMsg in the summary panel) is the one that lands; it drops its
+  own copy when I land. Not my action item beyond knowing this.
+  Also noted (not my task): worker.js reads
+  err.three_d_secure_action_token_id but Recurly v3 nests it under
+  error.transaction_error, so the 3DS branch can never fire today — a
+  separate, already-logged defect, not touched here.
 
 In flight (file:line):
-- scripts/test-wallet-seam.mjs — just finished editing loadCheckout() to
-  take an `options` object ({rewriteHtml, recurlyStub, configResponse})
-  instead of a single `rewriteHtml` arg, and updated the K4 "missing
-  #wallets row" call site and the K5 regression block to match. Have NOT
-  yet run this test at all (neither red nor green). Do that next.
+- Merging origin/main (fetched: f34be49, five briefs ahead of this branch's
+  a55c994 base). worker.js conflict is real: origin/main's alert-on-decline
+  added sendDeclineAlertEmail() + a Cloudflare send_email binding inside/
+  around logDecline(); this branch changed logDecline()'s signature to take
+  a 3rd `wallet` arg. Have fetched; have NOT yet run `git merge origin/main`
+  or touched the conflict. Do that next, keeping both: the decline email
+  still fires AND the alert line still appends ` wallet=<method|card>`.
+  After resolving, re-run scripts/test-subscribe-wallet.js AND the landed
+  scripts/test-subscribe-decline-email.js — both must be green before
+  moving on.
 
 Next:
-1. Run `scripts/test-wallet-seam.sh .` against this branch — fix until
-   green (likely issues: the `elements` variable inside checkout.html's
-   IIFE is closure-local, so K5's regression block relies on the normal
-   fetch('/api/config') -> setupCard() chain via flushMicrotasks(), not a
-   shortcut — double check that actually assigns `elements` before
-   recurly.token() is reached).
-2. Prove the same test red against a scratch copy of origin/main's
-   checkout.html (`git show origin/main:checkout.html` into a scratch dir
-   alongside origin/main's assets/flow.css — window.LeskoCheckout should be
-   undefined there).
-3. Write assets/wallet-common.js (C1-C6) and its test
-   scripts/test-wallet-common.js — not started yet.
-4. Write assets/wallet-paypal.js (P1-P5) and
-   scripts/test-wallet-paypal.sh (+ jsdom companion) — not started yet.
-5. Check .assetsignore: scripts/ as a whole is already ignored and assets/
-   is already served, so the new files likely need NO new line — confirm
-   once all new files exist, don't add speculatively.
-6. Merge origin/main, run wt-done.sh --check wallet-paypal, report to
+1. `git merge origin/main`, resolve worker.js's logDecline() conflict
+   (keep both the email send and the wallet arg), re-run
+   test-subscribe-wallet.js and test-subscribe-decline-email.js green.
+2. Reply to landing-opzichter (SendMessage) with where the merge landed.
+3. Wait for the amended K/C sections of docs/specs/modules/wallets.md
+   before touching checkout.html, test-wallet-seam.*, or starting
+   assets/wallet-common.js / wallet-paypal.js.
+4. Once the amendment arrives: fix checkout.html's finish() (account_code
+   over the #email field, per the amendment's actual wording — do not
+   reuse my own guess above, re-read what the overseer actually sends),
+   add onReady() to the seam, re-run test-wallet-seam.sh red/green, then
+   commit checkout.html + the seam test as one commit.
+5. Write assets/wallet-common.js (C1-C6) + scripts/test-wallet-common.js,
+   then assets/wallet-paypal.js (P1-P5) + scripts/test-wallet-paypal.sh —
+   neither started.
+6. Check .assetsignore once all new files exist (scripts/ already covered
+   as a whole; assets/ already served — likely no new line needed).
+7. Run wt-done.sh --check wallet-paypal until it exits 0, report done to
    landing-opzichter.
 
 Traps (with dates):
@@ -138,3 +171,12 @@ Traps (with dates):
   test-wallet-seam.mjs — but reimplemented standalone rather than imported,
   so each test script still runs against a bare scratch copy of the repo
   made with `git archive` that may carry only itself.
+- 2026-10-09: jsdom cannot do real `location.href=` navigation (logs "Not
+  implemented" and leaves location unchanged) and most of its DOM objects'
+  properties are non-configurable, so there is no way to intercept this
+  from outside jsdom's own code. The only working fix found: monkeypatch
+  `jsdom/lib/jsdom/living/window/navigation.js`'s exported `navigate`
+  function via `createRequire`, and do it before `require('jsdom')` itself
+  (not just before `new JSDOM()`) — jsdom's Location class binds to
+  navigate() the first time it loads and keeps that reference, so patching
+  any later is silently a no-op.
