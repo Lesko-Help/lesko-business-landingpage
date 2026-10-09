@@ -101,55 +101,52 @@ Done:
   `wallet-google-pay.js`.
 - `assets/wallet-google-pay.js` written (G1-G5).
 - `scripts/test-wallet-google-pay.sh` + `.mjs` written; confirmed red
-  against `origin/main` via `git archive origin/main | tar -x -C <scratch>`
-  (no wallet files exist there at all). Committed `919f050`; chmod 755 fix
-  for the `.sh` committed alone `6013b4c`.
+  against `origin/main` (no wallet files exist there at all). Committed
+  `919f050`; chmod 755 fix for the `.sh` committed alone `6013b4c`.
 - Round 1 review (overseer): build faithful to G1-G5, but found an ordering
   defect (wallet file mounted on `DOMContentLoaded`, before `checkout.html`
-  calls `recurly.configure()` — throws, silently swallowed by G4's own
-  try/catch) and two spec errors in `finish()` not mine to fix. Told to
-  stay parked; did, plus the chmod fix.
-- Round 2 (amended spec, K6/K3a/K3b/C2): implemented the fix for the
-  ordering defect on my own files, and matched my copy of the seam exactly
-  to the amended spec text (the seam itself — `checkout.html`'s `onReady`
-  and `finish` — is `wallet-paypal`'s to land; mine is a copy, dropped at
-  landing if it differs):
-  - `checkout.html`: added `onReady(callback)`/`fireReady()`, called from
-    `setupCard()` once `recurly.configure()` has run; `finish(result,
-    tokenId, buyerEmail)` — buyerEmail threads through the 3DS retry
-    recursion, falls back to the card form's `#email` input when absent
-    (unchanged behaviour for the card path); `window.LeskoCheckout` now
-    also publishes `onReady`.
-  - `assets/wallet-common.js`: `payWithWallet`'s success handler now calls
-    `checkout.finish(result, token, email)` (3 args, always).
-  - `assets/wallet-google-pay.js`: mounts via
-    `window.LeskoCheckout.onReady(init)`, not `DOMContentLoaded`.
-  - `scripts/test-wallet-google-pay.mjs`: rewritten — `extractScripts` now
-    tracks `defer` per script, `loadCheckout` runs non-deferred scripts
-    before deferred ones (matches real browser order; needed because
-    `wallet-google-pay.js`, deferred, now calls `window.LeskoCheckout`
-    synchronously at load time, defined by checkout.html's own non-deferred
-    inline script later in the markup); added `flushMicrotasks()` (10x
-    `await Promise.resolve()`, same convention as
-    `test-checkout-address.mjs`); `recurlyStub` now always includes
-    `configure`/`Elements`/`CardElement` no-ops; added two new checks for
-    K6 (no mount before `onReady` fires, mounts once it does) and
-    K3a/K3b (`finish` called with exactly `(result, tokenId, buyerEmail)`,
-    the email being the wallet's own, not the empty card-form field).
+  calls `recurly.configure()`) and two spec errors in `finish()` not mine
+  to fix. Told to stay parked; did, plus the chmod fix.
+- Round 2 (amended spec, K6/K3a/K3b/C2): `checkout.html` gained
+  `onReady(callback)`/`fireReady()` (called from `setupCard()` once
+  `recurly.configure()` has run) and `finish(result, tokenId, buyerEmail)`
+  (buyerEmail threads through the 3DS retry recursion, falls back to
+  `#email.value` when absent); `wallet-common.js`'s `payWithWallet` now
+  calls `checkout.finish(result, token, email)` (3 args, always);
+  `wallet-google-pay.js` mounts via `window.LeskoCheckout.onReady(init)`,
+  not `DOMContentLoaded`. Test harness rewritten to run non-deferred
+  scripts before deferred ones (real browser order — needed because
+  `wallet-google-pay.js` now calls `window.LeskoCheckout` synchronously at
+  load time); added `flushMicrotasks()`; two new checks for K6 and
+  K3a/K3b. Proven red against `origin/main`, green here (44/44), both
+  regression suites (`test-checkout-address`, `test-ga4-events`) still
+  pass. Merged `origin/main` (`f34be49`, unrelated `worker.js`/
+  `wrangler.jsonc` changes, clean merge). Committed `3832996` (brief),
+  `17ba9c5` (implementation), `2616053` (test). Reported to the overseer.
+- Round 3 (overseer found a real defect in both round-2 files, diffing
+  independently rather than trusting the report): `checkout.html`'s
+  `finish()` normalised (trim/lowercase) only the card-form fallback, not
+  `buyerEmail` itself, and `wallet-common.js` passed `buyer.email` raw to
+  both `/api/subscribe` and `finish` — so a wallet buyer typing
+  `Buyer@Example.COM` would make a different Recurly account code than
+  the same person on the card form, unreachable today (every switch
+  false) which is why no test caught it. Fixed both files to normalise
+  the same way `subscribe()` always has; the overseer amended K3b in the
+  spec to pin this. Test harness gained `window.__subscribeCalls`
+  (records each `/api/subscribe` body — previously the stub only
+  answered, never remembered what was sent) and one new check pair:
+  an upper-case, untrimmed wallet email reaches both `/api/subscribe` and
+  `finish` lower-cased and trimmed. Proven red by reverse-applying the fix
+  patch and re-running (both new checks failed), then re-applied and
+  confirmed 46/46 green; both regression suites re-run clean. Committed
+  `9122692` (fix), `589fe68` (test).
 
-In flight: none. Round 2 proven red against `origin/main` (same crash as
-Round 1 — `origin/main` has no `#wallets` at all) then green here, 44/44
-checks. Re-ran `test-checkout-address.sh .` (26/26 PASS) and
-`test-ga4-events.sh .` (ALL PASS) against the edited `checkout.html` — no
-regression from the seam changes. Not yet committed, not yet merged with
-`origin/main` (overseer's heads-up: now at `f34be49`, worker.js changed,
-unrelated to this branch's files), not yet reported to the overseer.
+In flight: none. Ready to report Round 3 to the overseer.
 
-Next: commit this brief update, then the implementation changes
-(`checkout.html`, `assets/wallet-common.js`, `assets/wallet-google-pay.js`)
-and the test extension (`scripts/test-wallet-google-pay.mjs`) as separate
-commits; merge `origin/main`; run `wt-done.sh --check`; report Round 2 to
-the overseer. Not landing anything — that is Martin's call.
+Next: send the Round 3 report (two-file email-normalisation fix, test
+proof, regressions clean); `origin/main` still at `f34be49`, no need to
+re-merge unless it has moved again. Not landing anything — that is
+Martin's call.
 
 Traps (with dates):
 - 2026-10-09: `wallet-paypal` branch/worktree exists but had landed nothing
