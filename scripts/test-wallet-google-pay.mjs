@@ -175,6 +175,17 @@ await (async function () {
   await flushMicrotasks();
   check('wallet-google-pay.js: switch on but GOOGLE_MERCHANT_ID empty (as shipped) -> recurly.GooglePay is never called', onEmptyIdStub.calls.length === 0);
   check('wallet-google-pay.js: switch on but GOOGLE_MERCHANT_ID empty (as shipped) -> #wallets stays empty', w2.document.getElementById('wallets').children.length === 0);
+
+  // The two knobs are independent: a merchant id with the switch still off must also stay dark.
+  // Every other case in this suite only ever turns the switch on together with the merchant id, so
+  // without this one, deleting the wallets.isOn('google_pay') check from init() would not be caught
+  // here — the merchant-id guard alone would still block the mount, for the wrong reason (overseer
+  // review, 2026-10-12).
+  const idOnlyStub = makeRecurlyStub();
+  const w3 = loadCheckout({ recurlyStub: idOnlyStub.recurlyStub, forceMerchantId: 'merchant-test-123' });
+  await flushMicrotasks();
+  check('wallet-google-pay.js: merchant id present but switch off -> recurly.GooglePay is never called', idOnlyStub.calls.length === 0);
+  check('wallet-google-pay.js: merchant id present but switch off -> #wallets stays empty', w3.document.getElementById('wallets').children.length === 0);
 })();
 
 // ── G2: switch on, a merchant id -> one button, with the exact options, total() per plan ───────
