@@ -74,63 +74,61 @@ and why. The overseer applies what it agrees with on main.
 
 ## State
 
-Done:
-- Merged origin/main (f282fe7). checkout.html + test-wallet-seam.mjs/.sh:
-  K1-K6 seam committed (48062b9). K3b normalisation amendment (peer review)
-  applied and committed (50c07cb) — checkout.html's finish() and
-  wallet-common.js's payWithWallet both now do
-  `(buyerEmail||x).trim().toLowerCase()`, not just the fallback.
-- assets/wallet-common.js (C1-C6) committed (83694a3): WALLETS all false;
-  payWithWallet normalises email once, POSTs
-  {plan,token,email,first_name,last_name,company,wallet}, calls
-  finish(result,token,email) always. scripts/test-wallet-common.js: 20/20
-  green, red-proven (file absent on origin/main).
-- assets/wallet-paypal.js (P1-P5) committed (d2b2578): mounts one button
-  into #wallets only from inside onReady(); switch checked once before
-  registering onReady; token handler calls payWithWallet('paypal',
-  token.id, {email,first_name:'',last_name:''}); error -> showError;
-  cancel -> silent; PAYPAL_GATEWAY_CODE='' by default.
-  scripts/test-wallet-paypal.sh/.mjs: 11/11 green, red-proven (neither
-  wallet file nor #wallets exist on origin/main — FAILs then crashes).
-- All four spec'd tests + all pre-existing worker tests re-run this
-  segment, all green, no regression (test-subscribe-wallet.js,
-  test-subscribe-build-purchase.js, test-decline-reasons.js all PASS).
-- .assetsignore checked: no new line needed (scripts/ covered as a whole;
-  assets/* is meant to be served).
+Done (landed, all committed through 4640f23): K1-K6 seam, C1-C6
+wallet-common.js, P1-P5 wallet-paypal.js, the C3 amendment (wallet-first
+then page field), and the port-collision/decline-email trap notes.
+`wt-done.sh --check` was clean. Martin said "land it" — then `a2dbb02` on
+main turned on a real review gate, which caught this branch (first one
+it has caught) for having no `## Agentic review` Verdict line. Overseer
+re-reviewed properly and sent CHANGES REQUESTED, 2026-10-12: one blocker
+plus five should-fix items plus three nits. Overseer owns and fills
+`## Agentic review` / `Verdict:` itself — never write that section.
 
-- C3 amendment (overseer review, 2026-10-09) committed (41a5620):
-  payWithWallet now reads #email/#first_name/#last_name as a fallback,
-  only when the wallet itself reports nothing for that field — wallet's
-  own value still wins when present. Refusal (no POST) still fires only
-  when both sources are empty. 6 new checks added to
-  scripts/test-wallet-common.js (wallet-wins-over-field for email and for
-  names, field-as-fallback for email and for names normalised correctly,
-  both-empty-still-refuses, no-third-argument-does-not-throw); proved red
-  first against the pre-amendment committed file (3 of the 6 FAILed, as
-  expected), green after the edit (27/27).
-- Re-ran all four named suites plus every other scripts/test-*.sh|js in
-  the repo this segment: test-wallet-seam.sh (30/30), test-wallet-common.js
-  (27/27), test-wallet-paypal.sh (11/11), test-subscribe-wallet.js (17/17),
-  test-subscribe-build-purchase.js, test-decline-reasons.js,
-  test-subscribe-decline-alert.js worker.js raillog.js,
-  test-subscribe-decline-email.js, test-raillog-alert.js,
-  test-checkout-address.sh, test-ga4-events.sh — all green, no regression.
-  test-subscribe-rate-limit.sh . expect-429 FAILed (six 501s, no 429) —
-  unrelated to this change (spins up wrangler dev against /api/subscribe's
-  rate limiter, untouched this segment; looks like a missing-secrets/
-  environment gap in this worktree, not a regression) — flagged to the
-  overseer, not fixed here, out of this task's scope.
-
-Next:
-1. Report the C3 amendment back to landing-opzichter via SendMessage:
-   code + tests done (41a5620), red-proven, all four named suites +
-   regression set green, the one unrelated rate-limit-suite environment
-   gap flagged.
-2. Then it is Martin's call to land, via the overseer — do not push to
-   main from here.
-3. scripts/test-subscribe-wallet.js's stray mode-bit-only change is
-   already committed (d7ebe40, from the previous segment) — nothing left
-   to do there.
+In flight, this round (uncommitted):
+- [BLOCKER] checkout.html: moved `markReady();` from before
+  `recurly.Elements()`/`card.attach()` to the very end of setupCard(), and
+  wrapped each `cb()` inside markReady()'s forEach in try/catch — done.
+- [BLOCKER] assets/wallet-paypal.js: rewritten — whole file wrapped in an
+  IIFE (was fixing the SHOULD-FIX global-leak item at the same time);
+  `window.recurly.PayPal(...)` now in try/catch, on throw removes the
+  button and shows nothing (G4/A4 silent-unavailable shape); fixed the
+  self-contradicting "checked again inside onReady" comment — done.
+- Still to do:
+  1. New red-first test in scripts/test-wallet-paypal.mjs: WALLETS.paypal
+     = true + a throwing recurly.PayPal stub => card.attach still called
+     with '#recurly-card', no button mounted. Scratch copy of pre-fix HEAD
+     already archived at
+     .claude/worktrees/wallet-paypal/../../scratchpad/pre-blocker-fix
+     (session scratchpad, see path in shell history) — run the new test
+     against it first (must FAIL), then against the working tree (must
+     PASS), per the overseer's explicit ask to show both runs.
+  2. SHOULD-FIX C4: checkout.html's card add_payment_info event needs
+     `payment_type: 'Credit Card'` added; fix the untrue comment in
+     wallet-common.js:58-60 ("GA4 reads as its default" — it doesn't);
+     add a scripts/test-ga4-events.sh check that both events carry a
+     payment_type.
+  3. SHOULD-FIX: comment at the 3DS retry seam (checkout.html ~408-423)
+     saying it is card-only and why (no `wallet` field, re-reads
+     #email/#first_name/#last_name) — do NOT change the behaviour, log it
+     under this brief's Spec proposals too (overseer records the spec
+     side separately).
+  4. Fill in this brief's own Spec proposals section (currently empty):
+     the C4/payment_type deviation, the card-only 3DS retry, and
+     assets/flow.css having no `.wallets` rule (harmless now, empty div,
+     but unstyled once a switch flips — do not touch flow.css here).
+  5. NITS (judgement, do them — cheap and correct): wallet-common.js
+     trim() each source before choosing between wallet/field, so a
+     whitespace-only wallet email can't beat a good page field and then
+     still refuse; drop scripts/test-wallet-common.js's
+     `isOn('paypal') === WALLETS.paypal` check (reads its expectation off
+     the system under test); scripts/test-subscribe-wallet.js's
+     wallet:'bitcoin' case should also assert the "Unknown payment
+     method." message, not just status 400.
+  6. Re-run every suite (all four named + every other scripts/test-*,
+     EXCEPT test-subscribe-rate-limit.sh — port 8799 collision risk,
+     already a Trap below) plus both red/green runs of the new blocker
+     test, then report to landing-opzichter and stop. Overseer fills the
+     Verdict and lands; never push to main from here.
 
 Traps (with dates):
 - 2026-10-09: Node's global `fetch`/`Response`/`btoa` (Node 26 here) used
