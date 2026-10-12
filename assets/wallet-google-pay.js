@@ -28,7 +28,9 @@
     var googlePay;
     try {
       // G2: total() comes from the seam, so the sheet can never show a price the page does not.
-      googlePay = recurly.GooglePay({
+      // window.recurly, not bare recurly, to match the landed wallet-paypal.js's window.recurly.PayPal()
+      // (overseer review, 2026-10-12).
+      googlePay = window.recurly.GooglePay({
         currency: 'USD',
         country: 'US',
         total: String(checkout.total()),

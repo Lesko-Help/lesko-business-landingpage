@@ -17,6 +17,13 @@
      Card numbers go straight to Recurly and never touch this website or our server.
      The site's Recurly public key is served by the Worker (/api/config), not stored here. -->
 <script src="https://js.recurly.com/v4/recurly.js"></script>
+<!-- The wallet seam (docs/specs/modules/wallets.md): one shared file plus one file per method.
+     All three are deferred, so they run after the page is parsed — in particular after window.LeskoCheckout
+     is published below — but before DOMContentLoaded, where each file's own init() runs. Every method
+     in wallet-common.js's WALLETS switch ships false, so none of the three files mounts anything yet. -->
+<script src="/assets/wallet-common.js" defer></script>
+<script src="/assets/wallet-paypal.js" defer></script>
+<script src="/assets/wallet-google-pay.js" defer></script>
 <!-- Shared GA4 setup (measurement id, consent rule, plan prices) — same file as index.html and
      welcome.html, named site-events.js (not analytics.js) so ad blockers don't drop it. Off
      until the id in that file is filled in. If it fails to load anyway (blocked, network error),
@@ -31,11 +38,6 @@
     planPriceUSD: function () {}
   };
 </script>
-<!-- Wallet buttons (PayPal, Apple Pay, Google Pay) — docs/specs/modules/wallets.md. Each file is
-     inert until its own switch in wallet-common.js is true; none is yet (see that spec's
-     Decisions, 2026-10-09), so these load but mount nothing a buyer can see or reach. -->
-<script src="/assets/wallet-common.js" defer></script>
-<script src="/assets/wallet-google-pay.js" defer></script>
 </head>
 <body>
 
@@ -101,9 +103,6 @@
       <section class="panel" aria-labelledby="payTitle">
         <h2 id="payTitle">2. Payment</h2>
         <p class="sub">Your card details go into Recurly's secure field and never touch this website.</p>
-        <!-- A wallet button (PayPal, Apple Pay, Google Pay) mounts here when its switch in
-             assets/wallet-common.js is on; empty and invisible while every switch is off. -->
-        <div id="wallets"></div>
         <div class="field" id="cardField">
           <label for="recurly-card">Card details</label>
           <div class="card-box" id="recurly-card" data-placeholder="Card number &nbsp; MM / YY &nbsp; CVV"></div>
@@ -192,6 +191,11 @@
         <div class="line"><span class="k">Renews</span><span class="v">Automatically. Cancel any time.</span></div>
         <div class="line line--total"><span>Due today</span><span class="v" id="sumTotal">$89.95</span></div>
         <a class="change-plan" href="/#pricing">Change plan</a>
+
+        <!-- A wallet button (PayPal, Apple Pay, Google Pay) mounts itself here. Empty and
+             invisible while every method in assets/wallet-common.js's WALLETS switch stays
+             off — see docs/specs/modules/wallets.md K4. -->
+        <div class="wallets" id="wallets"></div>
 
         <div class="pay-error" id="payMsg" role="alert"></div>
         <button class="btn-pay" id="payBtn" type="submit">
@@ -334,23 +338,30 @@
     document.getElementById('payBtnText').textContent = on ? label : 'Pay ' + P.total + ' now';
   }
 
+  // ── K6: a wallet file must mount only once Recurly is actually configured — the async
+  // /api/config fetch below means that is later than DOMContentLoaded, so a wallet that mounted on
+  // DOMContentLoaded would call recurly.GooglePay()/PayPal()/ApplePay() against an unconfigured
+  // recurly and throw. Input: a callback. Output: nothing; the callback runs once, either right
+  // now (if recurly.configure() already succeeded) or the moment it does.
+  var recurlyReady = false;
+  var readyCallbacks = [];
+  function onReady(callback) {
+    if (recurlyReady) { callback(); } else { readyCallbacks.push(callback); }
+  }
+  function markReady() {
+    if (recurlyReady) return;
+    recurlyReady = true;
+    // Each callback runs in its own try/catch: a wallet file throwing here (e.g. a dead PayPal
+    // gateway rejecting recurly.PayPal()) must never stop the card field below from attaching, or
+    // stop any other wallet's callback from running (overseer review, 2026-10-12).
+    readyCallbacks.forEach(function (cb) {
+      try { cb(); } catch (e) { console.error(e); }
+    });
+    readyCallbacks.length = 0;
+  }
+
   // ── Recurly's secure card field. The public key comes from our Worker. ─
   var elements = null;
-  // onReady/fireReady — K6 of docs/specs/modules/wallets.md. recurly.configure() only runs after
-  // the async fetch('/api/config') below answers, which is later than DOMContentLoaded; a wallet
-  // file that mounted on DOMContentLoaded would call recurly.GooglePay()/PayPal()/ApplePay()
-  // against an unconfigured recurly, which throws (silently, since G4/P4/A4 catch it by design) —
-  // so every wallet file waits for this instead.
-  var recurlyReady = false;
-  var onReadyCallbacks = [];
-  function fireReady() {
-    recurlyReady = true;
-    onReadyCallbacks.forEach(function (cb) { cb(); });
-    onReadyCallbacks = [];
-  }
-  function onReady(callback) {
-    if (recurlyReady) callback(); else onReadyCallbacks.push(callback);
-  }
   function setupCard(publicKey) {
     if (!window.recurly || !publicKey) return;
     // Only the fields every country needs go here (decided 2026-10-06, with the rule above): state
@@ -371,7 +382,11 @@
     });
     card.attach('#recurly-card');
     card.on('change', function (state) { if (state.valid) cardField.classList.remove('err'); });
-    fireReady();
+    // markReady() runs last, once the card field itself is attached — a wallet file's onReady
+    // callback must never be able to run ahead of the card field existing (overseer review,
+    // 2026-10-12: markReady() used to run first, so a throwing wallet callback could leave
+    // card.attach() unreached and Pay permanently showing "the secure card field is not ready").
+    markReady();
   }
   fetch('/api/config', { headers: { 'Accept': 'application/json' } })
     .then(function (r) { return r.json(); })
@@ -400,6 +415,11 @@
     return true;
   }
 
+  // Card-only (overseer review, 2026-10-12): this is also the function the 3-D Secure retry below
+  // calls a second time with the bank's result token. It always re-reads #email/#first_name/
+  // #last_name and posts no `wallet` field, so a wallet purchase that needed a 3-D Secure retry
+  // would be resubmitted as a card — unverified whether any wallet SDK here can even trigger that
+  // bank challenge in the first place. Logged in this brief's Spec proposals; not this task's to fix.
   function subscribe(tokenId, threeDSResultId) {
     var body = {
       plan: plan,
@@ -417,12 +437,20 @@
     }).then(function (r) { return r.json(); });
   }
 
+  // K3: shared by the card path and every wallet. tokenId (K3a) is not optional — the 3-D Secure
+  // branch re-submits it beside the bank's own result token, so a caller that omits it would post
+  // `undefined` the one time the bank was willing to approve; the card path always has it (its own
+  // subscribe() call just above), and a wallet passes the token id it just handed to
+  // payWithWallet. buyerEmail (K3b) exists because the line below otherwise always reads the
+  // card form's own #email input, which a wallet buyer never types into — so a wallet purchase
+  // would reach /welcome with the address empty, breaking the GA4 purchase event and
+  // lesko-provisioning's key. The card path passes nothing here, so it keeps reading its own field.
+  // The trim/lower-case applies to either source (amended 2026-10-09, after the obvious draft only
+  // normalised the fallback): subscribe() above already posts the card email normalised, so a wallet
+  // reporting the same address differently-cased must still resolve to the one account and the one
+  // /welcome link, never a second Recurly account for the same buyer.
   function finish(result, tokenId, buyerEmail) {
     if (result.ok) {
-      // buyerEmail is the wallet's own address (K3b, docs/specs/modules/wallets.md) — the card
-      // form's #email input is empty for a wallet buyer, who never typed into it. Normalise
-      // whichever source wins the same way subscribe() does, so a wallet and a card purchase by
-      // the same person never make two differently-cased Recurly account codes.
       var e = (buyerEmail || email.value).trim().toLowerCase();
       try { localStorage.setItem(STORE, JSON.stringify({ email: e, company: company.value.trim(), plan: plan, t: Date.now() })); } catch (err) {}
       busy(true, 'Payment received. One moment…');
@@ -435,9 +463,6 @@
       var box = document.getElementById('threeds');
       box.hidden = false;
       var tds = recurly.Risk().ThreeDSecure({ actionTokenId: result.three_d_secure_action_token_id });
-      // The bank's result token rides beside the original payment token (tokenId) — not in place
-      // of it (K3a) — and buyerEmail threads through so a wallet's 3DS retry still lands on the
-      // right /welcome address.
       tds.on('token', function (t) { box.hidden = true; subscribe(tokenId, t.id).then(function (r2) { finish(r2, tokenId, buyerEmail); }).catch(netFail); });
       tds.on('error', function () { box.hidden = true; busy(false); showError('The bank check did not go through. Please try again or use another card.'); });
       tds.attach(box);
@@ -451,6 +476,24 @@
     showError('We could not reach the payment server. Please check your connection and try again.');
   }
 
+  // Publishes the seam a wallet file builds on (docs/specs/modules/wallets.md K1-K6), so every
+  // wallet reuses this page's own plan/price, error box and success/3-D-Secure path instead of
+  // writing its own — there stays exactly one way to reach /welcome and one place a buyer reads
+  // a failure. Runs before any deferred wallet script does (K5): this inline script is not itself
+  // deferred, so it finishes — this assignment included — before a `defer` script ever runs. A
+  // wallet file still has to wait for onReady (K6), though, since Recurly itself is only
+  // configured after the async /api/config fetch above resolves.
+  // Input: nothing of its own (closes over this IIFE's `plan`, `P`, `showError`, `finish` and
+  // `onReady`). Output: the six functions on window.LeskoCheckout.
+  window.LeskoCheckout = {
+    plan: function () { return plan; },
+    total: function () { return parseFloat(P.total.replace(/[^0-9.]/g, '')); },
+    showError: showError,
+    finish: finish,
+    walletsRow: function () { return document.getElementById('wallets'); },
+    onReady: onReady
+  };
+
   form.addEventListener('submit', function (e) {
     e.preventDefault();
     payMsg.classList.remove('show');
@@ -460,9 +503,15 @@
     // asked for a card token, so a bank decline afterwards still shows how many
     // people got this far. Card details themselves never touch this file.
     var payPrice = window.LeskoAnalytics.planPriceUSD(plan);
+    // C4 (overseer review, 2026-10-12): GA4 does not invent a "Credit Card" default when
+    // payment_type is left off — it just omits the parameter — so leaving it unset here would make
+    // a card purchase indistinguishable from a blank value, not told apart from a wallet's own
+    // label as the spec intended. Sent explicitly instead, so every add_payment_info event (card or
+    // wallet) always carries one.
     window.LeskoAnalytics.track('add_payment_info', {
       currency: 'USD',
       value: payPrice,
+      payment_type: 'Credit Card',
       items: [{ item_id: plan, item_name: plan, price: payPrice, quantity: 1 }]
     });
 
@@ -482,19 +531,6 @@
       subscribe(token.id).then(function (r) { finish(r, token.id); }).catch(netFail);
     });
   });
-
-  // The seam a wallet file (assets/wallet-google-pay.js and friends) reads and calls into —
-  // docs/specs/modules/wallets.md, K1-K6. Every function here is the one the card path above
-  // already uses, assigned as-is rather than renamed or copied, so a wallet purchase can never
-  // reach a second success path or a second error box.
-  window.LeskoCheckout = {
-    plan: function () { return plan; },
-    total: function () { return parseFloat(P.total.replace(/[^0-9.]/g, '')); },
-    showError: showError,
-    finish: finish,
-    walletsRow: function () { return document.getElementById('wallets') || null; },
-    onReady: onReady
-  };
 })();
 </script>
 </body>

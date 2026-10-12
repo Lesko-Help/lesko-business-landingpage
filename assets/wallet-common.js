@@ -1,72 +1,93 @@
-// ──────────── Shared wallet seam — used by wallet-paypal.js, wallet-apple-pay.js and
-// wallet-google-pay.js on checkout.html ────────────
-// One on/off switch per wallet method, and the one function that turns an approved wallet sheet
-// into the same purchase the card form makes. Written here because branch wallet-paypal, which
-// owns this file per docs/specs/modules/wallets.md (C1-C6), had not landed on main when
-// wallet-google-pay needed it to exist — see that spec's signatures, which this file follows
-// exactly, and the wallet-google-pay brief's Context for the note back to the overseer.
+// ──────────── Wallet seam, shared by every wallet method (docs/specs/modules/wallets.md C1-C6) ────────────
+// One switch, one POST, one success path — assets/wallet-paypal.js (and any later wallet-apple-pay.js /
+// wallet-google-pay.js) call window.LeskoWallets.payWithWallet() instead of each building its own
+// network call, so a wallet purchase always lands on /checkout's own finish() and #payMsg, exactly like
+// the card path does. Loaded by checkout.html with `defer`, before the per-method files.
 window.LeskoWallets = (function () {
-  // C1: the only switch. A method stays unreachable — no button mounted, no wallet SDK call, no
-  // network call — until its flag here is true. All three ship false: Recurly's gateway for Lesko
-  // is Authorize.Net-only and none of the three can be proven live yet (see
-  // docs/specs/modules/wallets.md, Decisions, 2026-10-09).
+  // Input: nothing — a method name below reads this directly. Output: whether a buyer can ever reach
+  // that method's button. All three start `false` (DECISION, docs/specs/modules/wallets.md, 2026-10-09):
+  // the Recurly gateway behind this site cannot take any of them live yet, so code that cannot be
+  // proven with a real purchase must not be reachable by a buyer. A method file still loads and defines
+  // its functions with its flag `false` — it just mounts nothing (C1).
   var WALLETS = { paypal: false, apple_pay: false, google_pay: false };
 
-  // Input: a wallet method name. Output: whether a buyer may reach it right now.
+  var WALLET_LABELS = { paypal: 'PayPal', apple_pay: 'Apple Pay', google_pay: 'Google Pay' };
+
+  // Input: one of 'paypal' / 'apple_pay' / 'google_pay'. Output: whether that method's switch is on.
   function isOn(method) {
-    return WALLETS[method] === true;
+    return !!WALLETS[method];
   }
 
-  // Input: a method name ('paypal', 'apple_pay', 'google_pay'). Output: the word that names it in
-  // an error message or a GA4 event, so the two never drift apart from each other.
-  function walletLabel(method) {
-    if (method === 'paypal') return 'PayPal';
-    if (method === 'apple_pay') return 'Apple Pay';
-    if (method === 'google_pay') return 'Google Pay';
-    return 'that wallet';
-  }
-
-  // Input: the wallet method that was used, the Recurly token id the wallet produced, and the
-  // buyer's details as the wallet reported them ({email, first_name, last_name}, any possibly
-  // empty). Output: none directly; posts the purchase to /api/subscribe exactly as the card path
-  // does (plus `wallet: method`) and hands the parsed answer to window.LeskoCheckout.finish(), so
-  // there is exactly one success path and one error box on this page no matter how the buyer paid.
+  // Input: the wallet method name, the Recurly token id it produced, and the buyer details it reported
+  // ({email, first_name, last_name}, any possibly empty — a wallet does not always return a name).
+  // Output: none directly; as a side effect, either shows a named error (no network call, C3), or POSTs
+  // to /api/subscribe and hands the answer to the page's own LeskoCheckout.finish() (C2) — exactly the
+  // one success/error path the card form already uses, so a wallet purchase can never drift onto a
+  // second route.
   function payWithWallet(method, token, buyer) {
-    var checkout = window.LeskoCheckout;
-    if (!checkout) return; // C6: inert on a page that never published the seam
+    var label = WALLET_LABELS[method] || method;
 
-    // K3b: normalised once, here, before it reaches the C3 check, the GA4 event, the POST body
-    // and finish() — the same trim/lowercase checkout.html's own subscribe() applies to the card
-    // form's email, so a wallet and a card purchase by the same person make one Recurly account
-    // code, not two that differ only in case.
-    var email = ((buyer && buyer.email) || '').trim().toLowerCase();
+    // C3 amendment (2026-10-09, overseer review): #wallets sits below the required
+    // #email/#first_name/#last_name fields in checkout.html's panel 1, so by the time a buyer
+    // reaches a wallet button they have almost always already typed those in. A wallet's own
+    // value still wins when it has one — it is the real payment-account address — but whether a
+    // given wallet's token event carries an email at all is unverified on this site (no live
+    // wallet-capable gateway to test against), so falling back to what the buyer already typed
+    // beats refusing a purchase that a one-line gap in a wallet SDK made look dead. Normalised
+    // once, here, before the empty check below and before it reaches the GA4 event, the POST body
+    // or finish() — the same trim/lower-case the card path's own subscribe() already applies
+    // (K3b amendment, 2026-10-09), so either source resolves to the same Recurly account code.
+    var emailField = document.getElementById('email');
+    var firstNameField = document.getElementById('first_name');
+    var lastNameField = document.getElementById('last_name');
+    // Each source is trimmed before the choice between wallet and page field is made, not after —
+    // otherwise a wallet reporting a whitespace-only email would win the `||` over a good page
+    // field, then still trip the empty check below and refuse a purchase the buyer could have made.
+    var walletEmail = ((buyer && buyer.email) || '').trim();
+    var fieldEmail = (emailField ? emailField.value : '').trim();
+    var walletFirstName = ((buyer && buyer.first_name) || '').trim();
+    var fieldFirstName = (firstNameField ? firstNameField.value : '').trim();
+    var walletLastName = ((buyer && buyer.last_name) || '').trim();
+    var fieldLastName = (lastNameField ? lastNameField.value : '').trim();
+    var email = (walletEmail || fieldEmail).toLowerCase();
+    var firstName = walletFirstName || fieldFirstName;
+    var lastName = walletLastName || fieldLastName;
+
+    // C3: Recurly's account code is the email (worker B1) — a purchase cannot be built without one
+    // from either source, so this is the one check made before any network call, naming the wallet
+    // in the message.
     if (!email) {
-      // C3: Recurly's account code is the email the buyer typed or the wallet reported; a
-      // purchase with none cannot be built, so this never reaches the network at all.
-      checkout.showError('We did not get an email address back from ' + walletLabel(method) + '. Please pay by card instead.');
+      window.LeskoCheckout.showError('We did not get an email address back from ' + label + '. Please pay by card instead.');
       return;
     }
 
-    var plan = checkout.plan();
-    var price = checkout.total();
-    // C4: the wallet's own GA4 event, told apart from the card path (payment_type "Credit Card")
-    // by payment_type here.
-    if (window.LeskoAnalytics && typeof window.LeskoAnalytics.track === 'function') {
+    var plan = window.LeskoCheckout.plan();
+    var price = (window.LeskoAnalytics && window.LeskoAnalytics.planPriceUSD) ? window.LeskoAnalytics.planPriceUSD(plan) : undefined;
+
+    // C4: the same add_payment_info shape the card path sends, so the two are told apart in GA4 by
+    // payment_type — the card path's own event (checkout.html) now sends 'Credit Card' explicitly
+    // (overseer review, 2026-10-12: GA4 has no such default; left unset, a card purchase would be
+    // merely blank, not distinguishable from any wallet's own label).
+    if (window.LeskoAnalytics && window.LeskoAnalytics.track) {
       window.LeskoAnalytics.track('add_payment_info', {
         currency: 'USD',
         value: price,
-        payment_type: walletLabel(method),
+        payment_type: label,
         items: [{ item_id: plan, item_name: plan, price: price, quantity: 1 }]
       });
     }
+
+    // The business-name field is page-level, not something any wallet sheet reports, so it is read
+    // straight off the form — the same field and the same trim the card path's own subscribe() uses.
+    var companyField = document.getElementById('company');
 
     var body = {
       plan: plan,
       token: token,
       email: email,
-      first_name: (buyer && buyer.first_name) || '',
-      last_name: (buyer && buyer.last_name) || '',
-      company: '',
+      first_name: firstName,
+      last_name: lastName,
+      company: companyField ? companyField.value.trim() : '',
       wallet: method
     };
 
@@ -76,15 +97,21 @@ window.LeskoWallets = (function () {
       body: JSON.stringify(body)
     })
       .then(function (r) { return r.json(); })
-      // C2/K3a/K3b: finish needs the original token (its 3DS branch re-submits beside it) and the
-      // buyer's email (the card form's own #email input, which finish reads otherwise, is empty
-      // for a wallet buyer who never typed into it).
-      .then(function (result) { checkout.finish(result, token, email); })
+      .then(function (result) {
+        // K3a/K3b: both extra arguments always — the token this call just spent, and the email the
+        // wallet reported, since a wallet buyer never fills the card form's own #email field.
+        window.LeskoCheckout.finish(result, token, email);
+      })
       .catch(function () {
-        // C5: a wallet token is single use; nothing here retries it.
-        checkout.showError('The payment did not go through. Please check your card details and try again.');
+        // C5: a wallet token is single use, so nothing here is retried — the same generic sentence
+        // the card path's own finish() shows for a server-side failure.
+        window.LeskoCheckout.showError('The payment did not go through. Please check your card details and try again.');
       });
   }
 
-  return { WALLETS: WALLETS, isOn: isOn, payWithWallet: payWithWallet };
+  return {
+    WALLETS: WALLETS,
+    isOn: isOn,
+    payWithWallet: payWithWallet
+  };
 })();
