@@ -156,3 +156,85 @@ Traps (with dates):
   `#email`/`#first_name`/`#last_name` on re-submit) is explicitly not a
   wallet branch's to fix — comment on it at the seam only, leave the fix to
   whoever owns the 3DS retry worktree.
+
+## Agentic review
+
+### Verdict
+Verdict: pass — fifth round. Rounds 1-3 were approved per round and not
+landed; round 4 was the rebase onto the landed `wallet-paypal` seam; round 5
+fixed the one real gap this review found. Everything is fixed, and re-proved
+by the overseer rather than taken on the worker's report.
+
+Reviewed by the overseer (window 1) on 2026-10-12 against `origin/main` at
+`450d13f`, with `git add -N .` first and `git diff origin/main...HEAD`: 5
+files, +560/-2, tree clean. 51 checks in the google-pay suite, 0 FAIL, re-run
+by the overseer itself on the final committed tree, plus the ten neighbouring
+suites green (seam 30, wallet-common 28, paypal 13, subscribe-wallet 19,
+address 27, ga4 all pass, raillog 3, decline-alert 8, decline-email 10,
+build-purchase 7). `scripts/test-subscribe-rate-limit.sh` was deliberately
+**not** run — see the Traps above; it cannot be trusted at the moment and no
+branch is judged on it.
+
+### Findings
+
+Round 4 (2026-10-12), the overseer's own review of the rebased branch:
+
+- **The one real finding — the suite could not tell whether the switch
+  existed.** `scripts/test-wallet-google-pay.mjs` has two independent knobs,
+  `forceGooglePayOn` and `forceMerchantId`, and every case that set a
+  merchant id also flipped the switch on; the only switch-off case left the
+  merchant id empty. So the empty-merchant-id guard, not
+  `wallets.isOn('google_pay')`, was what kept the button unmounted. Proved by
+  deleting `wallets.isOn('google_pay')` from `init()`: all 49 checks stayed
+  green. It matters at exactly one moment — the day Martin fills in a real
+  merchant id and the switch becomes the only thing holding the button back.
+- Verified, not faulted: the rebase took the landed seam wholesale instead of
+  hand-merging. `assets/wallet-common.js` is byte-identical to `origin/main`
+  (`cmp`), and `checkout.html` differs from landed only by the one
+  `<script src>` line and the comment widened to name three files.
+- Accepted without a red proof: the `recurly.GooglePay(...)` →
+  `window.recurly.GooglePay(...)` rename. `window` is the script global in
+  both the browser and the jsdom harness, so there is no behaviour to prove;
+  the worktree saying so rather than inventing a red run was the right call.
+- Accepted as-is, checked rather than assumed: the file's top-level
+  `onReady(init)` shape. The inline `<script>` in `checkout.html` that
+  publishes `window.LeskoCheckout` is not deferred, so it runs during
+  parsing — before the deferred wallet files — and `onReady` therefore
+  exists by the time this file runs. The `if (window.LeskoCheckout)` guard
+  covers the case where it does not.
+- Not this branch's: the inherited comment in the landed seam that still
+  says DOMContentLoaded. The landed file's to fix.
+
+**One finding withdrawn by the overseer.** I first reported that the K3b
+email-normalisation checks were not exercising the real code, on the strength
+of a probe that removed the string `.trim().toLowerCase();` — which does not
+occur in the landed `wallet-common.js`, where the two calls sit on separate
+lines (46 and 52). The probe changed nothing, so its green result meant
+nothing. Re-done against the real line: 2 checks red here and 5 in
+`test-wallet-common.js`. The coverage is genuine. The worktree's own first
+explanation of why those checks survive the rebase was wrong too — it said
+they stub `payWithWallet`, and they do not; only `finish` is stubbed. The real
+reason is that the page-field fallback fires only on a missing wallet email,
+and every test token supplies one. Corrected in State.
+
+Clean: nothing logs, mails or posts a key, token, card datum or buyer email;
+nothing is reachable by a buyer while `WALLETS.google_pay` is `false` and
+`GOOGLE_MERCHANT_ID` is `''`; `.assetsignore` needs no new line (`scripts/`
+is covered wholesale, `assets/*` is meant to serve); the live card path is
+untouched.
+
+### Fixed in
+
+- The switch-coverage gap — `a1007c4`: one case added, merchant id forced and
+  the switch left off, asserting zero `recurly.GooglePay` calls and an empty
+  `#wallets` row. **Red-proved by the overseer, not only by the worker:**
+  deleting `wallets.isOn('google_pay')` from `init()` now fails exactly those
+  two checks and leaves the other 49 green, exit 1; put back, 51/51 PASS,
+  exit 0.
+- The brief's own State, and the K3b correction — `bb17996`.
+
+Still Martin's, and the reason this cannot go live whatever the verdict says:
+Recurly here is Authorize.Net-only, which Recurly does not list as a Google
+Pay gateway. Google Pay also needs a merchant id (`GOOGLE_MERCHANT_ID`, empty
+in the file) and 3-D Secure switched on for that gateway. Until all three
+exist the switch cannot be flipped, and this branch ships inert by design.
