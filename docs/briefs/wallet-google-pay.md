@@ -91,79 +91,45 @@ and why. The overseer applies what it agrees with on main.
 ## State
 
 Done:
-- Rounds 1-3 (2026-10-09 to 2026-10-10): built G1-G5 on top of an own-written
-  copy of the seam (`checkout.html`'s `window.LeskoCheckout`,
-  `assets/wallet-common.js`) because `wallet-paypal`, which owns that seam,
-  had landed nothing yet. Fixed, across three overseer review rounds: the
-  mount-before-`onReady` ordering defect, the `finish(result, tokenId,
-  buyerEmail)` signature, and an email-casing gap (`buyerEmail`/wallet email
-  not trimmed/lower-cased the same way the card path always was). All three
-  rounds passed review; approved, not landed. Final state of that work:
-  commits `3832996`/`17ba9c5`/`2616053`/`9122692`/`589fe68`/`dd3fe44`.
-- 2026-10-12: `wallet-paypal` landed on `main` at `450d13f` with its own,
-  independently-written and now-production versions of
-  `assets/wallet-common.js` and `checkout.html`'s seam — stricter than mine
-  (`markReady()`/`onReady` wraps each callback in its own try/catch and
-  fires last, after `Elements()`/`card.attach`; `payWithWallet` falls back
-  to the page's own `#email`/`#first_name`/`#last_name` fields; the card
-  path's own `add_payment_info` now names itself `payment_type: 'Credit
-  Card'`, C4 amendment). Overseer instruction: discard my two copies of
-  these files wholesale, keep only `assets/wallet-google-pay.js` +
-  its tests + this brief, re-add one `<script defer>` line for
-  `wallet-google-pay.js` in the landed `checkout.html`, and switch
-  `recurly.GooglePay()` to `window.recurly.GooglePay()` to match PayPal's
-  style. Read the current `docs/specs/modules/wallets.md` (overseer's own
-  checkout, still uncommitted pending Martin) directly — confirms K6's two
-  ordering rules, C4, and a new **K3c** open gap (the 3DS retry branch is
-  card-only; not a wallet branch's to fix, only to comment on at the seam).
+- Rounds 1-3 (2026-10-09/10): built G1-G5 on an own-written seam copy
+  (`wallet-paypal` hadn't landed yet); fixed mount-before-`onReady`
+  ordering, `finish(result, tokenId, buyerEmail)` signature, email-casing.
+  Approved each round, not landed. Commits `3832996..dd3fe44`.
+- Round 4 (2026-10-12): `wallet-paypal` landed on `main` at `450d13f` with
+  its own, stricter, production `assets/wallet-common.js` and
+  `checkout.html` seam. Rebased: `git merge origin/main`, resolved the two
+  conflicting files with `git checkout --theirs` (took landed wholesale, no
+  hand-merge); re-added one line in `checkout.html`,
+  `<script src="/assets/wallet-google-pay.js" defer></script>`, widened the
+  comment above it to name three files; renamed `recurly.GooglePay(...)` to
+  `window.recurly.GooglePay(...)` in `assets/wallet-google-pay.js` to match
+  `wallet-paypal.js`'s style (no red/green proof needed — `window` is the
+  script global in both the browser and the jsdom harness, so it's a style
+  match, not a behaviour change). Left the file's top-level
+  `onReady(init)` shape alone (equivalent to PayPal's
+  DOMContentLoaded-then-inner-onReady against the landed `onReady`/
+  `markReady`; not asked for). Merge committed `765924a`.
+- Round 5 (2026-10-12, overseer review fix): overseer independently re-ran
+  everything, confirmed the diff is exactly 5 files, seam byte-identical.
+  Found my suite never exercised `wallets.isOn('google_pay')` on its own —
+  every case setting `forceMerchantId` also set `forceGooglePayOn`, so
+  deleting the switch check from `init()` left the suite green (the
+  merchant-id guard caught the mount anyway, wrong reason). Fixed in
+  `scripts/test-wallet-google-pay.mjs`: added "merchant id present, switch
+  off" case. Proved red (deleted `wallets.isOn('google_pay')` from
+  `assets/wallet-google-pay.js` `init()` → exactly 2 new checks failed,
+  49 stayed green) then green (restored the check → 51/51 PASS). Also
+  corrected a wrong claim in round 4's report: the K3b email-normalisation
+  checks DO exercise the real `payWithWallet` (only `finish` is stubbed
+  there) — they survived the rebase because the new page-field fallback
+  only fires on a missing wallet email, which no test token lacks.
+  Re-ran every suite, all still green: google-pay 51, seam 30,
+  wallet-common 28, paypal 13, subscribe-wallet 19, address 27, ga4 ALL
+  PASS. Not yet committed.
 
-Done (round 4, rebase onto `450d13f`, finished 2026-10-12):
-- `git merge origin/main --no-edit` (branch was `dd3fe44`, 11 ahead / 23
-  behind). Conflicted exactly on the two files the overseer predicted
-  (`assets/wallet-common.js` add/add, `checkout.html` content). Resolved
-  with `git checkout --theirs` on both, taking the landed, production
-  versions wholesale rather than hand-merging — this branch's own two
-  earlier copies of the seam are gone.
-- Re-added exactly one line in `checkout.html`,
-  `<script src="/assets/wallet-google-pay.js" defer></script>`, beside the
-  landed `wallet-paypal.js` tag, and widened the comment above both from
-  "one shared file plus one file per method... neither file" to name all
-  three files.
-- `assets/wallet-google-pay.js`: `recurly.GooglePay(...)` →
-  `window.recurly.GooglePay(...)`, matching the landed `wallet-paypal.js`'s
-  `window.recurly.PayPal(...)`. No red-before-green proof for this one — in
-  both a real browser and this repo's jsdom test harness `window` IS the
-  script's global scope, so bare `recurly` and `window.recurly` already
-  resolved to the same object; the change is a style match, not a behaviour
-  change, so there was no failing check to provoke first.
-- Everything else in `assets/wallet-google-pay.js` kept as-is: still the
-  top-level `if (window.LeskoCheckout) window.LeskoCheckout.onReady(init)`
-  call (not `wallet-paypal.js`'s `DOMContentLoaded`-then-inner-`onReady`
-  shape) — the overseer's instruction named only the `window.recurly`
-  rename, and the two shapes are equivalent against the landed seam's
-  `onReady`/`markReady` (checkout.html: queues if not ready yet, calls
-  immediately if already ready), so this branch did not restructure beyond
-  what was asked.
-- Merge committed as `765924a` (includes the script tag and the rename —
-  both needed to make the merge resolution actually work, so kept as one
-  commit rather than split after the fact).
-- Ran `scripts/test-wallet-google-pay.sh .` against the rebased seam: 46/46
-  PASS, no changes needed to my own test file. The overseer had flagged
-  check 32/33 (email normalisation) as a likely casualty of the landed
-  seam's page-field fallback — it was not: this suite's own fallback cases
-  stub `payWithWallet` directly rather than exercising the real
-  `wallet-common.js`, so the new fallback branch never fires in it.
-- Ran every landed wallet suite for regression, all green: `test-wallet-seam.sh`
-  (20/20), `node test-wallet-common.js assets/wallet-common.js` (26/26),
-  `test-wallet-paypal.sh` (13/13), `node test-subscribe-wallet.js worker.js`
-  (18/18). Also re-ran this branch's own pre-existing regressions:
-  `test-checkout-address.sh` (26/26), `test-ga4-events.sh` (ALL PASS). Did
-  not run `test-subscribe-rate-limit.sh` (forbidden from this worktree —
-  port 8799 hazard, independently broken on `main`).
-
-Next: report this round's completion to the overseer. Not landing
-anything — that is Martin's call. Leave `## Agentic review` and any
-Verdict line for the overseer to write.
+Next: commit the round-5 test fix + this State update, report round 5 to
+the overseer. Not landing — Martin's call. Leave `## Agentic review` and
+any Verdict line for the overseer.
 
 Traps (with dates):
 - 2026-10-09: jsdom does not implement `window.PaymentRequest`; the test
