@@ -497,9 +497,15 @@
     // asked for a card token, so a bank decline afterwards still shows how many
     // people got this far. Card details themselves never touch this file.
     var payPrice = window.LeskoAnalytics.planPriceUSD(plan);
+    // C4 (overseer review, 2026-10-12): GA4 does not invent a "Credit Card" default when
+    // payment_type is left off — it just omits the parameter — so leaving it unset here would make
+    // a card purchase indistinguishable from a blank value, not told apart from a wallet's own
+    // label as the spec intended. Sent explicitly instead, so every add_payment_info event (card or
+    // wallet) always carries one.
     window.LeskoAnalytics.track('add_payment_info', {
       currency: 'USD',
       value: payPrice,
+      payment_type: 'Credit Card',
       items: [{ item_id: plan, item_name: plan, price: payPrice, quantity: 1 }]
     });
 

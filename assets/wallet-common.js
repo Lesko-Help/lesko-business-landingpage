@@ -55,9 +55,10 @@ window.LeskoWallets = (function () {
     var plan = window.LeskoCheckout.plan();
     var price = (window.LeskoAnalytics && window.LeskoAnalytics.planPriceUSD) ? window.LeskoAnalytics.planPriceUSD(plan) : undefined;
 
-    // C4: the same add_payment_info shape the card path sends, so the two are told apart in GA4 only
-    // by payment_type — the card path's own event (checkout.html) is untouched and keeps none set,
-    // which GA4 reads as its default, Credit Card.
+    // C4: the same add_payment_info shape the card path sends, so the two are told apart in GA4 by
+    // payment_type — the card path's own event (checkout.html) now sends 'Credit Card' explicitly
+    // (overseer review, 2026-10-12: GA4 has no such default; left unset, a card purchase would be
+    // merely blank, not distinguishable from any wallet's own label).
     if (window.LeskoAnalytics && window.LeskoAnalytics.track) {
       window.LeskoAnalytics.track('add_payment_info', {
         currency: 'USD',

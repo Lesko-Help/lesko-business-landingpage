@@ -152,6 +152,10 @@ function isSharedAnalyticsSrc(src) {
   const api = findEvent(w, 'add_payment_info');
   check('checkout.html: add_payment_info fires when Pay is pressed with a valid form', !!api);
   check('checkout.html: add_payment_info carries currency USD and the yearly price', !!api && api.currency === 'USD' && api.value === 149.95);
+  // C4 (overseer review, 2026-10-12): GA4 has no default label for a missing payment_type, so the
+  // card path must send one explicitly — the wallet path's own value is checked in
+  // scripts/test-wallet-common.js, where its add_payment_info event actually fires.
+  check('checkout.html: add_payment_info carries payment_type "Credit Card"', !!api && api.payment_type === 'Credit Card');
 })();
 
 // ── welcome.html ────────────────────────────────────────────────────────────
