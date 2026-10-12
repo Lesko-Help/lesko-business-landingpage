@@ -112,51 +112,45 @@ re-reviewed properly and sent CHANGES REQUESTED, 2026-10-12: one blocker
 plus five should-fix items plus three nits. Overseer owns and fills
 `## Agentic review` / `Verdict:` itself — never write that section.
 
-In flight, this round (uncommitted):
-- [BLOCKER] checkout.html: moved `markReady();` from before
-  `recurly.Elements()`/`card.attach()` to the very end of setupCard(), and
-  wrapped each `cb()` inside markReady()'s forEach in try/catch — done.
-- [BLOCKER] assets/wallet-paypal.js: rewritten — whole file wrapped in an
-  IIFE (was fixing the SHOULD-FIX global-leak item at the same time);
-  `window.recurly.PayPal(...)` now in try/catch, on throw removes the
-  button and shows nothing (G4/A4 silent-unavailable shape); fixed the
-  self-contradicting "checked again inside onReady" comment — done.
-- Still to do:
-  1. New red-first test in scripts/test-wallet-paypal.mjs: WALLETS.paypal
-     = true + a throwing recurly.PayPal stub => card.attach still called
-     with '#recurly-card', no button mounted. Scratch copy of pre-fix HEAD
-     already archived at
-     .claude/worktrees/wallet-paypal/../../scratchpad/pre-blocker-fix
-     (session scratchpad, see path in shell history) — run the new test
-     against it first (must FAIL), then against the working tree (must
-     PASS), per the overseer's explicit ask to show both runs.
-  2. SHOULD-FIX C4: checkout.html's card add_payment_info event needs
-     `payment_type: 'Credit Card'` added; fix the untrue comment in
-     wallet-common.js:58-60 ("GA4 reads as its default" — it doesn't);
-     add a scripts/test-ga4-events.sh check that both events carry a
-     payment_type.
-  3. SHOULD-FIX: comment at the 3DS retry seam (checkout.html ~408-423)
-     saying it is card-only and why (no `wallet` field, re-reads
-     #email/#first_name/#last_name) — do NOT change the behaviour, log it
-     under this brief's Spec proposals too (overseer records the spec
-     side separately).
-  4. Fill in this brief's own Spec proposals section (currently empty):
-     the C4/payment_type deviation, the card-only 3DS retry, and
-     assets/flow.css having no `.wallets` rule (harmless now, empty div,
-     but unstyled once a switch flips — do not touch flow.css here).
-  5. NITS (judgement, do them — cheap and correct): wallet-common.js
-     trim() each source before choosing between wallet/field, so a
-     whitespace-only wallet email can't beat a good page field and then
-     still refuse; drop scripts/test-wallet-common.js's
-     `isOn('paypal') === WALLETS.paypal` check (reads its expectation off
-     the system under test); scripts/test-subscribe-wallet.js's
-     wallet:'bitcoin' case should also assert the "Unknown payment
-     method." message, not just status 400.
-  6. Re-run every suite (all four named + every other scripts/test-*,
-     EXCEPT test-subscribe-rate-limit.sh — port 8799 collision risk,
-     already a Trap below) plus both red/green runs of the new blocker
-     test, then report to landing-opzichter and stop. Overseer fills the
-     Verdict and lands; never push to main from here.
+This round, all now committed (`f95c69d`, `59f1805`, `85d6611`, `f2e6500`):
+- [BLOCKER] `f95c69d`: checkout.html moved `markReady();` from before
+  `recurly.Elements()`/`card.attach()` to the very end of setupCard(),
+  wrapped each `cb()` inside markReady()'s forEach in try/catch;
+  assets/wallet-paypal.js rewritten — whole file wrapped in an IIFE (also
+  fixes the SHOULD-FIX global-leak item), `window.recurly.PayPal(...)`
+  now in try/catch, removes the button and shows nothing on throw (G4/A4
+  silent-unavailable shape), self-contradicting comment fixed. New
+  scripts/test-wallet-paypal.mjs check proved red against a scratch copy
+  of pre-fix HEAD (`.../scratchpad/pre-blocker-fix`: 1 FAIL, card.attach
+  never reached) before green against the working tree (13/13).
+- SHOULD-FIX C4, `59f1805`: checkout.html's card add_payment_info event
+  now sends `payment_type: 'Credit Card'`; wallet-common.js's untrue
+  "GA4 reads as its default" comment fixed; new test-ga4-events.mjs
+  check that the card event carries it.
+- SHOULD-FIX 3DS-retry + Spec proposals, `85d6611`: comment at
+  checkout.html's subscribe(tokenId, threeDSResultId) saying the 3-D
+  Secure retry is card-only and why (no behaviour change); Spec
+  proposals section filled in with all three items (C4 deviation,
+  card-only 3DS retry, flow.css `.wallets` gap — flow.css itself
+  untouched).
+- NITS, `f2e6500`: wallet-common.js trims each source before choosing
+  between wallet/field; test-wallet-common.js's self-checking
+  `isOn('paypal') === WALLETS.paypal` line dropped; test-subscribe-wallet.js's
+  `wallet:'bitcoin'` case now also asserts the "Unknown payment method."
+  message.
+
+Every suite re-run clean against the final committed tree, zero FAIL
+lines anywhere: test-wallet-seam.sh, test-wallet-common.js,
+test-wallet-paypal.sh (both the red run against the pre-fix scratch copy
+and the green run against this tree), test-subscribe-wallet.js,
+test-ga4-events.sh, test-checkout-address.sh, test-decline-reasons.js,
+test-raillog-alert.js, test-subscribe-build-purchase.js,
+test-subscribe-decline-alert.js, test-subscribe-decline-email.js.
+test-subscribe-rate-limit.sh deliberately NOT run (port 8799 collision/
+collateral-kill risk, per overseer's explicit instruction and the Trap
+below). Reported to landing-opzichter; overseer fills the Verdict and
+lands — nothing further to do here unless it comes back with more
+feedback.
 
 Traps (with dates):
 - 2026-10-09: Node's global `fetch`/`Response`/`btoa` (Node 26 here) used
