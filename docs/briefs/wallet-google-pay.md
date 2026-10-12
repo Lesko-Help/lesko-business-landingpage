@@ -91,80 +91,73 @@ and why. The overseer applies what it agrees with on main.
 ## State
 
 Done:
-- Brief filled in (Goal was already written by the overseer; done-when, may
-  touch, deploy, context filled in here).
-- `assets/wallet-common.js` written (C1-C6: the `WALLETS` switch, `isOn`,
-  `payWithWallet`) — the seam piece `wallet-paypal` owns but had not landed.
-- `checkout.html`: `window.LeskoCheckout` published (K1-K4, functions
-  assigned unchanged per K5), `#wallets` row added to the payment panel,
-  `<script defer>` tags added for `wallet-common.js` and
-  `wallet-google-pay.js`.
-- `assets/wallet-google-pay.js` written (G1-G5).
-- `scripts/test-wallet-google-pay.sh` + `.mjs` written; confirmed red
-  against `origin/main` (no wallet files exist there at all). Committed
-  `919f050`; chmod 755 fix for the `.sh` committed alone `6013b4c`.
-- Round 1 review (overseer): build faithful to G1-G5, but found an ordering
-  defect (wallet file mounted on `DOMContentLoaded`, before `checkout.html`
-  calls `recurly.configure()`) and two spec errors in `finish()` not mine
-  to fix. Told to stay parked; did, plus the chmod fix.
-- Round 2 (amended spec, K6/K3a/K3b/C2): `checkout.html` gained
-  `onReady(callback)`/`fireReady()` (called from `setupCard()` once
-  `recurly.configure()` has run) and `finish(result, tokenId, buyerEmail)`
-  (buyerEmail threads through the 3DS retry recursion, falls back to
-  `#email.value` when absent); `wallet-common.js`'s `payWithWallet` now
-  calls `checkout.finish(result, token, email)` (3 args, always);
-  `wallet-google-pay.js` mounts via `window.LeskoCheckout.onReady(init)`,
-  not `DOMContentLoaded`. Test harness rewritten to run non-deferred
-  scripts before deferred ones (real browser order — needed because
-  `wallet-google-pay.js` now calls `window.LeskoCheckout` synchronously at
-  load time); added `flushMicrotasks()`; two new checks for K6 and
-  K3a/K3b. Proven red against `origin/main`, green here (44/44), both
-  regression suites (`test-checkout-address`, `test-ga4-events`) still
-  pass. Merged `origin/main` (`f34be49`, unrelated `worker.js`/
-  `wrangler.jsonc` changes, clean merge). Committed `3832996` (brief),
-  `17ba9c5` (implementation), `2616053` (test). Reported to the overseer.
-- Round 3 (overseer found a real defect in both round-2 files, diffing
-  independently rather than trusting the report): `checkout.html`'s
-  `finish()` normalised (trim/lowercase) only the card-form fallback, not
-  `buyerEmail` itself, and `wallet-common.js` passed `buyer.email` raw to
-  both `/api/subscribe` and `finish` — so a wallet buyer typing
-  `Buyer@Example.COM` would make a different Recurly account code than
-  the same person on the card form, unreachable today (every switch
-  false) which is why no test caught it. Fixed both files to normalise
-  the same way `subscribe()` always has; the overseer amended K3b in the
-  spec to pin this. Test harness gained `window.__subscribeCalls`
-  (records each `/api/subscribe` body — previously the stub only
-  answered, never remembered what was sent) and one new check pair:
-  an upper-case, untrimmed wallet email reaches both `/api/subscribe` and
-  `finish` lower-cased and trimmed. Proven red by reverse-applying the fix
-  patch and re-running (both new checks failed), then re-applied and
-  confirmed 46/46 green; both regression suites re-run clean. Committed
-  `9122692` (fix), `589fe68` (test).
+- Rounds 1-3 (2026-10-09 to 2026-10-10): built G1-G5 on top of an own-written
+  copy of the seam (`checkout.html`'s `window.LeskoCheckout`,
+  `assets/wallet-common.js`) because `wallet-paypal`, which owns that seam,
+  had landed nothing yet. Fixed, across three overseer review rounds: the
+  mount-before-`onReady` ordering defect, the `finish(result, tokenId,
+  buyerEmail)` signature, and an email-casing gap (`buyerEmail`/wallet email
+  not trimmed/lower-cased the same way the card path always was). All three
+  rounds passed review; approved, not landed. Final state of that work:
+  commits `3832996`/`17ba9c5`/`2616053`/`9122692`/`589fe68`/`dd3fe44`.
+- 2026-10-12: `wallet-paypal` landed on `main` at `450d13f` with its own,
+  independently-written and now-production versions of
+  `assets/wallet-common.js` and `checkout.html`'s seam — stricter than mine
+  (`markReady()`/`onReady` wraps each callback in its own try/catch and
+  fires last, after `Elements()`/`card.attach`; `payWithWallet` falls back
+  to the page's own `#email`/`#first_name`/`#last_name` fields; the card
+  path's own `add_payment_info` now names itself `payment_type: 'Credit
+  Card'`, C4 amendment). Overseer instruction: discard my two copies of
+  these files wholesale, keep only `assets/wallet-google-pay.js` +
+  its tests + this brief, re-add one `<script defer>` line for
+  `wallet-google-pay.js` in the landed `checkout.html`, and switch
+  `recurly.GooglePay()` to `window.recurly.GooglePay()` to match PayPal's
+  style. Read the current `docs/specs/modules/wallets.md` (overseer's own
+  checkout, still uncommitted pending Martin) directly — confirms K6's two
+  ordering rules, C4, and a new **K3c** open gap (the 3DS retry branch is
+  card-only; not a wallet branch's to fix, only to comment on at the seam).
 
-In flight: none. Ready to report Round 3 to the overseer.
+In flight (round 4, rebase onto `450d13f`, not yet started):
+- `git fetch` done, confirmed 450d13f, branch `dd3fe44` 11 ahead / 23 behind.
+- Not yet touched: discarding own `wallet-common.js`/`checkout.html` seam,
+  taking landed versions wholesale, re-adding the one script tag, the
+  `window.recurly.GooglePay()` rename, fixing my test's email-fallback
+  assumptions to match the landed `wallet-common.js` (it falls back to page
+  fields; mine assumed the wallet's value always wins alone).
 
-Next: send the Round 3 report (two-file email-normalisation fix, test
-proof, regressions clean); `origin/main` still at `f34be49`, no need to
-re-merge unless it has moved again. Not landing anything — that is
-Martin's call.
+Next: do the rebase exactly as the overseer specified (take landed files
+wholesale, do not hand-merge line by line); re-run my suite plus every
+landed wallet suite (`test-wallet-seam`, `test-wallet-common`,
+`test-wallet-paypal`, `test-subscribe-wallet`) — never
+`test-subscribe-rate-limit.sh` (kills another session's `wrangler dev` on
+port 8799, and is independently known-broken on `main` since
+SEND_EMAIL — not this branch's to fix or run); prove red before green for
+anything changed; replace this State section again; commit; report to the
+overseer. Not landing anything — that is Martin's call. Leave
+`## Agentic review` and any Verdict line for the overseer to write.
 
 Traps (with dates):
-- 2026-10-09: `wallet-paypal` branch/worktree exists but had landed nothing
-  on `main` (0 commits ahead) when this task started — checked with
-  `git rev-list main..wallet-paypal --count`. If it lands its own
-  `assets/wallet-common.js` / `LeskoCheckout` seam after this branch lands,
-  the overseer must dedupe (two copies of the same files would silently
-  overwrite each other depending on merge order).
 - 2026-10-09: jsdom does not implement `window.PaymentRequest`; the test
   sets it manually (`opts.hasPaymentRequest !== false`) and the shipped
   `wallet-google-pay.js` checks for it explicitly (G4) before ever calling
   `recurly.GooglePay()`.
-- 2026-10-09: `wallet-paypal` has its own uncommitted `checkout.html` seam
-  + `wallet-common.js`, with `#wallets` placed differently (summary panel,
-  `class="wallets"`, above `#payMsg`) than this branch (payment panel, bare
-  `<div id="wallets">`, above `#cardField`). Overseer is deciding placement
-  for both branches — not mine to change unilaterally.
-- 2026-10-09: the seam (`onReady` in `checkout.html`, the `finish` 3-arg
-  signature) is `wallet-paypal`'s file to land; this branch holds a copy
-  that must match the amended spec exactly, since a mismatch at landing
-  means this branch's copy is the one dropped.
+- 2026-10-12: `docs/specs/modules/wallets.md` does not exist in this repo on
+  any branch or in any commit — it is the overseer's own, uncommitted file
+  at `/Users/admin/Lesko/lesko-business-landingpage/docs/specs/modules/
+  wallets.md` (outside any worktree), pending Martin's approval. Read it
+  with an absolute path, not `git show origin/main:...`.
+  `assets/wallet-common.js` and `checkout.html`'s seam are now
+  `wallet-paypal`'s production files (landed `450d13f`) — take them
+  wholesale, never hand-merge against this branch's own older copies; they
+  fell back to the page's own `#email`/`#first_name`/`#last_name` fields
+  and wrap each `onReady` callback in its own try/catch, both stricter than
+  what this branch had written on its own.
+- 2026-10-12: do not run `scripts/test-subscribe-rate-limit.sh` from this
+  worktree — its cleanup `pkill`s/`kill -9`s whatever holds port 8799,
+  which may be another session's `wrangler dev`. Independently known-broken
+  on `main` since the `SEND_EMAIL` binding landed (six 501s instead of five
+  503s and a 429) — not this branch's regression.
+- 2026-10-12: spec's new **K3c** (3DS retry branch is card-only, reads
+  `#email`/`#first_name`/`#last_name` on re-submit) is explicitly not a
+  wallet branch's to fix — comment on it at the seam only, leave the fix to
+  whoever owns the 3DS retry worktree.
