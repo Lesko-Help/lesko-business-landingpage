@@ -350,7 +350,12 @@
   function markReady() {
     if (recurlyReady) return;
     recurlyReady = true;
-    readyCallbacks.forEach(function (cb) { cb(); });
+    // Each callback runs in its own try/catch: a wallet file throwing here (e.g. a dead PayPal
+    // gateway rejecting recurly.PayPal()) must never stop the card field below from attaching, or
+    // stop any other wallet's callback from running (overseer review, 2026-10-12).
+    readyCallbacks.forEach(function (cb) {
+      try { cb(); } catch (e) { console.error(e); }
+    });
     readyCallbacks.length = 0;
   }
 
@@ -365,7 +370,6 @@
       publicKey: publicKey,
       required: ['first_name', 'last_name', 'address1', 'city', 'country']
     });
-    markReady();
     elements = recurly.Elements();
     var card = elements.CardElement({
       style: {
@@ -377,6 +381,11 @@
     });
     card.attach('#recurly-card');
     card.on('change', function (state) { if (state.valid) cardField.classList.remove('err'); });
+    // markReady() runs last, once the card field itself is attached — a wallet file's onReady
+    // callback must never be able to run ahead of the card field existing (overseer review,
+    // 2026-10-12: markReady() used to run first, so a throwing wallet callback could leave
+    // card.attach() unreached and Pay permanently showing "the secure card field is not ready").
+    markReady();
   }
   fetch('/api/config', { headers: { 'Accept': 'application/json' } })
     .then(function (r) { return r.json(); })

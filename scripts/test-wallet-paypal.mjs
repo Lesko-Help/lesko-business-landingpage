@@ -219,4 +219,27 @@ await (async function () {
   check('a cancel event shows nothing (P4)', !payMsg.classList.contains('show') && payMsg.textContent.trim() === '', payMsg.textContent);
 })();
 
+// ── Blocker fix (overseer review, 2026-10-12): a throwing recurly.PayPal() must not stop the card
+// field from attaching, and must leave no button mounted ──────────────────────────────────────
+await (async function () {
+  const capture = {};
+  const attachCalls = [];
+  const stub = makeRecurlyStub(capture);
+  stub.Elements = function () {
+    return { CardElement: function () { return { attach: function (sel) { attachCalls.push(sel); }, on: function () {} }; } };
+  };
+  stub.PayPal = function () { throw new Error('this gateway cannot take PayPal'); };
+  const w = loadCheckout('https://leskobusiness.com/checkout?plan=monthly', {
+    recurlyStub: stub,
+    configResponse: { recurly_public_key: 'pk-test' },
+    paypalOn: true
+  });
+  await flushMicrotasks();
+  check('a throwing recurly.PayPal() still lets the card field attach (blocker fix)',
+    attachCalls.length === 1 && attachCalls[0] === '#recurly-card', JSON.stringify(attachCalls));
+  const row = w.document.getElementById('wallets');
+  check('a throwing recurly.PayPal() mounts no button (blocker fix)',
+    !!row && row.children.length === 0, row && row.innerHTML);
+})();
+
 process.exit(failCount > 0 ? 1 : 0);
