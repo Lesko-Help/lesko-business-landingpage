@@ -78,6 +78,12 @@ Who: a business owner Matthew sent here · Where: web, three static HTML files
   in the right-hand column, the address fields in section 2) saw a dead
   button and no reason — the most likely cause of Martin's failed Belgian
   attempt on 2026-10-05.
+- Wallet buttons *(draft, not built)*: PayPal, Apple Pay and Google Pay are
+  specified in `docs/specs/modules/wallets.md`, as a `#wallets` row above the
+  card section plus one file per method. They are off by default and change no
+  card behaviour; `checkout.html`'s only part in it is that row, one
+  `<script src>` per method, and publishing the `window.LeskoCheckout` seam
+  (wallets K1-K5).
 - *Test:* `scripts/test-checkout-address.sh .` — jsdom loads the real
   `checkout.html`, stubs Recurly.js, and presses Pay: an empty form, then a
   US form filled in one field at a time, must each name the first missing
@@ -147,5 +153,9 @@ money is GA4, shared by all three pages since `ga4-all-pages` (landed
 - 2026-09-30: `checkout.html`, `welcome.html` and `assets/flow.css` are part of this module, not a module of their own. Why: they are static pages deployed and edited the same way; the Worker side is `worker`.
 - 2026-10-01 (landed 2026-10-02, `68b9961`): the EU/EEA/UK/CH consent rule is dropped, still no banner — every visitor gets `analytics_storage` granted, ads stay denied (Martin, told it goes against the EU ePrivacy consent rule). Why: GA4 counted no EU visits at all, including Martin's own test visits, so the funnel could not be read. Replaces the 2026-09-29 line's "EU visitors simply get no analytics cookie".
 - 2026-10-06: the checkout accepts a non-US billing address; which fields are required follows the chosen country (Martin). Why: the form demanded a US "State" and a numeric "ZIP", so a European buyer could not submit it at all — and no purchase has ever come through `/checkout`. This changes our form only; whether the gateway behind Recurly (Authorize.net, a US merchant account) actually accepts a European card is a separate, unproven question, and this change is also the cheapest way to find out.
+- 2026-10-09 (draft, not agreed): PayPal, Apple Pay and Google Pay get their
+  own module spec (`wallets.md`) instead of more text here. Why: this spec
+  records a page that exists, and not one of the three wallets can run until
+  the gateway behind Recurly changes.
 
 <!-- spec:template -->

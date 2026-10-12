@@ -28,6 +28,7 @@ See `docs/specs/architecture.md`.
 
 | Module | What it does | Deploy | Spec |
 |---|---|---|---|
+| `wallets` | PayPal, Apple Pay and Google Pay on `/checkout`: one shared wallet seam plus one small file per method, every method off by default | push to `main` (Cloudflare Workers Builds) | `docs/specs/modules/wallets.md` |
 | `worker` | `worker.js` (+ `raillog.js`): the checkout's `/api/config` and `/api/subscribe` (Recurly purchase), plus the unused `/api/videos` feed | push to `main` (Cloudflare Workers Builds) | `docs/specs/modules/worker.md` |
 
 <!-- spec:modules end -->
@@ -51,6 +52,12 @@ See `docs/specs/architecture.md`.
 - The ClickFunnels pages `www.leskohelp.com/business-*` still work and
   `/business-monthly` charges `business-yearly` ($149.95); fix or unpublish
   in the CF dashboard.
+- PayPal, Apple Pay and Google Pay are specified (`modules/wallets.md`,
+  draft 2026-10-09) and none can run yet: Recurly here is Authorize.Net-only,
+  which Recurly does not list as an Apple Pay or Google Pay gateway, and the
+  site's PayPal gateway is the dead legacy one. Each needs admin work in
+  Recurly (and, for Apple Pay, an Apple Developer account and certificates)
+  that no Claude session can reach — Martin's.
 - `/api/videos` is unused since 2026-09-29: delete it or keep it (Martin).
 - The Vercel copy should be deleted (Martin).
 
