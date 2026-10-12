@@ -136,11 +136,11 @@ Traps (with dates):
   sets it manually (`opts.hasPaymentRequest !== false`) and the shipped
   `wallet-google-pay.js` checks for it explicitly (G4) before ever calling
   `recurly.GooglePay()`.
-- 2026-10-12: `docs/specs/modules/wallets.md` does not exist in this repo on
-  any branch or in any commit — it is the overseer's own, uncommitted file
-  at `/Users/admin/Lesko/lesko-business-landingpage/docs/specs/modules/
-  wallets.md` (outside any worktree), pending Martin's approval. Read it
-  with an absolute path, not `git show origin/main:...`.
+- 2026-10-12: `docs/specs/modules/wallets.md` is now committed on `origin/main`
+  (the overseer's `2dc3d75`, pulled into this branch by the round-5 merge) —
+  read it normally, `git show origin/main:docs/specs/modules/wallets.md` or
+  straight off disk in this tree. It was only ever the overseer's own
+  uncommitted file before that commit; this line is the correction.
   `assets/wallet-common.js` and `checkout.html`'s seam are now
   `wallet-paypal`'s production files (landed `450d13f`) — take them
   wholesale, never hand-merge against this branch's own older copies; they
