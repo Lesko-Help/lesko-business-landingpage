@@ -100,6 +100,110 @@ and why. The overseer applies what it agrees with on main.
    for this task); spec should name which worktree (likely whichever one
    first flips a switch live) owns adding it.
 
+## Agentic review
+
+### Verdict
+Verdict: pass — second round. The first round was changes requested (one
+blocker, five should-fix, three nits); everything is fixed, and the overseer
+re-ran and re-proved it rather than taking the worker's word.
+
+Reviewed by the overseer (window 1) on 2026-10-12 against `origin/main` at
+`f34be49`, with `git add -N .` first and `git diff origin/main...HEAD`: 12
+files, +1525/-17, tree clean. 185 checks across 11 suites, 0 FAIL, run by the
+overseer itself on the final committed tree. `test-subscribe-rate-limit.sh`
+was deliberately not run — see the trap below; it cannot be trusted at the
+moment and no branch is judged on it.
+
+### Findings
+
+Round one (2026-10-12), from the review subagent, each confirmed in the
+source by the overseer before being sent:
+
+- **BLOCKER — a silent card-checkout outage, armed by the switch meant to
+  take PayPal live.** `checkout.html` called `markReady()` *before*
+  `recurly.Elements()` and `card.attach('#recurly-card')`, so every
+  `onReady` callback ran synchronously ahead of the card field.
+  `wallet-paypal.js` called `window.recurly.PayPal({gatewayCode: ''})` with
+  no `try`/`catch`, and the `fetch('/api/config')` chain ends in an empty
+  `.catch`. With `WALLETS.paypal = true` the throw — which is the *expected*
+  case on this site, whose only PayPal gateway is the dead legacy one — meant
+  `card.attach` was never reached: Pay permanently answered "The secure card
+  field is not ready", and nothing was logged anywhere. The seam the other
+  two wallet worktrees copy.
+- Should fix: `wallet-common.js` claimed in a comment that GA4 reads a
+  missing `payment_type` as "Credit Card". It does not, and
+  `checkout.html`'s card event sent none at all — so spec C4's comparison
+  did not exist: wallets would have been labelled and cards left blank.
+- Should fix: `PAYPAL_GATEWAY_CODE` and `init` were top-level globals in a
+  classic script, so the next wallet file would overwrite `window.init`.
+- Should fix: a comment in `wallet-paypal.js` contradicted itself inside one
+  sentence about how often the switch is checked.
+- Should fix: the 3-D Secure retry is card-only (no `wallet` field, re-reads
+  `#email`/`#first_name`/`#last_name`), so a wallet buyer who typed no name
+  would meet the Worker's 400 at the moment the bank approved, on a
+  single-use token. Behaviour deliberately **not** changed here.
+- Should fix: "Done when" pointed at a Spec proposals section that was empty.
+- Nits: trim each source before choosing between wallet and page field;
+  `test-wallet-common.js` asserted `isOn('paypal') === WALLETS.paypal`, which
+  reads its expectation off the system under test; `test-subscribe-wallet.js`
+  asserted only status 400 for an unknown wallet, the same status the
+  missing-name branch returns.
+
+Clean on both rounds: nothing logs, mails or posts a key, token, card datum,
+buyer email or buyer-facing message; `buildPurchase()` keeps `billing_info`
+to the single `token_id` (B2 intact); `clean(body.wallet, 20)` plus the
+`WALLET_METHODS` allow-list rejects anything else with a named 400; nothing
+is reachable by a buyer with all three switches `false`; `.assetsignore`
+needs no new line (`scripts/` is covered wholesale, `assets/*` is meant to
+serve); the live card path is unchanged but for the two additions above.
+
+Accepted as-is, not worth a third round: in `wallet-paypal.js`'s new
+`catch`, `if (button.parentNode) button.parentNode.removeChild(button)` can
+never fire, because the button is appended only after the `try` succeeds. It
+is harmless and defensive; a later reader should not take it as evidence the
+button was ever mounted.
+
+### Fixed in
+
+- BLOCKER — `f95c69d`, three ways over: `markReady()` now runs last in
+  `setupCard()`, after `card.attach()`; each callback runs in its own
+  `try`/`catch` (`checkout.html:353-357`); and `wallet-paypal.js` catches a
+  throwing `recurly.PayPal()` itself and mounts no button, the
+  silent-unavailable shape G4/A4 already specify. **Red-proved by the
+  overseer, not only by the worker:** the new check in
+  `scripts/test-wallet-paypal.mjs` was run against a `git archive` of the
+  pre-fix commit `4640f23` and failed there —
+  `FAIL - a throwing recurly.PayPal() still lets the card field attach
+  (blocker fix) (got "[]")` — and passes 13/13 on this tree.
+- C4 — `59f1805`: `payment_type: 'Credit Card'` added to the card path's
+  `add_payment_info`, the untrue comment corrected, and
+  `test-ga4-events.mjs` now checks the card event carries it (27 checks, up
+  from 26). The overseer amended spec C4 on `main` the same day to say the
+  card path must name itself, rather than weaken the spec to match the code.
+- Globals and the self-contradicting comment — `f95c69d` (IIFE wrap).
+- 3-D Secure retry — `85d6611`: a comment at the seam saying it is card-only
+  and why, no behaviour change, plus the Spec proposals entry. The overseer
+  recorded the spec side on `main` as wallets.md **K3c** and tied it to
+  worker.md's 2026-10-09 hand-back defect: whoever fixes the hand-back must
+  fix the retry in the same worktree, or a branch that can never fire
+  becomes one that fires and fails for every wallet buyer.
+- Spec proposals — `85d6611`: all three entries (the C4 deviation, the
+  card-only retry, and `assets/flow.css` having no `.wallets` rule, which is
+  harmless while the row is empty but a prerequisite for whoever flips a
+  switch; `flow.css` correctly untouched).
+- Nits — `f2e6500`, all three.
+- Brief's own State — `9494fdf`, `b365296`.
+
+Not this branch's, carried as open work elsewhere: the 3-D Secure hand-back
+defect (worker.md, 2026-10-09); `sendDeclineAlertEmail` carrying no `wallet=`
+field where `logDecline` now does; `scripts/test-subscribe-rate-limit.sh`
+being both port-bound to 8799 (its `cleanup()` kills another session's
+`wrangler dev`) and, since `f34be49` added the `SEND_EMAIL` binding,
+answering six 501s instead of five 503s and a 429 — suspected `send_email`
+being unimplemented in local `wrangler dev`, i.e. a local-testability
+regression on `main`, unverified. All three are recorded on the specs on
+`main`.
+
 ## State
 
 Done (landed, all committed through 4640f23): K1-K6 seam, C1-C6
