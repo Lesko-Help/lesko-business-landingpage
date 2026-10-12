@@ -117,24 +117,53 @@ Done:
   ordering rules, C4, and a new **K3c** open gap (the 3DS retry branch is
   card-only; not a wallet branch's to fix, only to comment on at the seam).
 
-In flight (round 4, rebase onto `450d13f`, not yet started):
-- `git fetch` done, confirmed 450d13f, branch `dd3fe44` 11 ahead / 23 behind.
-- Not yet touched: discarding own `wallet-common.js`/`checkout.html` seam,
-  taking landed versions wholesale, re-adding the one script tag, the
-  `window.recurly.GooglePay()` rename, fixing my test's email-fallback
-  assumptions to match the landed `wallet-common.js` (it falls back to page
-  fields; mine assumed the wallet's value always wins alone).
+Done (round 4, rebase onto `450d13f`, finished 2026-10-12):
+- `git merge origin/main --no-edit` (branch was `dd3fe44`, 11 ahead / 23
+  behind). Conflicted exactly on the two files the overseer predicted
+  (`assets/wallet-common.js` add/add, `checkout.html` content). Resolved
+  with `git checkout --theirs` on both, taking the landed, production
+  versions wholesale rather than hand-merging — this branch's own two
+  earlier copies of the seam are gone.
+- Re-added exactly one line in `checkout.html`,
+  `<script src="/assets/wallet-google-pay.js" defer></script>`, beside the
+  landed `wallet-paypal.js` tag, and widened the comment above both from
+  "one shared file plus one file per method... neither file" to name all
+  three files.
+- `assets/wallet-google-pay.js`: `recurly.GooglePay(...)` →
+  `window.recurly.GooglePay(...)`, matching the landed `wallet-paypal.js`'s
+  `window.recurly.PayPal(...)`. No red-before-green proof for this one — in
+  both a real browser and this repo's jsdom test harness `window` IS the
+  script's global scope, so bare `recurly` and `window.recurly` already
+  resolved to the same object; the change is a style match, not a behaviour
+  change, so there was no failing check to provoke first.
+- Everything else in `assets/wallet-google-pay.js` kept as-is: still the
+  top-level `if (window.LeskoCheckout) window.LeskoCheckout.onReady(init)`
+  call (not `wallet-paypal.js`'s `DOMContentLoaded`-then-inner-`onReady`
+  shape) — the overseer's instruction named only the `window.recurly`
+  rename, and the two shapes are equivalent against the landed seam's
+  `onReady`/`markReady` (checkout.html: queues if not ready yet, calls
+  immediately if already ready), so this branch did not restructure beyond
+  what was asked.
+- Merge committed as `765924a` (includes the script tag and the rename —
+  both needed to make the merge resolution actually work, so kept as one
+  commit rather than split after the fact).
+- Ran `scripts/test-wallet-google-pay.sh .` against the rebased seam: 46/46
+  PASS, no changes needed to my own test file. The overseer had flagged
+  check 32/33 (email normalisation) as a likely casualty of the landed
+  seam's page-field fallback — it was not: this suite's own fallback cases
+  stub `payWithWallet` directly rather than exercising the real
+  `wallet-common.js`, so the new fallback branch never fires in it.
+- Ran every landed wallet suite for regression, all green: `test-wallet-seam.sh`
+  (20/20), `node test-wallet-common.js assets/wallet-common.js` (26/26),
+  `test-wallet-paypal.sh` (13/13), `node test-subscribe-wallet.js worker.js`
+  (18/18). Also re-ran this branch's own pre-existing regressions:
+  `test-checkout-address.sh` (26/26), `test-ga4-events.sh` (ALL PASS). Did
+  not run `test-subscribe-rate-limit.sh` (forbidden from this worktree —
+  port 8799 hazard, independently broken on `main`).
 
-Next: do the rebase exactly as the overseer specified (take landed files
-wholesale, do not hand-merge line by line); re-run my suite plus every
-landed wallet suite (`test-wallet-seam`, `test-wallet-common`,
-`test-wallet-paypal`, `test-subscribe-wallet`) — never
-`test-subscribe-rate-limit.sh` (kills another session's `wrangler dev` on
-port 8799, and is independently known-broken on `main` since
-SEND_EMAIL — not this branch's to fix or run); prove red before green for
-anything changed; replace this State section again; commit; report to the
-overseer. Not landing anything — that is Martin's call. Leave
-`## Agentic review` and any Verdict line for the overseer to write.
+Next: report this round's completion to the overseer. Not landing
+anything — that is Martin's call. Leave `## Agentic review` and any
+Verdict line for the overseer to write.
 
 Traps (with dates):
 - 2026-10-09: jsdom does not implement `window.PaymentRequest`; the test
