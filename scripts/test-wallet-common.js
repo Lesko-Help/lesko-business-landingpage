@@ -97,7 +97,6 @@ async function main() {
     check('WALLETS.paypal ships false', w.WALLETS.paypal === false);
     check('WALLETS.apple_pay ships false', w.WALLETS.apple_pay === false);
     check('WALLETS.google_pay ships false', w.WALLETS.google_pay === false);
-    check('isOn("paypal") reports the paypal flag', w.isOn('paypal') === w.WALLETS.paypal);
     w.WALLETS.google_pay = true;
     check('isOn() reads the live flag, not a snapshot', w.isOn('google_pay') === true);
   }

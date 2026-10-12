@@ -100,6 +100,8 @@ async function main() {
       plan: 'monthly', token: 'tok-1', email: 'a@b.com', wallet: 'bitcoin'
     }), env);
     check('an unknown wallet value is rejected', res.status === 400, 'got ' + res.status);
+    const body = await res.json();
+    check('an unknown wallet value names the reason', body.message === 'Unknown payment method.', JSON.stringify(body));
   }
 
   {

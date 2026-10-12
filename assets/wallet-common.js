@@ -40,9 +40,18 @@ window.LeskoWallets = (function () {
     var emailField = document.getElementById('email');
     var firstNameField = document.getElementById('first_name');
     var lastNameField = document.getElementById('last_name');
-    var email = ((buyer && buyer.email) || (emailField ? emailField.value : '')).trim().toLowerCase();
-    var firstName = ((buyer && buyer.first_name) || (firstNameField ? firstNameField.value : '')).trim();
-    var lastName = ((buyer && buyer.last_name) || (lastNameField ? lastNameField.value : '')).trim();
+    // Each source is trimmed before the choice between wallet and page field is made, not after —
+    // otherwise a wallet reporting a whitespace-only email would win the `||` over a good page
+    // field, then still trip the empty check below and refuse a purchase the buyer could have made.
+    var walletEmail = ((buyer && buyer.email) || '').trim();
+    var fieldEmail = (emailField ? emailField.value : '').trim();
+    var walletFirstName = ((buyer && buyer.first_name) || '').trim();
+    var fieldFirstName = (firstNameField ? firstNameField.value : '').trim();
+    var walletLastName = ((buyer && buyer.last_name) || '').trim();
+    var fieldLastName = (lastNameField ? lastNameField.value : '').trim();
+    var email = (walletEmail || fieldEmail).toLowerCase();
+    var firstName = walletFirstName || fieldFirstName;
+    var lastName = walletLastName || fieldLastName;
 
     // C3: Recurly's account code is the email (worker B1) — a purchase cannot be built without one
     // from either source, so this is the one check made before any network call, naming the wallet
