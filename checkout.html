@@ -414,6 +414,11 @@
     return true;
   }
 
+  // Card-only (overseer review, 2026-10-12): this is also the function the 3-D Secure retry below
+  // calls a second time with the bank's result token. It always re-reads #email/#first_name/
+  // #last_name and posts no `wallet` field, so a wallet purchase that needed a 3-D Secure retry
+  // would be resubmitted as a card — unverified whether any wallet SDK here can even trigger that
+  // bank challenge in the first place. Logged in this brief's Spec proposals; not this task's to fix.
   function subscribe(tokenId, threeDSResultId) {
     var body = {
       plan: plan,

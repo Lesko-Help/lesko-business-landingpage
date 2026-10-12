@@ -72,6 +72,34 @@ never edits docs/specs/ itself. Anything found missing, unclear or wrong in a
 module's spec goes here instead: what the spec says now, what it should say,
 and why. The overseer applies what it agrees with on main.
 
+1. **C4, payment_type attribution (overseer review, 2026-10-12).** Spec C4 as
+   drafted assumed GA4 invents a default label ("Credit Card") for an
+   `add_payment_info` event that omits `payment_type`, so only the wallet
+   path was meant to set it. GA4 does no such thing — it just omits the
+   parameter — so a card purchase would have been merely blank, not told
+   apart from a wallet's own label. Fixed in code instead of weakening C4:
+   checkout.html's own card-path event now sends `payment_type: 'Credit
+   Card'` explicitly. Spec should say both paths always set `payment_type`,
+   not just the wallet one.
+2. **Card-only 3-D Secure retry (overseer review, 2026-10-12).** checkout.html's
+   `subscribe(tokenId, threeDSResultId)` is also the function the bank's 3-D
+   Secure challenge calls a second time with its result token. It always
+   re-reads `#email`/`#first_name`/`#last_name` and posts no `wallet` field,
+   so a wallet purchase that triggered a 3-D Secure challenge would be
+   resubmitted shaped like a card purchase. Not fixed here (behaviour
+   unchanged, comment only) — whether any wallet SDK on this site can even
+   trigger that challenge is unverified, with no live wallet-capable gateway
+   to test against. Spec K3/K-seam should say explicitly whether the 3-D
+   Secure retry is in scope for a wallet purchase, and if so, what it posts.
+3. **assets/flow.css has no `.wallets` rule.** `#wallets` is an empty `<div>`
+   today (every `WALLETS.*` flag ships `false`), so the missing rule is
+   harmless — zero children, zero height, nothing laid out. It becomes a
+   real gap the moment any wallet switch flips true: the button(s) built by
+   wallet-paypal.js/wallet-google-pay.js/wallet-apple-pay.js would mount with
+   no spacing/sizing rule at all. Not fixed here (flow.css is out of scope
+   for this task); spec should name which worktree (likely whichever one
+   first flips a switch live) owns adding it.
+
 ## State
 
 Done (landed, all committed through 4640f23): K1-K6 seam, C1-C6
