@@ -11,18 +11,18 @@
 // Wrapped in its own IIFE so its names stay private and cannot be overwritten by the next wallet
 // file (overseer review, 2026-10-12).
 (function () {
-  // P3: the PayPal REST *client id* (a public identifier, not the secret). Ships EMPTY, so the file
-  // as shipped renders nothing — the same shape wallet-google-pay.js uses for its merchant id.
-  // Martin fills it in when the PayPal side is ready.
-  var PAYPAL_CLIENT_ID = '';
+  // P3: the PayPal REST *client id* of Lesko's own PayPal merchant account. It is PayPal's public
+  // browser id, meant to be visible in the page; the matching secret never goes in this repo.
+  // Read from the `paypal-client-id` secret in project lesko-486515 (2026-10-17).
+  var PAYPAL_CLIENT_ID = 'ARTrRs67UuT2GSadXtlhLA6Q2JTpDSNHJQBvj0NdIeBOSEHbv7IST2eClJwe0D7rpsBMpcYkTYuxXnvN';
 
-  // P2: ?plan= -> PayPal billing plan id, copied from the ClickFunnels order pages'
-  // data-product-payment-gateway-plan-id. `half-year` is deliberately absent: PayPal has no
-  // 6-month plan, so that plan stays card-only. `monthly` bills $19.95 on PayPal where the card
-  // bills $29.95 — accepted by Martin 2026-10-17; do not point at a plan that does not exist.
+  // P2: ?plan= -> PayPal billing plan id. All three are ACTIVE plans on product
+  // PROD-25B93089XF9559540 in Lesko's OWN PayPal account (checked 2026-10-17), not copied from
+  // ClickFunnels. The old ids belonged to another merchant and answered 404.
   var PAYPAL_PLAN_IDS = {
-    'monthly': 'P-7TV41146KY851263NROQAXEQ',
-    'yearly': 'P-80J45642K6983362LS2OVYFQ'
+    'monthly': 'P-7R176589BE0160805NLJVCFI',    // $29.95 every 1 MONTH
+    'half-year': 'P-2GV64945HR320740CNLIP2HY',  // $89.95 every 6 MONTH
+    'yearly': 'P-8M862053KT491162FNLJVCFI'      // $149.95 every 1 YEAR
   };
 
   // Marks the error we throw ourselves when the email is missing, so onError can tell it apart from

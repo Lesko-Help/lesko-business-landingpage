@@ -32,8 +32,9 @@ if (!dir) {
   process.exit(2);
 }
 
-const MONTHLY_PLAN = 'P-7TV41146KY851263NROQAXEQ';
-const YEARLY_PLAN = 'P-80J45642K6983362LS2OVYFQ';
+const MONTHLY_PLAN = 'P-7R176589BE0160805NLJVCFI';
+const HALF_YEAR_PLAN = 'P-2GV64945HR320740CNLIP2HY';
+const YEARLY_PLAN = 'P-8M862053KT491162FNLJVCFI';
 const TEST_CLIENT_ID = 'test-client-id';
 
 let failCount = 0;
@@ -57,6 +58,14 @@ function extractScripts(html) {
     return '';
   });
   return { scripts, stripped };
+}
+
+// Input: the text of wallet-paypal.js. Output: the id between the quotes of PAYPAL_CLIENT_ID, or
+// null when the line is missing. Why: the harness needs it to tell "already the id I wanted" from
+// "nothing to patch".
+function shippedClientId(code) {
+  const m = code.match(/PAYPAL_CLIENT_ID\s*=\s*'([^']*)'/);
+  return m ? m[1] : null;
 }
 
 // Input: the URL to load checkout.html at and options: `clientId` (substituted for the empty
@@ -92,9 +101,10 @@ function loadCheckout(url, options) {
     if (s.src) {
       if (!s.src.startsWith('/')) continue;
       code = fs.readFileSync(path.join(dir, s.src.replace(/^\//, '')), 'utf8');
-      if (options.clientId && /wallet-paypal\.js$/.test(s.src)) {
-        const patched = code.replace(/(PAYPAL_CLIENT_ID\s*=\s*)''/, "$1'" + options.clientId + "'");
-        if (patched === code) throw new Error("wallet-paypal.js has no `PAYPAL_CLIENT_ID = ''` to substitute");
+      if (options.clientId !== undefined && /wallet-paypal\.js$/.test(s.src)) {
+        // Swaps whatever id the file ships with for the test's own (`''` gives the empty-id case).
+        const patched = code.replace(/(PAYPAL_CLIENT_ID\s*=\s*)'[^']*'/, "$1'" + options.clientId + "'");
+        if (patched === code && options.clientId !== shippedClientId(code)) throw new Error("wallet-paypal.js has no `PAYPAL_CLIENT_ID = '...'` to substitute");
         code = patched;
       }
     } else {
@@ -154,7 +164,7 @@ const ON = { paypalOn: true, clientId: TEST_CLIENT_ID };
 // ── as shipped: the client id is empty and the switch is off ───────────────────────────────────
 (function () {
   const src = fs.readFileSync(path.join(dir, 'assets/wallet-paypal.js'), 'utf8');
-  check('the file ships with PAYPAL_CLIENT_ID = \'\' (P3)', /PAYPAL_CLIENT_ID\s*=\s*''/.test(src));
+  check('the file ships a real PayPal client id: 80 URL-safe characters (P3)', /PAYPAL_CLIENT_ID\s*=\s*'[A-Za-z0-9_-]{80}'/.test(src));
   const common = fs.readFileSync(path.join(dir, 'assets/wallet-common.js'), 'utf8');
   check('the paypal switch ships false (C1)', /paypal:\s*false/.test(common));
   const code = src.replace(/\/\/.*$/gm, ''); // comments may mention alert; code may not call it
@@ -169,9 +179,9 @@ await (async function () {
   check('switch off: #wallets stays empty (P1)', w.document.getElementById('wallets').children.length === 0);
 })();
 
-// ── P3: switch on but client id empty (as shipped) -> nothing ──────────────────────────────────
+// ── P3: switch on but client id empty -> nothing ──────────────────────────────────
 await (async function () {
-  const w = loadCheckout('https://leskobusiness.com/checkout?plan=monthly', { paypalOn: true });
+  const w = loadCheckout('https://leskobusiness.com/checkout?plan=monthly', { paypalOn: true, clientId: '' });
   await flushMicrotasks();
   check('empty client id: no PayPal SDK tag is added (P3)', sdkTags(w).length === 0, sdkTags(w).length);
   check('empty client id: #wallets stays empty (P3)', w.document.getElementById('wallets').children.length === 0);
@@ -186,12 +196,16 @@ await (async function () {
   check('no #wallets row: no PayPal SDK tag is added (P1)', sdkTags(w).length === 0, sdkTags(w).length);
 })();
 
-// ── P2: half-year has no PayPal plan -> no SDK tag, no button ──────────────────────────────────
+// ── P2: a plan with no PayPal entry -> no SDK tag, no button (the `!planId` guard) ─────────────
 await (async function () {
-  const w = loadCheckout('https://leskobusiness.com/checkout?plan=half-year', ON);
+  // checkout.html itself turns an unknown ?plan= into monthly, so make the page report a plan name
+  // that PayPal's table has no entry for; that is the only way to reach the `!planId` guard.
+  const w = loadCheckout('https://leskobusiness.com/checkout?plan=monthly', Object.assign({
+    rewriteHtml: function (html) { return html.replace("plan: function () { return plan; }", "plan: function () { return 'unlisted-plan'; }"); }
+  }, ON));
   await flushMicrotasks();
-  check('half-year: no PayPal SDK tag is added (P2)', sdkTags(w).length === 0, sdkTags(w).length);
-  check('half-year: #wallets stays empty (P2)', w.document.getElementById('wallets').children.length === 0);
+  check('unknown plan: no PayPal SDK tag is added (P2)', sdkTags(w).length === 0, sdkTags(w).length);
+  check('unknown plan: #wallets stays empty (P2)', w.document.getElementById('wallets').children.length === 0);
 })();
 
 // ── P3: the SDK URL ────────────────────────────────────────────────────────────────────────────
@@ -211,7 +225,7 @@ await (async function () {
 })();
 
 // ── P2 + P4: the exact plan id per ?plan=, and create() gets that and nothing else ─────────────
-for (const [plan, planId] of [['monthly', MONTHLY_PLAN], ['yearly', YEARLY_PLAN]]) {
+for (const [plan, planId] of [['monthly', MONTHLY_PLAN], ['half-year', HALF_YEAR_PLAN], ['yearly', YEARLY_PLAN]]) {
   await (async function () {
     const w = loadCheckout('https://leskobusiness.com/checkout?plan=' + plan, Object.assign({ emailValue: 'a@b.co' }, ON));
     await flushMicrotasks();
