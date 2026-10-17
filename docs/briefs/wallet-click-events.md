@@ -52,6 +52,18 @@ never edits docs/specs/ itself. Anything found missing, unclear or wrong in a
 module's spec goes here instead: what the spec says now, what it should say,
 and why. The overseer applies what it agrees with on main.
 
+Proposed text for `docs/specs/modules/wallets.md` (workers may not edit it). The branch and the spec commit must land together: `wallet-paypal.js` and both test headers cite P9 and C7.
+
+C7 — new item in the shared-rules list after C6 (under `payWithWallet` / `isOn`):
+
+- C7: every wallet reports its button funnel with the same four GA4 events, sent through `window.LeskoAnalytics.track()`, and no wallet invents other names. `wallet_click`: the buyer pressed the wallet's button, counted before anything else, so it is the whole denominator. `wallet_click_refused`: that same click was refused because no email is typed (P6); it is sent in addition to `wallet_click`, never instead of it, and adds `reason: 'missing_email'`. `wallet_cancel`: the buyer closed the wallet's window. `wallet_error`: the wallet reported a real failure; our own missing-email refusal is not one. Every event carries exactly the C4 shape of `add_payment_info`: `currency: 'USD'`, `value` (the plan's USD price as a number), `payment_type` (`PayPal`, `Apple Pay` or `Google Pay`, the same label as C4) and `items: [{ item_id, item_name, price, quantity: 1 }]`. Never sent: the wallet's error text, the buyer's email or any other personal data. A failing `track()` is swallowed, because analytics must never stop a payment. `apple_pay` and `google_pay` must send these same names and this same shape when they are switched on.
+
+P9 — new item in `init()` of `assets/wallet-paypal.js`, after P8:
+
+- P9: the PayPal button reports the funnel of C7. `onClick` sends `wallet_click` first, then, if P6 refuses the click, `wallet_click_refused` with `reason: 'missing_email'` before `actions.reject()`. `onCancel` sends `wallet_cancel` and still shows the buyer nothing (P7). `onError` sends `wallet_error` for a real PayPal failure but sends nothing for our own missing-email throw (that one is already counted as refused); no error text and no email are sent. `onApprove` is unchanged: it still sends exactly one `add_payment_info` (P5).
+
+Also in the PayPal *Test* line: after the new checks the suite has 57 checks, and `test-ga4-events` also checks that the four events reach gtag's dataLayer.
+
 ## State
 
 Replaced in full each time the context guard asks you to save — never append another checkpoint.
