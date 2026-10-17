@@ -119,7 +119,7 @@ function loadCheckout(url, options) {
     const realTrack = window.LeskoAnalytics.track;
     window.LeskoAnalytics.track = function (name, params) { window.__events.push({ name, params }); if (realTrack) return realTrack.apply(this, arguments); };
   }
-  if (options.paypalOn && window.LeskoWallets) window.LeskoWallets.WALLETS.paypal = true;
+  if (options.paypalOn !== undefined && window.LeskoWallets) window.LeskoWallets.WALLETS.paypal = options.paypalOn; // the shipped switch is on, so P1 must force it off
   if (options.emailValue !== undefined) window.document.getElementById('email').value = options.emailValue;
   lastNavigatedTo = null;
   return window;
@@ -166,7 +166,7 @@ const ON = { paypalOn: true, clientId: TEST_CLIENT_ID };
   const src = fs.readFileSync(path.join(dir, 'assets/wallet-paypal.js'), 'utf8');
   check('the file ships a real PayPal client id: 80 URL-safe characters (P3)', /PAYPAL_CLIENT_ID\s*=\s*'[A-Za-z0-9_-]{80}'/.test(src));
   const common = fs.readFileSync(path.join(dir, 'assets/wallet-common.js'), 'utf8');
-  check('the paypal switch ships false (C1)', /paypal:\s*false/.test(common));
+  check('the paypal switch ships true (C1)', /paypal:\s*true/.test(common));
   const code = src.replace(/\/\/.*$/gm, ''); // comments may mention alert; code may not call it
   check('the file never calls alert() (P7)', !/\balert\s*\(/.test(code));
 })();

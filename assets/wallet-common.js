@@ -5,11 +5,11 @@
 // the card path does. Loaded by checkout.html with `defer`, before the per-method files.
 window.LeskoWallets = (function () {
   // Input: nothing — a method name below reads this directly. Output: whether a buyer can ever reach
-  // that method's button. All three start `false` (DECISION, docs/specs/modules/wallets.md, 2026-10-09):
+  // that method's button. All three started `false` (DECISION, docs/specs/modules/wallets.md, 2026-10-09; `paypal` switched on 2026-10-17 once its plans were live in our own account):
   // the Recurly gateway behind this site cannot take any of them live yet, so code that cannot be
   // proven with a real purchase must not be reachable by a buyer. A method file still loads and defines
   // its functions with its flag `false` — it just mounts nothing (C1).
-  var WALLETS = { paypal: false, apple_pay: false, google_pay: false };
+  var WALLETS = { paypal: true, apple_pay: false, google_pay: false };
 
   var WALLET_LABELS = { paypal: 'PayPal', apple_pay: 'Apple Pay', google_pay: 'Google Pay' };
 

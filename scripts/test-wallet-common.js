@@ -88,13 +88,13 @@ function load(opts) {
 }
 
 async function main() {
-  // ── C1: all three flags ship false, and isOn() reports them. ──
+  // ── C1: paypal ships true (switched on 2026-10-17), apple_pay and google_pay false; isOn() reports them. ──
   {
     const { sandbox } = load();
     const w = sandbox.window.LeskoWallets;
     check('window.LeskoWallets exists', !!w);
     if (!w) { console.log('FAIL: cannot run the rest of the checks without LeskoWallets'); process.exit(1); }
-    check('WALLETS.paypal ships false', w.WALLETS.paypal === false);
+    check('WALLETS.paypal ships true', w.WALLETS.paypal === true);
     check('WALLETS.apple_pay ships false', w.WALLETS.apple_pay === false);
     check('WALLETS.google_pay ships false', w.WALLETS.google_pay === false);
     w.WALLETS.google_pay = true;
