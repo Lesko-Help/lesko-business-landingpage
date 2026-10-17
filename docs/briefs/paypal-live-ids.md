@@ -77,6 +77,12 @@ and why. The overseer applies what it agrees with on main.
 
 The brief's Goal asked this worktree to edit `docs/specs/modules/wallets.md` P2; specs are the overseer's and `wt-done.sh` refuses a branch that touches them, so the text is proposed here instead (filled in at the end).
 
+File `docs/specs/modules/wallets.md`, function P2. Now says: plan map copied from ClickFunnels, monthly P-7TV41146KY851263NROQAXEQ ($19.95), yearly P-80J45642K6983362LS2OVYFQ, half-year has no plan, monthly gap accepted. Should say: the plan map is a constant at the top of `wallet-paypal.js`, ids from Lesko's OWN PayPal merchant account (product PROD-25B93089XF9559540, ACTIVE, checked 2026-10-17), not ClickFunnels: `monthly` P-7R176589BE0160805NLJVCFI ($29.95/month), `half-year` P-2GV64945HR320740CNLIP2HY ($89.95/6 months), `yearly` P-8M862053KT491162FNLJVCFI ($149.95/year). All three match the page and card prices, so the 2026-10-17 monthly-gap decision is closed. A plan the page offers but the map lacks still shows no button (the `!planId` guard). Why: the old ids were another merchant's and returned 404.
+
+Same file, C1 and the DECISION of 2026-10-09 (all switches ship false): `paypal` ships `true` since 2026-10-17 (commit `Switch PayPal on`); `apple_pay` and `google_pay` stay `false`. P3 now ships a real 80-character client id instead of an empty one. Test line: P2 now covers three plans plus an unlisted plan (checkout.html maps an unknown `?plan=` to monthly, so the test makes the page report an unlisted name).
+
+Left alone because out of scope: `checkout.html` line 23 comment still says all three switches ship false.
+
 ## State
 
 Replaced in full each time the context guard asks you to save — never append another checkpoint.
