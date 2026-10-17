@@ -158,6 +158,39 @@ function isSharedAnalyticsSrc(src) {
   check('checkout.html: add_payment_info carries payment_type "Credit Card"', !!api && api.payment_type === 'Credit Card');
 })();
 
+// ── checkout.html, PayPal button: the funnel events reach GA4's dataLayer (wallets P9, C7) ──
+// Input: the real checkout page with the id forced on and a stub PayPal SDK. Output: checks that a
+// click, a refused click, a cancel and an error each arrive as a GA4 'event' call with payment_type
+// PayPal. Why: test-wallet-paypal.mjs watches LeskoAnalytics.track; this one watches what gtag
+// actually queues, so a track() that never reaches Google is caught too.
+await (async function () {
+  const w = loadPage('checkout.html', 'https://leskobusiness.com/checkout?plan=yearly', FORCED_ID);
+  w.document.dispatchEvent(new w.Event('DOMContentLoaded'));
+  const tag = Array.from(w.document.querySelectorAll('script')).find(function (s) { return /paypal\.com\/sdk\/js/.test(s.src); });
+  check('checkout.html: the PayPal SDK tag is added (precondition for the funnel events)', !!tag);
+  if (!tag) return;
+  let options;
+  w.paypal = { Buttons: function (o) { options = o; return { render: function () { return Promise.resolve(); } }; } };
+  tag.onload.call(tag);
+  const rejectActions = { reject: function () { return Promise.resolve(); } };
+  const gtagEvents = function (name) { return events(w).filter(function (e) { return e[0] === 'event' && e[1] === name; }).map(function (e) { return e[2]; }); };
+  const shaped = function (p) { return !!p && p.currency === 'USD' && p.value === 149.95 && p.payment_type === 'PayPal' && p.items && p.items[0].item_id === 'yearly'; };
+
+  w.document.getElementById('email').value = '';
+  await options.onClick({}, rejectActions);
+  check('PayPal click without an email: wallet_click reaches gtag with plan and price', gtagEvents('wallet_click').length === 1 && shaped(gtagEvents('wallet_click')[0]));
+  check('PayPal click without an email: wallet_click_refused reaches gtag with reason missing_email',
+    gtagEvents('wallet_click_refused').length === 1 && shaped(gtagEvents('wallet_click_refused')[0]) && gtagEvents('wallet_click_refused')[0].reason === 'missing_email');
+  w.document.getElementById('email').value = 'buyer@example.com';
+  await options.onClick({}, rejectActions);
+  check('PayPal click with an email: a second wallet_click and no second refusal', gtagEvents('wallet_click').length === 2 && gtagEvents('wallet_click_refused').length === 1);
+  options.onCancel({});
+  check('PayPal cancel: wallet_cancel reaches gtag', gtagEvents('wallet_cancel').length === 1 && shaped(gtagEvents('wallet_cancel')[0]));
+  options.onError(new Error('boom'));
+  check('PayPal error: wallet_error reaches gtag', gtagEvents('wallet_error').length === 1 && shaped(gtagEvents('wallet_error')[0]));
+  check('PayPal funnel events never carry the buyer\'s email', JSON.stringify(events(w)).indexOf('buyer@example.com') === -1);
+})();
+
 // ── welcome.html ────────────────────────────────────────────────────────────
 (function () {
   const url = 'https://leskobusiness.com/welcome?email=' + encodeURIComponent('buyer@example.com') + '&plan=yearly';

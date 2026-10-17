@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Proves P1-P8 and K7 under "init() — assets/wallet-paypal.js" in docs/specs/modules/wallets.md
+// Proves P1-P9, C7 and K7 under "init() — assets/wallet-paypal.js" in docs/specs/modules/wallets.md
 // (PayPal straight into PayPal, not through Recurly), without a real browser or a real PayPal SDK.
 // Input: a directory holding checkout.html and assets/* (this repo, or a scratch copy of some other
 // commit made with `git archive`). Output: one PASS/FAIL line per check, and an exit code (0 only if
@@ -29,7 +29,67 @@ const { JSDOM } = require('jsdom');
 const dir = process.argv[2];
 if (!dir) {
   console.error('usage: test-wallet-paypal.mjs <dir>');
-  process.exit(2);
+  // ── P9: the funnel events — click, refused click, cancel, error (shared shape, spec C7) ────────
+await (async function () {
+  const names = ['wallet_click', 'wallet_click_refused', 'wallet_cancel', 'wallet_error'];
+  // Input: a window and an event name. Output: the params of every such event sent so far.
+  const sent = function (w, name) { return w.__events.filter(function (e) { return e.name === name; }).map(function (e) { return e.params; }); };
+  // Input: params. Output: whether they carry the shared shape for this plan (monthly, $29.95).
+  const shapeOk = function (p) {
+    return !!p && p.currency === 'USD' && p.value === 29.95 && p.payment_type === 'PayPal' &&
+      Array.isArray(p.items) && p.items.length === 1 && p.items[0].item_id === 'monthly' && p.items[0].price === 29.95 && p.items[0].quantity === 1;
+  };
+
+  // A click with an email typed: one wallet_click, no refusal, PayPal's window is allowed to open.
+  let w = loadCheckout('https://leskobusiness.com/checkout?plan=monthly', Object.assign({ emailValue: 'a@b.co' }, ON));
+  await flushMicrotasks();
+  let cap = await loadSdk(w, {});
+  await cap.options.onClick({}, cap.actions);
+  check('click with an email: one wallet_click in the shared shape (P9, C7)', sent(w, 'wallet_click').length === 1 && shapeOk(sent(w, 'wallet_click')[0]), sent(w, 'wallet_click'));
+  check('click with an email: no wallet_click_refused and no reject (P9)', sent(w, 'wallet_click_refused').length === 0 && cap.rejected === 0, sent(w, 'wallet_click_refused'));
+
+  // A click with no email: wallet_click AND wallet_click_refused (reason missing_email), and a reject.
+  w = loadCheckout('https://leskobusiness.com/checkout?plan=monthly', Object.assign({ emailValue: '' }, ON));
+  await flushMicrotasks();
+  cap = await loadSdk(w, {});
+  await cap.options.onClick({}, cap.actions);
+  check('click without an email: wallet_click is still sent, so it is the whole denominator (P9)', sent(w, 'wallet_click').length === 1 && shapeOk(sent(w, 'wallet_click')[0]), sent(w, 'wallet_click'));
+  const refused = sent(w, 'wallet_click_refused');
+  check('click without an email: one wallet_click_refused in the shared shape with reason missing_email (P9, C7)', refused.length === 1 && shapeOk(refused[0]) && refused[0].reason === 'missing_email', refused);
+  check('click without an email: the click is still rejected (P6)', cap.rejected === 1, cap.rejected);
+  // createSubscription's own missing-email throw reaches onError: it is a refusal, not a PayPal failure.
+  try { await cap.options.createSubscription({}, cap.actions); } catch (e) { cap.options.onError(e); }
+  check('our own missing-email throw is not counted as wallet_error (P9)', sent(w, 'wallet_error').length === 0, sent(w, 'wallet_error'));
+
+  // Cancel and error.
+  w = loadCheckout('https://leskobusiness.com/checkout?plan=monthly', Object.assign({ emailValue: 'a@b.co' }, ON));
+  await flushMicrotasks();
+  cap = await loadSdk(w, {});
+  cap.options.onCancel({});
+  check('cancel: one wallet_cancel in the shared shape (P9, C7)', sent(w, 'wallet_cancel').length === 1 && shapeOk(sent(w, 'wallet_cancel')[0]), sent(w, 'wallet_cancel'));
+  check('cancel: still nothing shown to the buyer (P7)', w.document.getElementById('payMsg').textContent.trim() === '' && !w.document.getElementById('payMsg').classList.contains('show'));
+  cap.options.onError(new Error('secret card detail 4111'));
+  const errs = sent(w, 'wallet_error');
+  check('error: one wallet_error in the shared shape (P9, C7)', errs.length === 1 && shapeOk(errs[0]), errs);
+  check('error: the error text is not sent to Google (P9)', JSON.stringify(errs).indexOf('4111') === -1 && JSON.stringify(errs).indexOf('secret') === -1, errs);
+
+  // Approval keeps exactly one add_payment_info and none of the funnel events.
+  await cap.options.onApprove({ subscriptionID: 'I-1' }, cap.actions);
+  check('approval still sends exactly one add_payment_info, unchanged shape (P5)',
+    w.__events.filter(function (e) { return e.name === 'add_payment_info'; }).length === 1 && shapeOk(sent(w, 'add_payment_info')[0]), sent(w, 'add_payment_info'));
+
+  // Analytics must never break the button: a track() that throws leaves click, cancel and error working.
+  w = loadCheckout('https://leskobusiness.com/checkout?plan=monthly', Object.assign({ emailValue: '' }, ON));
+  await flushMicrotasks();
+  cap = await loadSdk(w, {});
+  w.LeskoAnalytics.track = function () { throw new Error('analytics down'); };
+  let survived = true;
+  try { await cap.options.onClick({}, cap.actions); cap.options.onCancel({}); cap.options.onError(new Error('x')); } catch (e) { survived = false; }
+  check('a throwing track() never breaks click, cancel or error (P9)', survived && cap.rejected === 1, cap.rejected);
+  check('the four event names are exactly the spec ones (C7)', names.join() === 'wallet_click,wallet_click_refused,wallet_cancel,wallet_error');
+})();
+
+process.exit(2);
 }
 
 const MONTHLY_PLAN = 'P-7R176589BE0160805NLJVCFI';
