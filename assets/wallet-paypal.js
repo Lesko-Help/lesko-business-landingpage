@@ -1,7 +1,8 @@
 // ──────────── PayPal, straight into PayPal (docs/specs/modules/wallets.md P1-P9, K7) ────────────
 // The buyer pays inside PayPal with PayPal's own JS SDK; the subscription is created there against
-// one of two PayPal billing plans Lesko already owns (the same ones the ClickFunnels order pages
-// use). Recurly is not involved and our Worker sees nothing: no POST /api/subscribe. Access is
+// one of three PayPal billing plans in Lesko's own PayPal merchant account (product
+// PROD-25B93089XF9559540), not the ClickFunnels plans, which answer 404 for our credentials and must
+// never be wired in again (spec P2). Recurly is not involved and our Worker sees nothing: no POST /api/subscribe. Access is
 // granted by lesko-provisioning off PayPal's own webhook.
 //
 // Loaded by checkout.html with `defer`, after wallet-common.js. Runs its own init() on
