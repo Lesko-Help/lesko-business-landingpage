@@ -123,9 +123,17 @@ embedded. Those pages still exist and still work for anyone with the link,
 and **`/business-monthly` shows $29.95 but its CF product 5128001 is wired to
 plan `business-yearly` ($149.95)** — Recurly asked Giulia's bank for $149.95
 four times on 2026-09-29 (all declined). Fixing or unpublishing that is in
-the ClickFunnels dashboard, which no Claude session can reach. The wiring is
-visible without the dashboard: the `data-product-payment-gateway-plan-id`
-attribute on the product input of the CF page.
+the ClickFunnels dashboard. **A session in THIS repo cannot reach that
+dashboard; the `clickfunnels-opzichter` session can** — on 2026-10-17 it read
+funnel steps, product bindings and funnel Stats there, and edited page header
+code. Corrected 2026-10-17: the earlier wording "no Claude session can reach"
+was wrong, and it led this overseer to tell Martin that a dashboard change
+needed Giulia when it needed only his yes. What stops a paste on a live CF
+page is **permission, not capability** — that session's own classifier treats
+it as a production change, so Martin approves it at the moment of the click.
+The wiring is also visible without the dashboard: the
+`data-product-payment-gateway-plan-id` attribute on the product input of the
+CF page.
 
 For the hosted pages (the previous route), proven end to end 2026-09-29
 16:46 UTC: hosted page → Recurly transaction
