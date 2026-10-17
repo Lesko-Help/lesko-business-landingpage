@@ -350,7 +350,13 @@ await (async function () {
   let survived = true;
   try { await cap.options.onClick({}, cap.actions); cap.options.onCancel({}); cap.options.onError(new Error('x')); } catch (e) { survived = false; }
   check('a throwing track() never breaks click, cancel or error (P9)', survived && cap.rejected === 1, cap.rejected);
-  check('the four event names are exactly the spec ones (C7)', names.join() === 'wallet_click,wallet_click_refused,wallet_cancel,wallet_error');
+  // Reads the SOURCE, not this file's own list: every event name wallet-paypal.js hands to
+  // trackWalletEvent must be one of the four C7 names, and each of the four must be used, so a fifth
+  // event added later cannot slip in unnamed.
+  const source = fs.readFileSync(path.join(dir, 'assets/wallet-paypal.js'), 'utf8').replace(/\/\/.*$/gm, '');
+  const used = Array.from(source.matchAll(/trackWalletEvent\(\s*'([^']*)'/g)).map(function (m) { return m[1]; });
+  check('the source sends only the four C7 event names, each at least once (C7)',
+    used.length > 0 && used.every(function (n) { return names.includes(n); }) && names.every(function (n) { return used.includes(n); }), used);
 })();
 
 process.exit(failCount > 0 ? 1 : 0);
