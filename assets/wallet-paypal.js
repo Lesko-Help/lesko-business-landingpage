@@ -1,4 +1,4 @@
-// ──────────── PayPal, straight into PayPal (docs/specs/modules/wallets.md P1-P8, K7) ────────────
+// ──────────── PayPal, straight into PayPal (docs/specs/modules/wallets.md P1-P9, K7) ────────────
 // The buyer pays inside PayPal with PayPal's own JS SDK; the subscription is created there against
 // one of two PayPal billing plans Lesko already owns (the same ones the ClickFunnels order pages
 // use). Recurly is not involved and our Worker sees nothing: no POST /api/subscribe. Access is
@@ -44,6 +44,25 @@
     return false;
   }
 
+  // Input: a GA4 event name, the plan key, and optionally extra params (e.g. { reason: ... }).
+  // Output: none; sends the event with the one shared wallet shape (currency, value, payment_type,
+  // items — the same as add_payment_info) through window.LeskoAnalytics.track. Why: the button click,
+  // the refused click, the cancel and the error must all look alike in GA4, and a broken or blocked
+  // analytics file must never stop the buyer paying, so any failure here is swallowed.
+  function trackWalletEvent(name, plan, extra) {
+    try {
+      var total = window.LeskoCheckout.total();
+      var params = {
+        currency: 'USD',
+        value: total,
+        payment_type: 'PayPal',
+        items: [{ item_id: plan, item_name: plan, price: total, quantity: 1 }]
+      };
+      for (var key in extra) params[key] = extra[key];
+      window.LeskoAnalytics.track(name, params);
+    } catch (e) { /* analytics is optional */ }
+  }
+
   // Input: the plan key and its PayPal plan id. Output: none; renders one PayPal button into
   // #wallets. Why: called only once PayPal's SDK has finished loading (P3). Every failure goes to
   // #payMsg, never window.alert (P7).
@@ -54,9 +73,14 @@
     window.paypal.Buttons({
       style: { layout: 'vertical', label: 'subscribe' },
 
-      // P6: refuse the click before PayPal's window opens when no email is typed.
+      // P9: every click is counted first (the denominator). P6: then refuse the click before PayPal's
+      // window opens when no email is typed, and count that refusal on its own.
       onClick: function (data, actions) {
-        if (!requireEmail()) return actions.reject();
+        trackWalletEvent('wallet_click', plan);
+        if (!requireEmail()) {
+          trackWalletEvent('wallet_click_refused', plan, { reason: 'missing_email' });
+          return actions.reject();
+        }
       },
 
       // P4: the one thing PayPal needs — create the subscription on this plan, nothing else.
@@ -87,12 +111,13 @@
 
       // P7: a real failure is shown; the card form above stays usable.
       onError: function (err) {
-        if (err && err.message === MISSING_EMAIL) return;
+        if (err && err.message === MISSING_EMAIL) return; // already counted as wallet_click_refused
+        trackWalletEvent('wallet_error', plan); // P9: no error text is sent to Google
         window.LeskoCheckout.showError('PayPal did not go through. Please try again or pay by card instead.');
       },
 
-      // P7: the buyer closing PayPal's window is not an error.
-      onCancel: function () {}
+      // P7: the buyer closing PayPal's window is not an error, so nothing is shown. P9: it is counted.
+      onCancel: function () { trackWalletEvent('wallet_cancel', plan); }
     }).render(row);
   }
 
