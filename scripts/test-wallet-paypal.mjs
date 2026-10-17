@@ -249,11 +249,17 @@ await (async function () {
   const cap = await loadSdk(w, {});
   const payMsg = w.document.getElementById('payMsg');
   let threw = false;
-  if (cap.options.onClick) await cap.options.onClick({}, cap.actions);
+  const hasOnClick = typeof cap.options.onClick === 'function';
+  if (hasOnClick) await cap.options.onClick({}, cap.actions);
   try { await cap.options.createSubscription({}, cap.actions); } catch (e) { threw = true; }
   check('no email: no PayPal subscription is created (P6)', cap.created.length === 0, cap.created);
   check('no email: the error box asks for the email (P6)', /email/i.test(payMsg.textContent) && payMsg.classList.contains('show'), payMsg.textContent);
-  check('no email: the click is refused through actions.reject or createSubscription fails (P6)', cap.rejected > 0 || threw, { rejected: cap.rejected, threw });
+  // Each belt is pinned on its own (overseer review, 2026-10-17): with a single `or` check, deleting
+  // onClick stayed green because createSubscription's throw satisfied it — and then the buyer gets
+  // PayPal's window first and the error behind it.
+  check('no email: onClick exists (P6)', hasOnClick);
+  check('no email: onClick refuses the click through actions.reject(), so PayPal\'s window never opens (P6)', cap.rejected > 0, cap.rejected);
+  check('no email: createSubscription throws on its own (P6)', threw);
 })();
 
 // ── P7: failures go to #payMsg, a cancel shows nothing, alert() is never called ────────────────
