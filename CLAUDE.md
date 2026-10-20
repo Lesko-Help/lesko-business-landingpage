@@ -119,11 +119,21 @@ Recurly's hosted pages `https://leskohelp.recurly.com/subscribe/<plan>`;
 those still work for anyone with the link. Before that the buttons went to
 ClickFunnels pages
 `www.leskohelp.com/business-{monthly,half-year,yearly}` with Recurly.js
-embedded. Those pages still exist and still work for anyone with the link,
-and **`/business-monthly` shows $29.95 but its CF product 5128001 is wired to
-plan `business-yearly` ($149.95)** — Recurly asked Giulia's bank for $149.95
-four times on 2026-09-29 (all declined). Fixing or unpublishing that is in
-the ClickFunnels dashboard. **A session in THIS repo cannot reach that
+embedded. **Those pages no longer serve an order form: measured 2026-10-20,
+`www.leskohelp.com/business-{trial,monthly,half-year,yearly}` all answer HTTP
+302 to `/home-2`.** So the old mis-wiring there is unreachable and needs no fix
+in the ClickFunnels dashboard: `/business-monthly` showed $29.95 while its CF
+product 5128001 charged plan `business-yearly` ($149.95), which is why Recurly
+asked Giulia's bank for $149.95 four times on 2026-09-29 (all declined).
+Corrected 2026-10-20: until then this file said those pages "still exist and
+still work for anyone with the link" and listed that mis-wiring as an open
+trap. Both halves were stale, and this overseer repeated them to Martin as
+current. The live CF order pages are the three CTAs on `/home-2`, and each
+advertises exactly what its wired plan charges (checked 2026-10-20):
+`/lesko-help-monthly-b` $29.95 to `business-monthly`,
+`/lesko-help-half-yearly-b` $89.95 to `business-half-year`,
+`/lesko-help-yearly-b` $149.95 to `business-yearly`.
+**A session in THIS repo cannot reach that
 dashboard; the `clickfunnels-opzichter` session can** — on 2026-10-17 it read
 funnel steps, product bindings and funnel Stats there, and edited page header
 code. Corrected 2026-10-17: the earlier wording "no Claude session can reach"
