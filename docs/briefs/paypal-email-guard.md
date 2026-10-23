@@ -102,58 +102,61 @@ For the overseer to apply on `main` (this worktree never edits docs/specs/).
 
 ## State
 
-Saved 2026-10-23, context guard.
+Saved 2026-10-23. DONE — green, committed, NOT landed.
 
 Done:
-- `assets/wallet-paypal.js` rewritten. Removed `MISSING_EMAIL` and
-  `requireEmail()`. Added `EMAIL_LOOKUP_MS = 4000` and
-  `paypalEmail(actions)` — resolves PayPal's `subscriber.email_address`,
-  never rejects, never throws, gives up after 4 s. `onClick` now only counts
-  the click. `createSubscription` no longer throws. `onApprove` is now
-  `(data, actions)`, resolves the address, then finishes; analytics failure is
-  swallowed rather than reaching the catch (it used to show "could not
-  confirm" if `track()` threw). `onError` lost its MISSING_EMAIL special case.
-- RED PROVED, before any test was touched: the untouched suite failed exactly
-  8 checks, all of them the refusal ones (no subscription created / error box
-  asks for email / onClick rejects / createSubscription throws /
-  wallet_click_refused shape / click still rejected / throwing-track rejected
-  count / four-C7-names). 49 passed. So the old guard was genuinely covered.
-- `scripts/test-wallet-paypal.mjs`: `loadSdk` takes an optional third argument
-  `subscriptionGet` that becomes `actions.subscription.get` (absent by default,
-  which is why every pre-existing check still reads the typed address). P6
-  block replaced with the refusal-is-gone invariant. New block for the address
-  priority order (PayPal > typed > ''). New P7 block for rejected / throwing /
-  subscriber-less / hanging `get()`, plus a non-vacuous check that the hang
-  really was pending before the timeout, plus a throwing `finish()`. P9 block
-  no longer expects a refusal; the C7 source check now pins the three names
-  PayPal sends and that `wallet_click_refused` is gone from the source.
+- `84284ec` — `assets/wallet-paypal.js` + both suites. Removed `MISSING_EMAIL`
+  and `requireEmail()`. Added `EMAIL_LOOKUP_MS = 4000` and
+  `paypalEmail(actions)`: resolves PayPal's `subscriber.email_address`, never
+  rejects, never throws, gives up after 4 s. `onClick` only counts the click.
+  `createSubscription` no longer throws. `onApprove(data, actions)` resolves
+  the address, then finishes with PayPal's > typed > ''. A failing analytics
+  `track()` no longer shows the buyer a payment error.
+- `d2b30e2` — this brief.
+- Suites all green: wallet-paypal 67, ga4-events 34, wallet-seam 30,
+  wallet-common 28. `assets/wallet-common.js` and `checkout.html` untouched.
+- RED PROVED TWICE OVER. First, before any test was edited, the untouched
+  suite failed exactly the 8 refusal checks (49 passed) — so the old guard was
+  genuinely covered. Then each new belt was broken in a scratch copy and
+  judged by EXIT CODE: delete the give-up timeout -> red; never ask PayPal ->
+  red (3 checks); let a thrown `get()` escape -> red; prefer the typed address
+  -> red. Baseline green before and after each.
 
-In flight (file:line):
-- Nothing half-written. Next action is simply to run the two suites.
-
-Next:
-1. `scripts/test-wallet-paypal.sh .` — expect green; fix what is not.
-2. `scripts/test-ga4-events.mjs` lines ~180-187 still drive a refused click and
-   assert `wallet_click_refused` with reason `missing_email`. Rewrite those two
-   checks to assert one `wallet_click` and NO refusal. Then
-   `scripts/test-ga4-events.sh .`.
-3. `git add -N .` then `git diff origin/main...HEAD` and read it whole.
-4. Commit (one idea), report to the overseer, STOP. Do not push to `main` —
-   that is the deploy, and it is Martin's call.
+Next (for the overseer / Martin, not for this worktree):
+1. Review `git diff origin/main...HEAD` and land with `wt-done.sh
+   paypal-email-guard` — landing IS the deploy here.
+2. Apply the two spec edits under "Spec proposals" on main (P6 rewrite, C7
+   line). The code and the spec disagree until that is done.
+3. After landing, click the PayPal button on all three plans with the email
+   box EMPTY and confirm PayPal's window opens. Needs real Chrome; headless
+   gets a Cloudflare 403 on leskohelp.com (leskobusiness.com itself is fine).
+4. Still open, untouched here: `checkout.html` tells the buyer the typed
+   address creates their community account. For a PayPal buyer that is still
+   the PayPal address. Copy fix, its own task.
 
 Traps (with dates):
 - 2026-10-23: `main` is production here; a push to main deploys in a minute.
-  This branch must not be pushed to main by this worktree.
+  This worktree never pushes to main.
+- 2026-10-23: **a test suite can pass by not finishing.** `await`ing a promise
+  that never settles let node exit 0 partway through this file, and a
+  rejection aborted a block mid-way; both printed no FAIL and read as green to
+  a grep. Judge a red-proof by EXIT CODE. Fixed here with `outcomeWithin()`
+  (names ok/rejected/timeout, never throws) and the `EXPECTED_CHECKS` tail
+  guard. Raise `EXPECTED_CHECKS` (now 66, counting everything but itself) in
+  the same commit that adds a check.
+- 2026-10-23: `timeout` does not exist on macOS — a red-proof wrapped in it
+  silently never ran and looked green. Use exit codes, not `timeout`.
+- 2026-10-23: do not split shell strings on `|` when the pattern contains
+  `||`; one red-proof garbled its own break that way and still went red, for
+  the wrong reason. Redone with python.
 - 2026-10-23: the headless claude-browser gets a Cloudflare 403 on
-  leskohelp.com AND on the CF order pages; use real Chrome
-  (claude-in-chrome) to look at a live page. leskobusiness.com itself
-  renders fine headless.
-- 2026-10-23: GA4's BigQuery export starts 2026-10-15. Any click figure older
-  than that does not exist — do not present one.
+  leskohelp.com and on the CF order pages; use real Chrome for a live look.
+- 2026-10-23: GA4's BigQuery export starts 2026-10-15. No click figure exists
+  before that date.
 - 2026-10-17 (carried): never wire ClickFunnels' PayPal plan ids
   (`P-53254044JY930561J7DITTBA`, `P-79D02773R0628232US3LCZRY`,
   `P-7TV41146KY851263NROQAXEQ`, `P-80J45642K6983362LS2OVYFQ`). Our PayPal
-  account holds exactly 3 plans and none of those is among them.
-- 2026-10-23: `jsdom` does not navigate; this suite patches jsdom's own
+  account holds exactly 3 plans; none of those is among them.
+- 2026-10-23: jsdom does not navigate; this suite patches jsdom's own
   `navigate()` and reads `lastNavigatedTo`. A new test that forgets
-  `await flushMicrotasks()` after an async `onApprove` reads a stale value.
+  `await flushMicrotasks()` after the now-async `onApprove` reads a stale value.
