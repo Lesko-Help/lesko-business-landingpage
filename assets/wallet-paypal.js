@@ -30,16 +30,14 @@
   // up and finishing the order without it (P6). The money is already taken by the time we ask, so
   // this wait can never be allowed to strand the buyer on a spinning page.
   //
-  // 1 s, cut from 4 s on 2026-10-23. This number is a double-charge window, not just a delay: for
-  // as long as it runs, the page shows nothing new while a PayPal subscription already exists AND
-  // the card "Pay" button is still enabled, so a buyer who sees PayPal's window close and nothing
-  // happen can start a SECOND subscription on the Recurly rail. The proper fix is to show a
-  // "payment received" state before the lookup, which needs `busy` exposed on the seam in
-  // checkout.html; until that lands this is the cheap half of it.
-  // What it costs: a PayPal call slower than this falls back to the typed address, or to '' when
-  // the box was empty, so /welcome prints a placeholder instead of the real login. That is a
-  // display loss, where the thing it buys back is a second charge — never the other way round.
-  var EMAIL_LOOKUP_MS = 1000;
+  // Back to 4 s on 2026-10-23, the same day it was cut to 1 s. It was cut because the lookup used
+  // to run while the card "Pay" button was still live, so its length was a double-charge window;
+  // `lockForm()` below now closes that window outright, and the only thing this number still costs
+  // is how long a buyer may watch a disabled button. Longer is therefore better again: a lookup
+  // that times out falls back to the typed address, or to '' when the box was empty, and then
+  // /welcome prints a placeholder instead of the login that actually works.
+  // Keep it well under the point where a buyer gives up and reloads.
+  var EMAIL_LOOKUP_MS = 4000;
 
   // Input: nothing. Output: the buyer's typed email, trimmed and lower-cased exactly as the card
   // path and K3b do ('' when empty). Why: it is the fallback for /welcome when PayPal will not tell
@@ -82,6 +80,23 @@
         settle('');
       }
     });
+  }
+
+  // Input: nothing. Output: none; disables this page's card "Pay" button and relabels it.
+  // Why (P10): by the time PayPal hands control back, the buyer has approved and a subscription
+  // exists inside PayPal — but the card form above is untouched and still submittable, so the same
+  // buyer can be charged a second time on the Recurly rail. This is called before any other work in
+  // onApprove and is never undone, including on the failure branches: once PayPal has approved,
+  // paying by card is never the right next step, and the message in #payMsg tells the buyer what is.
+  // Why the label is not "Payment received": on the branch where PayPal hands back no subscription
+  // id we do not know that it was, so the wording has to hold in both cases. `finish()` sets its own
+  // "Payment received. One moment…" on the success path.
+  // Why the typeof guard: `busy` joined the seam on 2026-10-23. An older or cached checkout.html
+  // without it must still complete the order rather than throw here, after the money is taken.
+  function lockForm() {
+    if (window.LeskoCheckout && typeof window.LeskoCheckout.busy === 'function') {
+      window.LeskoCheckout.busy(true, 'Finishing your order…');
+    }
   }
 
   // Input: a GA4 event name, the plan key, and optionally extra params (e.g. { reason: ... }).
@@ -136,6 +151,9 @@
       // PayPal's address, so printing any other one on /welcome tells the buyer a login that will
       // not work.
       onApprove: function (data, actions) {
+        // First statement in the function, before any branch: PayPal has handed control back, so
+        // the card form must stop being a way to pay (P10, lockForm).
+        lockForm();
         var subscriptionId = data && data.subscriptionID;
         if (!subscriptionId) {
           // P7 (the ClickFunnels page's ENG-4226 lesson): a failure AFTER approval must never

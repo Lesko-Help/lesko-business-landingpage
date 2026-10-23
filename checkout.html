@@ -483,12 +483,20 @@
   // deferred, so it finishes — this assignment included — before a `defer` script ever runs. A
   // wallet file still has to wait for onReady (K6), though, since Recurly itself is only
   // configured after the async /api/config fetch above resolves.
-  // Input: nothing of its own (closes over this IIFE's `plan`, `P`, `showError`, `finish` and
-  // `onReady`). Output: the six functions on window.LeskoCheckout.
+  // Input: nothing of its own (closes over this IIFE's `plan`, `P`, `showError`, `busy`, `finish`
+  // and `onReady`). Output: the seven functions on window.LeskoCheckout.
+  //
+  // `busy` is on the seam since 2026-10-23, for one reason: a wallet that has already taken the
+  // buyer's money must be able to lock this card form before it does anything else. PayPal creates
+  // its subscription inside PayPal and only then hands control back, so between that hand-back and
+  // `finish()` there was a window in which a paid buyer still saw a live "Pay" button and could be
+  // charged a second time on the Recurly rail. Only this page can disable its own button, so it has
+  // to lend that out.
   window.LeskoCheckout = {
     plan: function () { return plan; },
     total: function () { return parseFloat(P.total.replace(/[^0-9.]/g, '')); },
     showError: showError,
+    busy: busy,
     finish: finish,
     walletsRow: function () { return document.getElementById('wallets'); },
     onReady: onReady

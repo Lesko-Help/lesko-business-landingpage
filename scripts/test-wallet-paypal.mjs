@@ -53,7 +53,7 @@ let checkCount = 0;
 // CODE rather than grepping for FAIL. An earlier version of this comment claimed node "exited 0" on
 // such a hang; that was never verified and a fresh review could not reproduce it (node v26 exits 13
 // on an unsettled top-level await). Judge a red-proof by exit code.
-const EXPECTED_CHECKS = 68;
+const EXPECTED_CHECKS = 76;
 // Input: a human-readable label and whether the thing it describes held true. Output: none;
 // prints PASS or FAIL and remembers failures so the exit code can report them.
 function check(label, ok, extra) {
@@ -211,15 +211,19 @@ const ON = { paypalOn: true, clientId: TEST_CLIENT_ID };
   check('the paypal switch ships true (C1)', /paypal:\s*true/.test(common));
   const code = src.replace(/\/\/.*$/gm, ''); // comments may mention alert; code may not call it
   check('the file never calls alert() (P7)', !/\balert\s*\(/.test(code));
-  // The lookup window is a double-charge window: while it runs, a PayPal subscription already
-  // exists, the page shows nothing new and the card "Pay" button is still enabled, so the buyer can
-  // start a second subscription on the Recurly rail. It was cut 4000 -> 1000 on 2026-10-23 for that
-  // reason, and the hang check below cannot protect the number (it allows anything under its own
-  // slack), so the number is pinned here. Raise it only together with a "payment received" state
-  // shown before the lookup — see the comment on EMAIL_LOOKUP_MS.
+  // The lookup window used to be a double-charge window, which is why this was pinned at <= 1500 ms
+  // on 2026-10-23. `lockForm()` closes that window instead, so the bound is relaxed the same day:
+  // what is left to protect is only the buyer's patience in front of a disabled button, not their
+  // card. The hang check further down cannot protect any bound (it allows anything inside its own
+  // slack), so a bound still belongs here — just a much looser one.
   const lookupMs = Number((src.match(/EMAIL_LOOKUP_MS\s*=\s*(\d+)/) || [])[1]);
-  check('the address lookup cannot keep the card form live for more than 1.5 s (P6, P7)',
-    lookupMs > 0 && lookupMs <= 1500, lookupMs);
+  check('the address lookup is bounded, and not by more than 5 s of waiting (P6, P7)',
+    lookupMs > 0 && lookupMs <= 5000, lookupMs);
+  // P10: the lock is not optional and not conditional. Read from the source as well as driven
+  // below, because the one thing that must never happen is onApprove taking a branch that skips it.
+  const approveBody = src.slice(src.indexOf('onApprove:'), src.indexOf('onError:'));
+  check('onApprove locks the card form before anything else (P10)',
+    /onApprove:\s*function[^{]*\{\s*(\/\/[^\n]*\n\s*)*lockForm\(\);/.test(approveBody), approveBody.slice(0, 200));
 })();
 
 // ── P1: switch off -> no SDK tag, #wallets empty ───────────────────────────────────────────────
@@ -404,6 +408,51 @@ await (async function () {
     hangOutcome === 'ok' && lastNavigatedTo === WELCOME, { outcome: hangOutcome, nav: lastNavigatedTo });
   check('that hang really was still pending before the timeout fired (the check above is not vacuous)',
     hungNav === null, hungNav);
+
+  // ── P10: the card form is locked the instant PayPal approves, on every branch ────────────────
+  // The regression this prevents: PayPal has taken the money, the page still shows a live "Pay
+  // $29.95 now", and the buyer presses it. Checked DURING the lookup, not after it, because after
+  // finish() the page is locked anyway and the check would pass without the lock existing at all.
+  const lookup = { settle: null };
+  const wLock = loadCheckout('https://leskobusiness.com/checkout?plan=monthly', Object.assign({ emailValue: 'typed@example.com' }, ON));
+  await flushMicrotasks();
+  const capLock = await loadSdk(wLock, {}, function () { return new Promise(function (res) { lookup.settle = res; }); });
+  const payBtn = wLock.document.getElementById('payBtn');
+  check('before approval the card button is live (so the next check is not vacuous)', payBtn.disabled === false, payBtn.disabled);
+  const lockDone = capLock.options.onApprove({ subscriptionID: 'I-REAL123' }, capLock.actions);
+  await flushMicrotasks();
+  check('the card button is disabled DURING the address lookup, before it answers (P10)',
+    payBtn.disabled === true, payBtn.disabled);
+  check('the card button is relabelled away from "Pay" while it waits (P10)',
+    !/Pay\s*\$/.test(wLock.document.getElementById('payBtnText').textContent), wLock.document.getElementById('payBtnText').textContent);
+  lookup.settle({ subscriber: { email_address: 'payer@paypal.com' } });
+  await outcomeWithin(lockDone, 8000);
+  await flushMicrotasks();
+  check('the lookup still decides the address once it answers (P6 unaffected by the lock)',
+    lastNavigatedTo === 'https://leskobusiness.com/welcome?email=payer%40paypal.com&plan=monthly', lastNavigatedTo);
+
+  // The branch where PayPal hands back no subscription id: the money may well be gone, so the card
+  // form must be locked there too, not left live beside a "contact support" message.
+  const wNoId = loadCheckout('https://leskobusiness.com/checkout?plan=monthly', Object.assign({ emailValue: 'typed@example.com' }, ON));
+  await flushMicrotasks();
+  const capNoId = await loadSdk(wNoId, {});
+  await outcomeWithin(capNoId.options.onApprove({}, capNoId.actions), 8000);
+  await flushMicrotasks();
+  check('an approval with no subscription id ALSO locks the card form (P10)',
+    wNoId.document.getElementById('payBtn').disabled === true, wNoId.document.getElementById('payBtn').disabled);
+  check('…and still tells the buyer to contact support (P7)',
+    /could not confirm your PayPal payment/.test(wNoId.document.getElementById('payMsg').textContent), wNoId.document.getElementById('payMsg').textContent);
+
+  // A checkout.html without `busy` on the seam — an older or cached page — must still complete the
+  // order rather than throw after the money is taken.
+  const wOldSeam = loadCheckout('https://leskobusiness.com/checkout?plan=monthly', Object.assign({ emailValue: 'typed@example.com' }, ON));
+  await flushMicrotasks();
+  const capOldSeam = await loadSdk(wOldSeam, {});
+  delete wOldSeam.LeskoCheckout.busy;
+  const oldSeamOutcome = await outcomeWithin(capOldSeam.options.onApprove({ subscriptionID: 'I-REAL123' }, capOldSeam.actions), 8000);
+  await flushMicrotasks();
+  check('a seam with no busy() still completes the order (P10, P7)',
+    oldSeamOutcome === 'ok' && lastNavigatedTo === WELCOME, { outcome: oldSeamOutcome, nav: lastNavigatedTo });
 
   // A throwing track() inside onApprove must not reach the buyer. It is its own case and not
   // covered by the click/cancel/error one further down: there the throw happens in a callback whose
