@@ -29,7 +29,17 @@
   // How long we are willing to wait for PayPal to tell us the buyer's email address before giving
   // up and finishing the order without it (P6). The money is already taken by the time we ask, so
   // this wait can never be allowed to strand the buyer on a spinning page.
-  var EMAIL_LOOKUP_MS = 4000;
+  //
+  // 1 s, cut from 4 s on 2026-10-23. This number is a double-charge window, not just a delay: for
+  // as long as it runs, the page shows nothing new while a PayPal subscription already exists AND
+  // the card "Pay" button is still enabled, so a buyer who sees PayPal's window close and nothing
+  // happen can start a SECOND subscription on the Recurly rail. The proper fix is to show a
+  // "payment received" state before the lookup, which needs `busy` exposed on the seam in
+  // checkout.html; until that lands this is the cheap half of it.
+  // What it costs: a PayPal call slower than this falls back to the typed address, or to '' when
+  // the box was empty, so /welcome prints a placeholder instead of the real login. That is a
+  // display loss, where the thing it buys back is a second charge — never the other way round.
+  var EMAIL_LOOKUP_MS = 1000;
 
   // Input: nothing. Output: the buyer's typed email, trimmed and lower-cased exactly as the card
   // path and K3b do ('' when empty). Why: it is the fallback for /welcome when PayPal will not tell

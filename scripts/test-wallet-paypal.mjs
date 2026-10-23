@@ -53,7 +53,7 @@ let checkCount = 0;
 // CODE rather than grepping for FAIL. An earlier version of this comment claimed node "exited 0" on
 // such a hang; that was never verified and a fresh review could not reproduce it (node v26 exits 13
 // on an unsettled top-level await). Judge a red-proof by exit code.
-const EXPECTED_CHECKS = 67;
+const EXPECTED_CHECKS = 68;
 // Input: a human-readable label and whether the thing it describes held true. Output: none;
 // prints PASS or FAIL and remembers failures so the exit code can report them.
 function check(label, ok, extra) {
@@ -211,6 +211,15 @@ const ON = { paypalOn: true, clientId: TEST_CLIENT_ID };
   check('the paypal switch ships true (C1)', /paypal:\s*true/.test(common));
   const code = src.replace(/\/\/.*$/gm, ''); // comments may mention alert; code may not call it
   check('the file never calls alert() (P7)', !/\balert\s*\(/.test(code));
+  // The lookup window is a double-charge window: while it runs, a PayPal subscription already
+  // exists, the page shows nothing new and the card "Pay" button is still enabled, so the buyer can
+  // start a second subscription on the Recurly rail. It was cut 4000 -> 1000 on 2026-10-23 for that
+  // reason, and the hang check below cannot protect the number (it allows anything under its own
+  // slack), so the number is pinned here. Raise it only together with a "payment received" state
+  // shown before the lookup — see the comment on EMAIL_LOOKUP_MS.
+  const lookupMs = Number((src.match(/EMAIL_LOOKUP_MS\s*=\s*(\d+)/) || [])[1]);
+  check('the address lookup cannot keep the card form live for more than 1.5 s (P6, P7)',
+    lookupMs > 0 && lookupMs <= 1500, lookupMs);
 })();
 
 // ── P1: switch off -> no SDK tag, #wallets empty ───────────────────────────────────────────────
