@@ -26,23 +26,52 @@
     'yearly': 'P-8M862053KT491162FNLJVCFI'      // $149.95 every 1 YEAR
   };
 
-  // Marks the error we throw ourselves when the email is missing, so onError can tell it apart from
-  // a real PayPal failure and not show a second message over the first.
-  var MISSING_EMAIL = 'lesko-missing-email';
+  // How long we are willing to wait for PayPal to tell us the buyer's email address before giving
+  // up and finishing the order without it (P6). The money is already taken by the time we ask, so
+  // this wait can never be allowed to strand the buyer on a spinning page.
+  var EMAIL_LOOKUP_MS = 4000;
 
   // Input: nothing. Output: the buyer's typed email, trimmed and lower-cased exactly as the card
-  // path and K3b do ('' when empty). Why: /welcome and the GA4 purchase event both read it.
+  // path and K3b do ('' when empty). Why: it is the fallback for /welcome when PayPal will not tell
+  // us the address itself.
   function typedEmail() {
     var box = document.getElementById('email');
     return box ? box.value.trim().toLowerCase() : '';
   }
 
-  // Input: nothing. Output: true when an email is typed; otherwise false, after showing a named
-  // error in #payMsg (P6). Why: one place for the check so onClick and createSubscription agree.
-  function requireEmail() {
-    if (typedEmail()) return true;
-    window.LeskoCheckout.showError('Please type your email address above before paying with PayPal — we send your access there.');
-    return false;
+  // Input: PayPal's own `actions` object from onApprove. Output: a promise for the email address on
+  // the subscription PayPal just created, lower-cased — or '' when PayPal does not say.
+  // Why it exists (P6): this is the address lesko-provisioning actually grants Mighty Networks
+  // access to, because it reads `subscriber.email_address` off PayPal's webhook and never sees what
+  // was typed here. So it is the only address /welcome can honestly print as "your login".
+  // Why it never rejects and never throws: it is called after the buyer has paid, where losing the
+  // order would be far worse than losing a display value (P7, the ENG-4226 lesson). Every failure
+  // path — no `get` in this SDK version, a rejected call, a thrown call, or one that simply never
+  // answers — resolves '' instead, and the caller falls back to the typed address.
+  function paypalEmail(actions) {
+    var get = actions && actions.subscription && actions.subscription.get;
+    if (typeof get !== 'function') return Promise.resolve('');
+    return new Promise(function (resolve) {
+      var settled = false;
+      // Input: the address to report. Output: none; resolves once and only once, whichever of the
+      // call and the timeout gets there first.
+      var settle = function (address) {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(address);
+      };
+      var timer = setTimeout(function () { settle(''); }, EMAIL_LOOKUP_MS);
+      try {
+        Promise.resolve(actions.subscription.get()).then(function (subscription) {
+          var subscriber = subscription && subscription.subscriber;
+          var address = subscriber && subscriber.email_address;
+          settle(address ? String(address).trim().toLowerCase() : '');
+        }, function () { settle(''); });
+      } catch (e) {
+        settle('');
+      }
+    });
   }
 
   // Input: a GA4 event name, the plan key, and optionally extra params (e.g. { reason: ... }).
@@ -74,45 +103,57 @@
     window.paypal.Buttons({
       style: { layout: 'vertical', label: 'subscribe' },
 
-      // P9: every click is counted first (the denominator). P6: then refuse the click before PayPal's
-      // window opens when no email is typed, and count that refusal on its own.
-      onClick: function (data, actions) {
+      // P9: every click is counted, and the click is never refused (P6, changed 2026-10-23). An
+      // empty email box used to reject the click here; it rejected two clicks in five and bought
+      // nothing, because the address it was collecting is not the one access is granted to — see
+      // paypalEmail().
+      onClick: function () {
         trackWalletEvent('wallet_click', plan);
-        if (!requireEmail()) {
-          trackWalletEvent('wallet_click_refused', plan, { reason: 'missing_email' });
-          return actions.reject();
-        }
       },
 
       // P4: the one thing PayPal needs — create the subscription on this plan, nothing else.
       createSubscription: function (data, actions) {
-        if (!requireEmail()) throw new Error(MISSING_EMAIL);
         return actions.subscription.create({ plan_id: planId });
       },
 
-      // P5 + K7: the subscription is already live in PayPal here. Tell GA4, then reuse the page's own
-      // success path with PayPal's subscription id where a Recurly token id would go.
-      onApprove: function (data) {
-        try {
-          var subscriptionId = data && data.subscriptionID;
-          if (!subscriptionId) throw new Error('no subscription id');
-          window.LeskoAnalytics.track('add_payment_info', {
-            currency: 'USD',
-            value: window.LeskoCheckout.total(),
-            payment_type: 'PayPal',
-            items: [{ item_id: plan, item_name: plan, price: window.LeskoCheckout.total(), quantity: 1 }]
-          });
-          window.LeskoCheckout.finish({ ok: true }, subscriptionId, typedEmail());
-        } catch (e) {
+      // P5 + K7: the subscription is already live in PayPal here. Ask PayPal which address it is
+      // billing (P6), tell GA4, then reuse the page's own success path with PayPal's subscription id
+      // where a Recurly token id would go.
+      // Input: PayPal's onApprove data and actions. Output: a promise that settles once the buyer has
+      // been sent to /welcome. The email handed to finish() is PayPal's own address when PayPal gives
+      // one, otherwise whatever was typed, otherwise '' — and /welcome already prints a placeholder
+      // for that last case. Why in this order: provisioning grants Mighty Networks access to
+      // PayPal's address, so printing any other one on /welcome tells the buyer a login that will
+      // not work.
+      onApprove: function (data, actions) {
+        var subscriptionId = data && data.subscriptionID;
+        if (!subscriptionId) {
           // P7 (the ClickFunnels page's ENG-4226 lesson): a failure AFTER approval must never
           // silently lose the order.
           window.LeskoCheckout.showError('We could not confirm your PayPal payment. If you were charged, contact support before trying again.');
+          return;
         }
+        return paypalEmail(actions).then(function (paypalAddress) {
+          // Analytics can never hold up a paid order, so its failure is swallowed here rather than
+          // reaching the catch below (the same rule as trackWalletEvent, spec C7).
+          try {
+            window.LeskoAnalytics.track('add_payment_info', {
+              currency: 'USD',
+              value: window.LeskoCheckout.total(),
+              payment_type: 'PayPal',
+              items: [{ item_id: plan, item_name: plan, price: window.LeskoCheckout.total(), quantity: 1 }]
+            });
+          } catch (e) { /* analytics is optional */ }
+          try {
+            window.LeskoCheckout.finish({ ok: true }, subscriptionId, paypalAddress || typedEmail());
+          } catch (e) {
+            window.LeskoCheckout.showError('We could not confirm your PayPal payment. If you were charged, contact support before trying again.');
+          }
+        });
       },
 
       // P7: a real failure is shown; the card form above stays usable.
-      onError: function (err) {
-        if (err && err.message === MISSING_EMAIL) return; // already counted as wallet_click_refused
+      onError: function () {
         trackWalletEvent('wallet_error', plan); // P9: no error text is sent to Google
         window.LeskoCheckout.showError('PayPal did not go through. Please try again or pay by card instead.');
       },

@@ -176,14 +176,16 @@ await (async function () {
   const gtagEvents = function (name) { return events(w).filter(function (e) { return e[0] === 'event' && e[1] === name; }).map(function (e) { return e[2]; }); };
   const shaped = function (p) { return !!p && p.currency === 'USD' && p.value === 149.95 && p.payment_type === 'PayPal' && p.items && p.items[0].item_id === 'yearly'; };
 
+  // Since 2026-10-23 an empty email box no longer refuses the click (wallets P6), so the only thing
+  // a click reports either way is wallet_click, and no wallet_click_refused is ever queued here.
   w.document.getElementById('email').value = '';
   await options.onClick({}, rejectActions);
   check('PayPal click without an email: wallet_click reaches gtag with plan and price', gtagEvents('wallet_click').length === 1 && shaped(gtagEvents('wallet_click')[0]));
-  check('PayPal click without an email: wallet_click_refused reaches gtag with reason missing_email',
-    gtagEvents('wallet_click_refused').length === 1 && shaped(gtagEvents('wallet_click_refused')[0]) && gtagEvents('wallet_click_refused')[0].reason === 'missing_email');
+  check('PayPal click without an email: no wallet_click_refused is queued (P6, changed 2026-10-23)',
+    gtagEvents('wallet_click_refused').length === 0);
   w.document.getElementById('email').value = 'buyer@example.com';
   await options.onClick({}, rejectActions);
-  check('PayPal click with an email: a second wallet_click and no second refusal', gtagEvents('wallet_click').length === 2 && gtagEvents('wallet_click_refused').length === 1);
+  check('PayPal click with an email: a second wallet_click and still no refusal', gtagEvents('wallet_click').length === 2 && gtagEvents('wallet_click_refused').length === 0);
   options.onCancel({});
   check('PayPal cancel: wallet_cancel reaches gtag', gtagEvents('wallet_cancel').length === 1 && shaped(gtagEvents('wallet_cancel')[0]));
   options.onError(new Error('boom'));

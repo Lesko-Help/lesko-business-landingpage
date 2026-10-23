@@ -38,11 +38,40 @@ const YEARLY_PLAN = 'P-8M862053KT491162FNLJVCFI';
 const TEST_CLIENT_ID = 'test-client-id';
 
 let failCount = 0;
+let checkCount = 0;
+// How many checks run BEFORE the final "ran to the end" guard below (its own arguments are
+// evaluated before check() increments the counter, so it counts everything but itself). It is
+// asserted at the bottom, because a suite can otherwise "pass" by stopping early: when
+// wallet-paypal.js's give-up timeout was deleted in a red-proof (2026-10-23), the one promise this
+// file awaited never settled, node found an empty event loop, exited 0 — and every remaining check
+// simply never ran, which read as green. Raise this number with the same commit that adds checks.
+const EXPECTED_CHECKS = 66;
 // Input: a human-readable label and whether the thing it describes held true. Output: none;
 // prints PASS or FAIL and remembers failures so the exit code can report them.
 function check(label, ok, extra) {
+  checkCount++;
   console.log((ok ? 'PASS' : 'FAIL') + ' - ' + label + (extra !== undefined && !ok ? ' (got ' + JSON.stringify(extra) + ')' : ''));
   if (!ok) failCount++;
+}
+
+// Input: the promise onApprove returned and a number of milliseconds. Output: a promise for
+// 'ok' (it finished), 'rejected' (it blew up) or 'timeout' (it never settled) — never a throw.
+// Why all three are named rather than awaited: `await`ing onApprove directly lets a hang end the
+// suite silently and lets a rejection abort the block mid-way, and both read as green to anything
+// that only greps for FAIL (found twice while red-proving this file, 2026-10-23). Its own timer
+// also keeps node's event loop alive, which is what stops that silent exit.
+function outcomeWithin(promise, ms) {
+  return Promise.race([
+    Promise.resolve(promise).then(function () { return 'ok'; }, function () { return 'rejected'; }),
+    new Promise(function (resolve) { setTimeout(function () { resolve('timeout'); }, ms); })
+  ]);
+}
+
+// Input: nothing. Output: wallet-paypal.js's own EMAIL_LOOKUP_MS, so the test waits as long as the
+// file says and not a number typed twice.
+function emailLookupMs() {
+  const m = fs.readFileSync(path.join(dir, 'assets/wallet-paypal.js'), 'utf8').match(/EMAIL_LOOKUP_MS\s*=\s*(\d+)/);
+  return m ? Number(m[1]) : 4000;
 }
 
 // Input: the raw text of one HTML page. Output: every runnable <script> in document order as
@@ -139,13 +168,18 @@ function sdkTags(w) {
 // used. Installs a stub `paypal` global, then fires the SDK tag's onload as a finished download
 // would. capture.options = what Buttons() got; capture.created = every subscription.create()
 // argument; capture.rejected = how often actions.reject() ran; capture.target = what render() got.
-async function loadSdk(w, capture) {
+// `subscriptionGet` (optional) becomes actions.subscription.get, the call wallet-paypal.js uses to
+// ask PayPal which address it is billing. Left out, `get` is absent altogether — which is both the
+// shape of an older PayPal SDK and the case every pre-existing check below relies on, since then the
+// typed address is the only one available.
+async function loadSdk(w, capture, subscriptionGet) {
   capture.created = [];
   capture.rejected = 0;
   capture.actions = {
     subscription: { create: function (o) { capture.created.push(o); return Promise.resolve('I-STUB'); } },
     reject: function () { capture.rejected++; return Promise.resolve('rejected'); }
   };
+  if (subscriptionGet) capture.actions.subscription.get = subscriptionGet;
   w.paypal = {
     Buttons: function (opts) {
       capture.options = opts;
@@ -256,24 +290,113 @@ await (async function () {
   check('no request goes to /api/subscribe on approval (P5)', w.__fetched.every(function (u) { return u.indexOf('/api/subscribe') === -1; }), w.__fetched);
 })();
 
-// ── P6: no typed email -> nothing is created and a named error shows ───────────────────────────
+// ── P6: an empty email box never blocks the click (changed 2026-10-23) ─────────────────────────
+// Until this change an empty box rejected the click and showed a red line. It refused two clicks in
+// five on the live page and protected nothing: lesko-provisioning grants access to the address on
+// PayPal's webhook, never to the one typed here. These checks pin the refusal gone, so it cannot
+// come back by accident.
 await (async function () {
   const w = loadCheckout('https://leskobusiness.com/checkout?plan=monthly', Object.assign({ emailValue: '' }, ON));
   await flushMicrotasks();
   const cap = await loadSdk(w, {});
   const payMsg = w.document.getElementById('payMsg');
+  await cap.options.onClick({}, cap.actions);
+  check('no email: the click is NOT rejected, so PayPal\'s window opens (P6)', cap.rejected === 0, cap.rejected);
+  check('no email: nothing is shown in the error box (P6)', payMsg.textContent.trim() === '' && !payMsg.classList.contains('show'), payMsg.textContent);
   let threw = false;
-  const hasOnClick = typeof cap.options.onClick === 'function';
-  if (hasOnClick) await cap.options.onClick({}, cap.actions);
   try { await cap.options.createSubscription({}, cap.actions); } catch (e) { threw = true; }
-  check('no email: no PayPal subscription is created (P6)', cap.created.length === 0, cap.created);
-  check('no email: the error box asks for the email (P6)', /email/i.test(payMsg.textContent) && payMsg.classList.contains('show'), payMsg.textContent);
-  // Each belt is pinned on its own (overseer review, 2026-10-17): with a single `or` check, deleting
-  // onClick stayed green because createSubscription's throw satisfied it — and then the buyer gets
-  // PayPal's window first and the error behind it.
-  check('no email: onClick exists (P6)', hasOnClick);
-  check('no email: onClick refuses the click through actions.reject(), so PayPal\'s window never opens (P6)', cap.rejected > 0, cap.rejected);
-  check('no email: createSubscription throws on its own (P6)', threw);
+  check('no email: createSubscription does not throw (P6)', !threw);
+  check('no email: the subscription IS created on the right plan (P6)',
+    cap.created.length === 1 && cap.created[0].plan_id === MONTHLY_PLAN, cap.created);
+})();
+
+// ── P6 + K7: which address reaches /welcome, in priority order ─────────────────────────────────
+// PayPal's own address wins, because that is the one provisioning grants access to. Each case drives
+// a real onApprove and reads the URL the page navigated to.
+await (async function () {
+  // Input: the typed value and a stub for actions.subscription.get. Output: the email in the
+  // /welcome URL after an approval, or null when the page never navigated.
+  const approvedWith = async function (typed, subscriptionGet) {
+    const w = loadCheckout('https://leskobusiness.com/checkout?plan=monthly', Object.assign({ emailValue: typed }, ON));
+    await flushMicrotasks();
+    const cap = await loadSdk(w, {}, subscriptionGet);
+    await cap.options.onApprove({ subscriptionID: 'I-REAL123' }, cap.actions);
+    await flushMicrotasks();
+    return { nav: lastNavigatedTo, payMsg: w.document.getElementById('payMsg').textContent };
+  };
+  const paypalSays = function (address) {
+    return function () { return Promise.resolve({ subscriber: { email_address: address } }); };
+  };
+
+  let r = await approvedWith('typed@example.com', paypalSays('Payer@PayPal.COM'));
+  check('PayPal\'s address beats the typed one, normalised (P6)',
+    r.nav === 'https://leskobusiness.com/welcome?email=payer%40paypal.com&plan=monthly', r.nav);
+
+  r = await approvedWith('', paypalSays('payer@paypal.com'));
+  check('nothing typed: PayPal\'s address is used (P6)',
+    r.nav === 'https://leskobusiness.com/welcome?email=payer%40paypal.com&plan=monthly', r.nav);
+
+  r = await approvedWith('typed@example.com', paypalSays(''));
+  check('PayPal gives no address: the typed one is used (P6)',
+    r.nav === 'https://leskobusiness.com/welcome?email=typed%40example.com&plan=monthly', r.nav);
+
+  r = await approvedWith('', undefined);
+  check('neither address: the order still completes, /welcome gets an empty email (P6, P7)',
+    r.nav === 'https://leskobusiness.com/welcome?email=&plan=monthly', r.nav);
+})();
+
+// ── P7: asking PayPal for the address may never lose a paid order ──────────────────────────────
+// The money is gone by the time paypalEmail() runs, so every way that call can fail has to end in a
+// completed order. A hanging call is the dangerous one: without the timeout the buyer waits forever
+// on a page that has already been charged.
+await (async function () {
+  const approve = async function (subscriptionGet) {
+    const w = loadCheckout('https://leskobusiness.com/checkout?plan=monthly', Object.assign({ emailValue: 'typed@example.com' }, ON));
+    await flushMicrotasks();
+    const cap = await loadSdk(w, {}, subscriptionGet);
+    const done = cap.options.onApprove({ subscriptionID: 'I-REAL123' }, cap.actions);
+    return { w, done };
+  };
+
+  const WELCOME = 'https://leskobusiness.com/welcome?email=typed%40example.com&plan=monthly';
+  // Input: a label and a stub for actions.subscription.get. Output: none; checks that the order
+  // completed — onApprove settled without rejecting AND the buyer reached /welcome with the typed
+  // address, since PayPal gave none. Every failure mode of that call has to land here.
+  const completes = async function (label, subscriptionGet) {
+    const r = await approve(subscriptionGet);
+    const outcome = await outcomeWithin(r.done, emailLookupMs() + 4000);
+    await flushMicrotasks();
+    check(label, outcome === 'ok' && lastNavigatedTo === WELCOME, { outcome, nav: lastNavigatedTo });
+  };
+
+  await completes('a rejected subscription.get() still completes the order (P7)',
+    function () { return Promise.reject(new Error('paypal said no')); });
+  await completes('a throwing subscription.get() still completes the order (P7)',
+    function () { throw new Error('threw outright'); });
+  await completes('a subscription with no subscriber still completes the order (P7)',
+    function () { return Promise.resolve({ subscriber: null }); });
+
+  // The hang: get() never settles, so only wallet-paypal.js's own give-up timeout can finish the
+  // order. Checked through the same helper, so "never settled" fails loudly instead of ending the
+  // suite.
+  const r = await approve(function () { return new Promise(function () {}); });
+  const hungNav = lastNavigatedTo;
+  const hangOutcome = await outcomeWithin(r.done, emailLookupMs() + 4000);
+  await flushMicrotasks();
+  check('a subscription.get() that never answers is given up on, and the order completes (P7)',
+    hangOutcome === 'ok' && lastNavigatedTo === WELCOME, { outcome: hangOutcome, nav: lastNavigatedTo });
+  check('that hang really was still pending before the timeout fired (the check above is not vacuous)',
+    hungNav === null, hungNav);
+
+  // A finish() that throws is the one failure the buyer must be told about.
+  const w = loadCheckout('https://leskobusiness.com/checkout?plan=monthly', Object.assign({ emailValue: 'typed@example.com' }, ON));
+  await flushMicrotasks();
+  const cap = await loadSdk(w, {});
+  w.LeskoCheckout.finish = function () { throw new Error('finish broke'); };
+  await cap.options.onApprove({ subscriptionID: 'I-REAL123' }, cap.actions);
+  await flushMicrotasks();
+  check('a throwing finish() tells the buyer to contact support (P7)',
+    /could not confirm your PayPal payment/.test(w.document.getElementById('payMsg').textContent), w.document.getElementById('payMsg').textContent);
 })();
 
 // ── P7: failures go to #payMsg, a cancel shows nothing, alert() is never called ────────────────
@@ -312,18 +435,15 @@ await (async function () {
   check('click with an email: one wallet_click in the shared shape (P9, C7)', sent(w, 'wallet_click').length === 1 && shapeOk(sent(w, 'wallet_click')[0]), sent(w, 'wallet_click'));
   check('click with an email: no wallet_click_refused and no reject (P9)', sent(w, 'wallet_click_refused').length === 0 && cap.rejected === 0, sent(w, 'wallet_click_refused'));
 
-  // A click with no email: wallet_click AND wallet_click_refused (reason missing_email), and a reject.
+  // A click with no email: still exactly one wallet_click, and no refusal of any kind, because the
+  // refusal is gone (P6, changed 2026-10-23).
   w = loadCheckout('https://leskobusiness.com/checkout?plan=monthly', Object.assign({ emailValue: '' }, ON));
   await flushMicrotasks();
   cap = await loadSdk(w, {});
   await cap.options.onClick({}, cap.actions);
   check('click without an email: wallet_click is still sent, so it is the whole denominator (P9)', sent(w, 'wallet_click').length === 1 && shapeOk(sent(w, 'wallet_click')[0]), sent(w, 'wallet_click'));
-  const refused = sent(w, 'wallet_click_refused');
-  check('click without an email: one wallet_click_refused in the shared shape with reason missing_email (P9, C7)', refused.length === 1 && shapeOk(refused[0]) && refused[0].reason === 'missing_email', refused);
-  check('click without an email: the click is still rejected (P6)', cap.rejected === 1, cap.rejected);
-  // createSubscription's own missing-email throw reaches onError: it is a refusal, not a PayPal failure.
-  try { await cap.options.createSubscription({}, cap.actions); } catch (e) { cap.options.onError(e); }
-  check('our own missing-email throw is not counted as wallet_error (P9)', sent(w, 'wallet_error').length === 0, sent(w, 'wallet_error'));
+  check('click without an email: no wallet_click_refused is sent any more (P9, C7)', sent(w, 'wallet_click_refused').length === 0, sent(w, 'wallet_click_refused'));
+  check('click without an email: the click is not rejected (P6)', cap.rejected === 0, cap.rejected);
 
   // Cancel and error.
   w = loadCheckout('https://leskobusiness.com/checkout?plan=monthly', Object.assign({ emailValue: 'a@b.co' }, ON));
@@ -349,14 +469,24 @@ await (async function () {
   w.LeskoAnalytics.track = function () { throw new Error('analytics down'); };
   let survived = true;
   try { await cap.options.onClick({}, cap.actions); cap.options.onCancel({}); cap.options.onError(new Error('x')); } catch (e) { survived = false; }
-  check('a throwing track() never breaks click, cancel or error (P9)', survived && cap.rejected === 1, cap.rejected);
+  check('a throwing track() never breaks click, cancel or error (P9)', survived && cap.rejected === 0, cap.rejected);
   // Reads the SOURCE, not this file's own list: every event name wallet-paypal.js hands to
-  // trackWalletEvent must be one of the four C7 names, and each of the four must be used, so a fifth
-  // event added later cannot slip in unnamed.
+  // trackWalletEvent must be one of the C7 names, so a fifth event added later cannot slip in
+  // unnamed. Since 2026-10-23 PayPal sends three of the four: it has no refusal left to report, and
+  // `wallet_click_refused` stays a C7 name for Apple Pay and Google Pay, which still refuse on an
+  // empty email in wallet-common.js (C3).
+  const paypalSends = ['wallet_click', 'wallet_cancel', 'wallet_error'];
   const source = fs.readFileSync(path.join(dir, 'assets/wallet-paypal.js'), 'utf8').replace(/\/\/.*$/gm, '');
   const used = Array.from(source.matchAll(/trackWalletEvent\(\s*'([^']*)'/g)).map(function (m) { return m[1]; });
-  check('the source sends only the four C7 event names, each at least once (C7)',
-    used.length > 0 && used.every(function (n) { return names.includes(n); }) && names.every(function (n) { return used.includes(n); }), used);
+  check('the source sends only C7 event names, and exactly the three PayPal still has (C7)',
+    used.length > 0 && used.every(function (n) { return names.includes(n); }) && paypalSends.every(function (n) { return used.includes(n); }), used);
+  check('the source no longer sends wallet_click_refused (P6, changed 2026-10-23)', !used.includes('wallet_click_refused'), used);
 })();
+
+// The last check, and the one that makes every other check trustworthy: the suite reached its own
+// end. Without it, a promise that never settles lets node exit 0 partway through and the missing
+// checks look like checks that passed.
+check('the suite ran to the end: ' + EXPECTED_CHECKS + ' checks (raise EXPECTED_CHECKS when adding one)',
+  checkCount === EXPECTED_CHECKS, checkCount);
 
 process.exit(failCount > 0 ? 1 : 0);
