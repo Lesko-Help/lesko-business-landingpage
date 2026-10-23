@@ -100,55 +100,110 @@ For the overseer to apply on `main` (this worktree never edits docs/specs/).
    /welcome finally prints that same address instead of a different one. The
    remaining half is copy on checkout.html, which this task did not touch.
 
+Added 2026-10-23 after an independent review found this list short by four
+places. All four verified against `main`'s spec text:
+4. **P9** (wallets.md:86) still describes the whole refusal: "`onClick` sends
+   `wallet_click` first, then, if P6 refuses the click, `wallet_click_refused`
+   … before `actions.reject()`", "`onError` … sends nothing for our own
+   missing-email throw", and "`onApprove` is unchanged". None of that is true
+   now; `onApprove` takes `actions` and returns a promise.
+5. **P5** (wallets.md:82) says `onApprove` "fires GA4 `add_payment_info` then
+   `LeskoCheckout.finish(...)`". There is now an awaited address lookup
+   between the two, and `onApprove` takes `(data, actions)`.
+6. **The wallets.md Test paragraph** (wallets.md:94) says "57 checks", claims
+   "P6 (no email → no subscription created and a named error)" — the opposite
+   of what P6 now is — and claims one check "requires the names it sends to be
+   exactly those four, each used once". It is 68 checks, and PayPal sends three.
+7. **page.md:142** says `test-ga4-events.sh` "watches the four PayPal wallet
+   funnel events … arrive". It now watches three arrive and one NOT arrive.
+8. **welcome.html copy, a new reachable state this change creates.** When
+   PayPal gives no address AND the box was empty, `/welcome` shows its
+   placeholder "the email you entered on the payment page" (welcome.html:53)
+   and "as entered on the payment page" (welcome.html:74) — to a buyer who
+   entered none. It does not break (regex guard at welcome.html:137). Out of
+   this task's May-touch and it is Giulia's copy, so it is left for the
+   overseer: a wording that covers "the email on your PayPal account" too.
+
 ## State
 
-Saved 2026-10-23. DONE — green, committed, NOT landed.
+Saved 2026-10-23, after an independent review (fresh Fable session, read-only).
+DONE — green, committed, NOT landed.
 
 Done:
-- `84284ec` — `assets/wallet-paypal.js` + both suites. Removed `MISSING_EMAIL`
-  and `requireEmail()`. Added `EMAIL_LOOKUP_MS = 4000` and
-  `paypalEmail(actions)`: resolves PayPal's `subscriber.email_address`, never
-  rejects, never throws, gives up after 4 s. `onClick` only counts the click.
-  `createSubscription` no longer throws. `onApprove(data, actions)` resolves
-  the address, then finishes with PayPal's > typed > ''. A failing analytics
-  `track()` no longer shows the buyer a payment error.
-- `d2b30e2` — this brief.
-- Suites all green: wallet-paypal 67, ga4-events 34, wallet-seam 30,
-  wallet-common 28. `assets/wallet-common.js` and `checkout.html` untouched.
-- RED PROVED TWICE OVER. First, before any test was edited, the untouched
-  suite failed exactly the 8 refusal checks (49 passed) — so the old guard was
-  genuinely covered. Then each new belt was broken in a scratch copy and
-  judged by EXIT CODE: delete the give-up timeout -> red; never ask PayPal ->
-  red (3 checks); let a thrown `get()` escape -> red; prefer the typed address
-  -> red. Baseline green before and after each.
+- `84284ec` — the change itself (see the commit message).
+- `d2b30e2`, `3c60b2e` — this brief.
+- `1eeb01f` — the two review findings worth fixing in code, both reproduced
+  here before fixing:
+  * the try/catch around `track()` inside `onApprove` was load-bearing and
+    UNTESTED. Removing it left the suite green at 67/67, exit 0. It matters
+    because PayPal routes a rejected `onApprove` promise to `onError`, so a
+    throwing `track()` would tell a buyer who has already paid "PayPal did not
+    go through" and never navigate. Now pinned; removing the try/catch fails
+    with `outcome: "rejected"`, `nav: null`.
+  * the `EXPECTED_CHECKS` comment claimed node "exited 0" on an unsettled
+    promise. That was never verified — it came from a red-proof that only
+    grepped for FAIL instead of reading the exit code — and the review could
+    not reproduce it (node v26 exits 13). Comment now claims only what the
+    guard covers: a deleted check or an early return. Proved by deleting one.
+- Suites, all by exit code: wallet-paypal 68/0, ga4-events 34/0,
+  wallet-seam 30/0, wallet-common 28/0.
+- Review confirmed every premise this task rested on, independently:
+  provisioning reads `subscriber.email_address` at
+  `lesko-provisioning/webhooks/rails.py:489-492` and never sees the typed box;
+  `actions.subscription.get()` is real in the live smart-buttons bundle for
+  this client id under `vault=true&intent=subscription`, returning the raw
+  resource with `subscriber.email_address`; wallet-common.js's C3 refusal is
+  correctly left alone because it guards `POST /api/subscribe`, where Recurly's
+  account code IS the email; and both refused clicks in GA4 produced no later
+  `purchase`.
 
-Next (for the overseer / Martin, not for this worktree):
+Open, NOT fixed here, in severity order:
+1. **A double-charge window, PLAUSIBLE, needs a decision.** `finish()` used to
+   run synchronously in `onApprove` and immediately set `busy(true, 'Payment
+   received…')`. Now the address lookup runs first (up to EMAIL_LOOKUP_MS =
+   4 s), and the seam exposes no `busy()` (checkout.html:488-495), so the page
+   looks idle and the card "Pay" button stays live while a PayPal subscription
+   already exists. A buyer could press Pay and start a SECOND subscription on
+   the Recurly rail. Unmeasured — timing it needs a live click. Fix is to show
+   a neutral "payment received" state before the lookup, which means exposing
+   `busy` on the seam in `checkout.html` — outside this task's May-touch, so
+   it wants its own worktree. Cheaper interim: drop EMAIL_LOOKUP_MS.
+2. The four spec places above (P5, P9, wallets.md Test, page.md:142) plus the
+   welcome.html copy — items 4-8 under Spec proposals.
+3. `84284ec` bundles three ideas (remove the refusal, add the lookup, harden
+   the suite) against "one idea per commit". Noted, not rewritten: the branch
+   is under review and rewriting history mid-review costs more than it buys.
+4. GA4 continuity: `wallet_click_refused` stops being emitted by any live
+   wallet as of 2026-10-23 (Apple/Google Pay are off). `wallet_click`, the
+   denominator, is unchanged. Anyone charting refusals should know the series
+   ends. Not a bug.
+
+Next (overseer / Martin, not this worktree):
 1. Review `git diff origin/main...HEAD` and land with `wt-done.sh
    paypal-email-guard` — landing IS the deploy here.
-2. Apply the two spec edits under "Spec proposals" on main (P6 rewrite, C7
-   line). The code and the spec disagree until that is done.
-3. After landing, click the PayPal button on all three plans with the email
-   box EMPTY and confirm PayPal's window opens. Needs real Chrome; headless
-   gets a Cloudflare 403 on leskohelp.com (leskobusiness.com itself is fine).
-4. Still open, untouched here: `checkout.html` tells the buyer the typed
-   address creates their community account. For a PayPal buyer that is still
-   the PayPal address. Copy fix, its own task.
+2. Decide on the double-charge window above before or right after landing.
+3. Apply the spec edits on `main`; code and spec disagree until then.
+4. After landing, click PayPal on all three plans with the email box EMPTY and
+   confirm PayPal's window opens. Needs real Chrome; headless gets a
+   Cloudflare 403 on leskohelp.com (leskobusiness.com itself is fine).
 
 Traps (with dates):
 - 2026-10-23: `main` is production here; a push to main deploys in a minute.
   This worktree never pushes to main.
-- 2026-10-23: **a test suite can pass by not finishing.** `await`ing a promise
-  that never settles let node exit 0 partway through this file, and a
-  rejection aborted a block mid-way; both printed no FAIL and read as green to
-  a grep. Judge a red-proof by EXIT CODE. Fixed here with `outcomeWithin()`
-  (names ok/rejected/timeout, never throws) and the `EXPECTED_CHECKS` tail
-  guard. Raise `EXPECTED_CHECKS` (now 66, counting everything but itself) in
-  the same commit that adds a check.
+- 2026-10-23: **a suite can pass by not finishing, and a crash prints no FAIL
+  line.** Judge every red-proof by EXIT CODE, never by grepping FAIL. Three
+  separate times on this task a break looked green that way: an unsettled
+  promise, a rejection aborting a block, and a mutant that never applied.
+  Belts now: `outcomeWithin()` (names ok/rejected/timeout, never throws) and
+  the `EXPECTED_CHECKS` tail guard. Raise EXPECTED_CHECKS (now 67, counting
+  everything but itself) in the same commit that adds a check.
 - 2026-10-23: `timeout` does not exist on macOS — a red-proof wrapped in it
-  silently never ran and looked green. Use exit codes, not `timeout`.
+  silently never ran and looked green.
 - 2026-10-23: do not split shell strings on `|` when the pattern contains
   `||`; one red-proof garbled its own break that way and still went red, for
-  the wrong reason. Redone with python.
+  the wrong reason. Use python for mutants.
+- 2026-10-23: a removed try/catch can leave a suite green at the SAME check
+  count. Count is not coverage.
 - 2026-10-23: the headless claude-browser gets a Cloudflare 403 on
   leskohelp.com and on the CF order pages; use real Chrome for a live look.
 - 2026-10-23: GA4's BigQuery export starts 2026-10-15. No click figure exists
