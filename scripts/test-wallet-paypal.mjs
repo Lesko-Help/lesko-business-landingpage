@@ -40,12 +40,20 @@ const TEST_CLIENT_ID = 'test-client-id';
 let failCount = 0;
 let checkCount = 0;
 // How many checks run BEFORE the final "ran to the end" guard below (its own arguments are
-// evaluated before check() increments the counter, so it counts everything but itself). It is
-// asserted at the bottom, because a suite can otherwise "pass" by stopping early: when
-// wallet-paypal.js's give-up timeout was deleted in a red-proof (2026-10-23), the one promise this
-// file awaited never settled, node found an empty event loop, exited 0 — and every remaining check
-// simply never ran, which read as green. Raise this number with the same commit that adds checks.
-const EXPECTED_CHECKS = 66;
+// evaluated before check() increments the counter, so it counts everything but itself). Raise this
+// number in the same commit that adds a check.
+//
+// What it is for: a suite that stops before its end prints no FAIL line, so anything reading only
+// FAIL lines calls it green. This guard turns "fewer checks ran than expected" into a failure — it
+// covers a check deleted or commented out, and a block that returns early.
+//
+// What it does NOT cover, measured 2026-10-23: a promise that never settles. The tail guard sits
+// after the awaits, so it never runs in that case either. That one is caught instead by
+// outcomeWithin() below, which races every promise that could hang, and by reading the suite's EXIT
+// CODE rather than grepping for FAIL. An earlier version of this comment claimed node "exited 0" on
+// such a hang; that was never verified and a fresh review could not reproduce it (node v26 exits 13
+// on an unsettled top-level await). Judge a red-proof by exit code.
+const EXPECTED_CHECKS = 67;
 // Input: a human-readable label and whether the thing it describes held true. Output: none;
 // prints PASS or FAIL and remembers failures so the exit code can report them.
 function check(label, ok, extra) {
@@ -387,6 +395,21 @@ await (async function () {
     hangOutcome === 'ok' && lastNavigatedTo === WELCOME, { outcome: hangOutcome, nav: lastNavigatedTo });
   check('that hang really was still pending before the timeout fired (the check above is not vacuous)',
     hungNav === null, hungNav);
+
+  // A throwing track() inside onApprove must not reach the buyer. It is its own case and not
+  // covered by the click/cancel/error one further down: there the throw happens in a callback whose
+  // return value PayPal ignores, here it happens inside the promise onApprove returns — and PayPal
+  // routes a rejected onApprove to onError, which would tell a buyer who has just paid that "PayPal
+  // did not go through" and never navigate. Raced, not awaited, so a rejection fails this check
+  // instead of aborting the block.
+  const wTrack = loadCheckout('https://leskobusiness.com/checkout?plan=monthly', Object.assign({ emailValue: 'typed@example.com' }, ON));
+  await flushMicrotasks();
+  const capTrack = await loadSdk(wTrack, {});
+  wTrack.LeskoAnalytics.track = function () { throw new Error('analytics down'); };
+  const trackOutcome = await outcomeWithin(capTrack.options.onApprove({ subscriptionID: 'I-REAL123' }, capTrack.actions), 8000);
+  await flushMicrotasks();
+  check('a throwing track() inside onApprove still completes the order (P7)',
+    trackOutcome === 'ok' && lastNavigatedTo === WELCOME, { outcome: trackOutcome, nav: lastNavigatedTo });
 
   // A finish() that throws is the one failure the buyer must be told about.
   const w = loadCheckout('https://leskobusiness.com/checkout?plan=monthly', Object.assign({ emailValue: 'typed@example.com' }, ON));
