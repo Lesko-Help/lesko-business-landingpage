@@ -40,8 +40,10 @@ branch that edits docs/specs/ is refused by wt-done.sh guard 3).
 
 ## May touch
 
-Module `wallets`. Only new files under `scripts/`, plus this brief. No page,
-no asset, no worker — the harness reads the pages and never writes to them.
+Module `wallets`. New files under `scripts/`, this brief, and one line in
+`.gitignore` for the bytecode the harness's shared module leaves behind. No
+page, no asset, no worker — the harness reads the pages and never writes to
+them.
 
 ## Deploy implied
 

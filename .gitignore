@@ -6,3 +6,9 @@
 # folder, and .wrangler/ is its local state. Neither belongs in git.
 .dev.vars
 .wrangler/
+
+# scripts/paypal_sandbox_api.py is imported by its two sibling scripts, so
+# running the manual PayPal harness leaves a compiled copy here. It is build
+# output, and an un-ignored one makes every run dirty the tree, which is what
+# wt-done.sh refuses to land.
+scripts/__pycache__/
