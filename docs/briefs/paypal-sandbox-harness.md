@@ -22,8 +22,18 @@ be proved against PayPal's real SDK before it ships instead of after.
 
 `scripts/manual-paypal-sandbox.sh all` buys one sandbox subscription per plan
 with the email box left empty and prints PASS for every claim, exit 0 — and
-exit non-zero when a claim fails. Proven red by pointing the harness at a
-page whose `lockForm()` call is deleted: check B must fail.
+exits non-zero when a claim fails.
+
+Done 2026-10-24: 42 PASS, 0 FAIL, exit 0 for `all` (`I-7613ALK54Y3Y`
+monthly, `I-E5EKSU0UHSUS` half-year, `I-RC2MEY1LH169` yearly). Proven red by
+three mutants of `assets/wallet-paypal.js`, each turning exactly the intended
+check red and leaving the rest green, exit 1 every time:
+
+| mutant | what went red |
+|--------|---------------|
+| the `lockForm()` call deleted | both B checks — `disabled=false, label was "Pay $29.95 now"`, which is the live button a paid buyer would have seen |
+| `planId` forced to the monthly id, bought as yearly | D2 and D3 — `P-5F00…` where `P-7LK7…` was expected, `$29.95` where `$149.95` was promised |
+| the PayPal address thrown away in `paypalEmail` | C — `empty — the lookup fell back to nothing` |
 
 Spec: docs/specs/modules/wallets.md updated (by the overseer on main — a
 branch that edits docs/specs/ is refused by wt-done.sh guard 3).
@@ -84,10 +94,21 @@ which changes under us — and that it is therefore not in any automated run.
 
 ## State
 
-Done: all four scripts written, run green for all three plans, proven red.
+Done: five scripts written, green for all three plans, proven red three ways.
 In flight: nothing.
 Next: overseer reviews, lands, updates the spec on main, checks the 404.
 Traps (with dates):
+- 2026-10-24: **check B was racy as first written** and this is the trap most
+  worth remembering. It polled `#payBtn` from outside the page from the moment
+  PayPal handed control back; the address lookup often resolves in a few
+  hundred milliseconds, so a perfectly correct page reported "never observed
+  disabled". It was caught only because an unrelated mutant (the plan id) made
+  B go red too — a check that can fail for a reason that has nothing to do with
+  its claim. It now reads the button from INSIDE the page, in the wrapped
+  `finish()`, which is the one instant guaranteed to fall within the lock
+  window. The ordering half of P10 — that `lockForm()` runs BEFORE the lookup
+  and not after — is not provable this way and stays with the jsdom suite,
+  which reads the source.
 - 2026-10-23: the LAST approve click closes PayPal's popup. Waiting on the
   popup after it throws "Target page, context or browser has been closed",
   which reads as a page failure but is the harness racing PayPal. Wait on the
