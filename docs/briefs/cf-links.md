@@ -86,12 +86,12 @@ Done (all committed; tree clean):
 - 6d54a12 index.html 4 hrefs + 3 offer urls + llms.txt + begin_checkout matcher; test-ga4-events.mjs extended (red twice, then green).
 - f17f303 worker.js R5 (302) and R6 (410), scripts/test-checkout-retired.js (red 32 checks, then green), checkout.html in .assetsignore.
 - Scope change 2026-10-27 (B1a, B4, B5, B7): ad5d09f clickfunnels/paypal-button.html + scripts/test-cf-paypal-button.mjs/.sh + `clickfunnels/` in .assetsignore; then the check script's PayPal assertions. 31a9e8b deleted test-subscribe-rate-limit.sh. Reviewer verdict PASS on 4b1b20a.
-- Follow-up 2026-10-27 (spec page B7 after 98e60da), check-cf-checkout.sh, one idea per commit, each red first on a stand-in: real page ids 64133517 / 64133609 / 64133610; plan code business-cf-<plan>; a page mentioning free.lesko.com is dead.
+- Follow-up 2026-10-27 (spec page B7 after 98e60da), check-cf-checkout.sh, one idea per commit, each red first on a stand-in: real page ids 64133517 / 64133609 / 64133610; plan code business-cf-<plan>; a page LINKING to free.lesko.com (//(www.)?free.lesko.com/) is dead; plain-text mentions are fine (narrowed after review).
 In flight: nothing.
 Next: report HEAD to control.cf-checkout and landing-opzichter [d5498b], then wait; do not land. No werk.queue row in the Goal, so write no queue state.
 Traps (with dates):
 - 2026-10-27: the live check stays RED until ClickFunnels renames the three pages to checkout.leskobusiness.com/<plan> (Martin's yes). Expected, not a bug: today all three paths 302 to clickfunnels.com.
-- 2026-10-27: data-product-amount format ("29.95") was read on the original monthly page only; the CF copies' format is unverified until they serve at the short paths.
+- 2026-10-27: data-product-amount prints "29.95"/"89.95"/"149.95" on the CF copies (confirmed by control.cf-checkout on saved live HTML). Real CF pages name free.lesko.com as plain text in tracking-script comments, so the guard matches links only.
 - 2026-10-27: scripts/test-subscribe-rate-limit.sh deleted in 31a9e8b at the reviewer's request. The only deletion; subscribe() and the checkout files stay.
 - 2026-10-27: do NOT land before check-cf-checkout.sh is green live (page B6).
 - 2026-10-27: the /welcome?plan=business-<plan> URLs in the PayPal snippet are NOT the CF plan codes; leave them.
