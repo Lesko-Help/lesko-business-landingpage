@@ -215,7 +215,8 @@ Next:
    live each short path 302s to its OLD slug (DYNAMIC; x-runtime +
    x-request-id = ClickFunnels' app, not our zone). Check must not follow
    redirects (snippet reads location.pathname). CF session diagnosing; the
-   other four items need Martin's yes again in that pane: rename paths
+   other four items: Martin approved all four in that pane 2026-10-27,
+   plus the 302 diagnosis; awaiting its report: rename paths
    to /monthly, /half-year, /yearly; root -> https://leskobusiness.com/;
    remove template PayPal button + JS; paste clickfunnels/paypal-button.html
    unchanged; after payment -> /welcome?plan=business-<plan>.
