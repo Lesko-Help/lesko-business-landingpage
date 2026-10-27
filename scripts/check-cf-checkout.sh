@@ -11,8 +11,10 @@
 #         are live; exit 1 otherwise (dead or unknown both count as not ready).
 #
 # A verdict has three values, never two (CLAUDE.md "A crawler's refusal is not an answer"):
-#   live     HTTP 200 and the page carries its own page id, its own plan id and its own price.
-#   dead     the host answered and it is the wrong thing: a redirect, a 404, a wrong id/plan/price.
+#   live     HTTP 200 and the page carries its own page id, its own plan id and its own price, our
+#            PayPal client id, and exactly our three PayPal plan ids (page B1a) and no other.
+#   dead     the host answered and it is the wrong thing: a redirect, a 404, a wrong id/plan/price,
+#            no client id, or a PayPal plan id that is not ours (a ClickFunnels-account plan).
 #   unknown  the host did not answer properly: 429, any 5xx, a timeout, a reset, or a "dead"
 #            read that came out of Cloudflare's cache instead of the origin. Never written as dead.
 #
@@ -31,6 +33,17 @@ USER_AGENT="lesko-business-landingpage/scripts/check-cf-checkout.sh (hand check;
 PAGE_ID_MONTHLY="REPLACE_WITH_PAGE_ID_MONTHLY"
 PAGE_ID_HALF_YEAR="REPLACE_WITH_PAGE_ID_HALF_YEAR"
 PAGE_ID_YEARLY="REPLACE_WITH_PAGE_ID_YEARLY"
+
+# Our PayPal client id and the three PayPal plan ids are read out of assets/wallet-paypal.js, the
+# one place they live in the page code, so this script is not a third copy to keep in step.
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+WALLET_FILE="$REPO_DIR/assets/wallet-paypal.js"
+PAYPAL_CLIENT_ID="$(sed -n "s/.*PAYPAL_CLIENT_ID = '\([^']*\)'.*/\1/p" "$WALLET_FILE")"
+OUR_PAYPAL_PLAN_IDS="$(grep -o "P-[0-9A-Z]\{24\}" "$WALLET_FILE" | sort -u)"
+if [ -z "$PAYPAL_CLIENT_ID" ] || [ "$(echo "$OUR_PAYPAL_PLAN_IDS" | wc -l | tr -d ' ')" != "3" ]; then
+  echo "cannot read our PayPal client id and three plan ids from $WALLET_FILE" >&2
+  exit 2
+fi
 
 WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "$WORK_DIR"' EXIT
@@ -69,6 +82,16 @@ check_plan() {
     reason="data-product-payment-gateway-plan-id is not business-$plan"
   elif ! grep -qF "data-product-amount=\"$expected_price\"" "$body"; then
     reason="data-product-amount is not $expected_price"
+  elif ! grep -qF "$PAYPAL_CLIENT_ID" "$body"; then
+    reason="our PayPal client id is not on the page (no PayPal button snippet?)"
+  else
+    # The PayPal plan ids on the page must be exactly our three: a missing one or any other
+    # P-... id (ClickFunnels' own PayPal plan) means the page would bill the wrong plan.
+    local found_ids
+    found_ids="$(grep -o "P-[0-9A-Z]\{24\}" "$body" | sort -u)"
+    if [ "$found_ids" != "$OUR_PAYPAL_PLAN_IDS" ]; then
+      reason="PayPal plan ids on the page are not exactly ours: found [$(echo $found_ids)]"
+    fi
   fi
 
   if [ -z "$reason" ]; then
