@@ -195,9 +195,13 @@ ClickFunnels, and not part of this.)
   client id is on the page and the set of PayPal plan ids on it (`P-`
   followed by 24 capitals or digits) is **exactly** our three — any other
   `P-` id is a ClickFunnels-account PayPal plan and makes the page dead;
-  and the page does not mention `free.lesko.com` — the old template PayPal
-  button (B1a) sends a business buyer to the consumer $3 trial, and a page
-  carrying it is dead.
+  and the page carries no **link** to free.lesko.com (`//free.lesko.com/` or
+  `//www.free.lesko.com/`) — the old template PayPal button (B1a) sends a
+  business buyer to the consumer $3 trial, and a page carrying it is dead.
+  A link, not a mention: every copy also loads a tracking script whose
+  comments and domain allow-list name `free.lesko.com` as bare text, and a
+  check that failed on any mention could never go green (found 2026-10-27,
+  on the saved live HTML of all three pages).
   Verdict per plan is live, dead or unknown: a 302, a wrong id, a wrong
   plan or a foreign or missing PayPal id is dead; 429, any 5xx, a
   timeout or a reset is unknown. Exit 0 only when all three are live. It is
