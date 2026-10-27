@@ -168,21 +168,44 @@ open question). What is still open, and who answers it:
 
 ## State
 
-Replaced 2026-10-27. Seat: architect, oneshot. No werk.queue row id in the
-Goal, so no queue state written.
+Replaced 2026-10-27 (context guard). Seat: architect, oneshot. No werk.queue
+row id in the Goal, so no queue state written.
 
 Done:
-- Spec: page B1–B7 (`3f98c42`), retire `/checkout` (`1540277`, Q1), PayPal
-  on the CF pages (`b3bd700`, Q3: page B1a + B4/B5/B7, wallets, INDEX).
-- Worker `cf-links` started (`WT_MODULE=page`), reads the spec with
-  `git show cf-checkout:…`; told about B1a after `b3bd700`.
+- Spec: page B1–B7 (`3f98c42`), retire `/checkout` (`1540277`, Q1), PayPal on
+  the CF pages (`b3bd700`, Q3: B1a + B4/B5/B7, wallets, INDEX); brief
+  `fedbe77`. wt-done.sh --check cf-checkout exit 0 (run it from PATH, not
+  `bash wt-done.sh`). Re-reported to Martin.
+- Worker `cf-links` (session cwv-landing.cf-links) told the PayPal scope;
+  it reported done at HEAD `778e158`, not landed.
+
+In flight — review of cf-links, read-only, copies in the scratchpad
+(`rev/head` = git archive HEAD, `rev/main` = git archive origin/main):
+- Green on HEAD: test-ga4-events 44 PASS, test-checkout-retired 35,
+  test-cf-paypal-button 55; wallet-paypal, wallet-seam, checkout-address,
+  wallet-google-pay, subscribe-wallet, build-purchase, decline-reasons,
+  wallet-common exit 0.
+- test-raillog-alert / test-subscribe-decline-alert / -decline-email exit
+  non-zero on BOTH main and HEAD with `worker.js` or `.` as argument —
+  wrong arguments on my side, not a regression; check their usage line.
+- test-subscribe-rate-limit.sh: green on main, RED on HEAD (route is 410).
+  Expected per worker R6, but the worker left it in place, red. Finding:
+  a permanently red suite on main — delete or retire it in this branch.
+- Read: snippet matches PP1–PP6; worker.js R5/R6 before R1; index/llms
+  links; check script three-valued, cache-aware, reads expected PayPal ids
+  from assets/wallet-paypal.js (independent of the live page; breaks loudly,
+  exit 2, if the later cleanup deletes that file — note it).
 
 Next:
-1. Re-report to Martin; wt-done.sh --check cf-checkout must exit 0.
-2. Q2 to clickfunnels-opzichter (B1, B2, B1a paste) — via Martin.
-3. Review `cf-links` when it reports: read-only, re-prove every guard red
-   (ga4 matcher, retire test, PayPal snippet test, the live check), fill
-   `Verdict:`. Never land.
+1. Re-prove red: ga4 test vs HEAD index.html with the old planCodeOf;
+   test-checkout-retired vs main worker.js; paypal test vs id-swapped
+   snippet; check-cf-checkout.sh vs a local stand-in (CF_CHECKOUT_BASE)
+   serving a page with the placeholder ids, then with a foreign P- id.
+2. Fill cf-links' `Verdict:` line — it is the worker's brief, so write the
+   verdict in a message to cf-links + this brief, not in its tree.
+3. Tell Martin; Q2 to clickfunnels-opzichter needs: real page ids into the
+   check script, data-product-amount format "29.95" (verify on original).
+   Never land.
 
 Traps (with dates):
 - 2026-10-27: funnel 5978951's -b pages are linked by /home-2 on
@@ -194,4 +217,4 @@ Traps (with dates):
 - 2026-10-27: CF -b pages are card-only today; CF's own PayPal bills CF's
   merchant plans — PayPal goes on via our snippet only (B1a).
 - 2026-10-27: begin_checkout matcher index.html:3210 reads only
-  /checkout...?plan=.
+  /checkout...?plan= (fixed on cf-links).
