@@ -15,7 +15,8 @@
 #            CF-only Recurly plans of page B1, not the business-<plan> of the retired /checkout), its own price, our
 #            PayPal client id, and exactly our three PayPal plan ids (page B1a) and no other.
 #   dead     the host answered and it is the wrong thing: a redirect, a 404, a wrong id/plan/price,
-#            no client id, or a PayPal plan id that is not ours (a ClickFunnels-account plan).
+#            no client id, a PayPal plan id that is not ours (a ClickFunnels-account plan), or any
+#            mention of free.lesko.com (the old template PayPal button to the consumer $3 trial).
 #   unknown  the host did not answer properly: 429, any 5xx, a timeout, a reset, or a "dead"
 #            read that came out of Cloudflare's cache instead of the origin. Never written as dead.
 #
@@ -76,6 +77,10 @@ check_plan() {
     local location
     location="$(grep -i '^location:' "$headers" | tr -d '\r' | cut -d' ' -f2-)"
     reason="HTTP $status${location:+ to $location}, not an order page"
+  elif grep -qF "free.lesko.com" "$body"; then
+    # The old template "Pay with PayPal" button (page B1a) sends a business buyer to the consumer
+    # $3 ClickBank trial, so a page carrying it is dead however right the rest of it is.
+    reason="the page mentions free.lesko.com (old template PayPal button to the consumer trial)"
   elif ! grep -qF "value=\"$expected_page_id\"" "$body"; then
     reason="page id $expected_page_id not found in the page"
   elif ! grep -qF "data-product-payment-gateway-plan-id=\"business-cf-$plan\"" "$body"; then
