@@ -331,9 +331,38 @@ async function subscribe(request, env, ctx) {
   return json({ ok: false, message: 'The payment did not go through. Please try again or email ' + SUPPORT + '.' }, 502);
 }
 
+// Input: the ?plan= value of an old /checkout link (or null). Output: 'monthly', 'half-year' or
+// 'yearly' - the value with a leading 'business-' stripped when it is one of those three, else
+// 'monthly' (the same fallback checkout.html uses). Why: /checkout is retired (page B5), and the
+// plan is the path of the ClickFunnels page the old link now redirects to.
+function checkoutRedirectPlan(planParam) {
+  const plan = String(planParam || '').replace(/^business-/, '');
+  return plan === 'monthly' || plan === 'half-year' || plan === 'yearly' ? plan : 'monthly';
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+
+    // R5: /checkout is retired. It reaches the Worker only because checkout.html is in
+    // .assetsignore. 302, never 301: a browser keeps a 301 for good and going back must stay one
+    // landing.
+    if (url.pathname === '/checkout' || url.pathname === '/checkout/' || url.pathname === '/checkout.html') {
+      return new Response(null, {
+        status: 302,
+        headers: {
+          location: 'https://checkout.leskobusiness.com/' + checkoutRedirectPlan(url.searchParams.get('plan')),
+          'cache-control': 'no-store'
+        }
+      });
+    }
+
+    // R6: nothing legitimate calls the purchase routes any more, so they answer 410 - checked
+    // before R1 and R2 so subscribe() is never reached and nothing is sent to Recurly. The
+    // code stays in the file until a real purchase has come through the ClickFunnels route.
+    if (url.pathname === '/api/subscribe' || url.pathname === '/api/config') {
+      return json({ message: 'This checkout has moved. Please start again at leskobusiness.com.' }, 410);
+    }
 
     if (url.pathname === '/api/subscribe') return subscribe(request, env, ctx);
 
