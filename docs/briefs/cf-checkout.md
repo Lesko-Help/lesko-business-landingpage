@@ -209,7 +209,8 @@ Verdicts on worker cf-links (session cwv-landing.cf-links):
 
 Next:
 1. cf-links is ready; it waits on the CF changes below.
-2. Martin's yes (asked, not given) for clickfunnels-opzichter: rename paths
+2. GIVEN 2026-10-27 ("yes, tell clickfunnels to make the changes"), sent
+   to clickfunnels-opzichter [da30c5], awaiting its report: rename paths
    to /monthly, /half-year, /yearly; root -> https://leskobusiness.com/;
    remove template PayPal button + JS; paste clickfunnels/paypal-button.html
    unchanged; after payment -> /welcome?plan=business-<plan>.
