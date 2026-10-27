@@ -193,13 +193,16 @@ Everything else passes, each re-run on a scratch copy:
 - Original `/lesko-help-monthly-b` prints `data-product-amount="29.95"`
   (MISS), so the check's price format matches a copied product.
 
+Verdict on cf-links `4b1b20a` (2026-10-27): **pass.** `31a9e8b` deletes
+only `scripts/test-subscribe-rate-limit.sh`; nothing references it; no
+other code changed since `778e158`; ga4, retire, PayPal snippet, wallet and
+checkout suites green on a scratch copy; origin/main merged.
+
 Next:
-1. When cf-links reports the deletion: confirm the file is gone and the
-   other suites still green, then verdict pass. Never land.
-2. Q2 for clickfunnels-opzichter (Martin's yes): build B1/B2, paste
+1. Q2 for clickfunnels-opzichter (Martin's yes): build B1/B2, paste
    `clickfunnels/paypal-button.html` unchanged, report the three page ids
    (they go into check-cf-checkout.sh's REPLACE_WITH_PAGE_ID_* constants).
-3. Land only when check-cf-checkout.sh is green live, and Martin says so.
+2. Land only when check-cf-checkout.sh is green live, and Martin says so.
 
 Traps (with dates):
 - 2026-10-27: funnel 5978951's -b pages are linked by /home-2 on
