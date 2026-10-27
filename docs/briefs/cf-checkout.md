@@ -210,7 +210,12 @@ Verdicts on worker cf-links (session cwv-landing.cf-links):
 Next:
 1. cf-links is ready; it waits on the CF changes below.
 2. GIVEN 2026-10-27 ("yes, tell clickfunnels to make the changes"), sent
-   to clickfunnels-opzichter [da30c5], awaiting its report: rename paths
+   to clickfunnels-opzichter [da30c5]. Its pane approved the RENAME ONLY:
+   steps 99176231/99176415/99176417 now /monthly, /half-year, /yearly, but
+   live each short path 302s to its OLD slug (DYNAMIC; x-runtime +
+   x-request-id = ClickFunnels' app, not our zone). Check must not follow
+   redirects (snippet reads location.pathname). CF session diagnosing; the
+   other four items need Martin's yes again in that pane: rename paths
    to /monthly, /half-year, /yearly; root -> https://leskobusiness.com/;
    remove template PayPal button + JS; paste clickfunnels/paypal-button.html
    unchanged; after payment -> /welcome?plan=business-<plan>.
