@@ -56,8 +56,8 @@ The worker it starts is done when, in this order:
    sends `begin_checkout` with the right plan and price when the links point at
    `checkout.leskobusiness.com/<plan>`. Red first against the current matcher
    (`index.html:3210` reads only `/checkout…?plan=`).
-3. The links in `index.html`, the schema.org offers, `llms.txt` and
-   `sitemap.xml` point at the CF pages (B3).
+3. The links in `index.html`, the schema.org offers and `llms.txt` point at
+   the CF pages (B3). `sitemap.xml` lists only `/` and is not touched.
 
 Spec: docs/specs/modules/page.md updated (this branch).
 
@@ -66,7 +66,7 @@ Spec: docs/specs/modules/page.md updated (this branch).
 Module `page`. This branch: `docs/specs/modules/page.md`, `docs/specs/INDEX.md`
 (open questions), this brief. The worker's branch: `index.html` (the four
 checkout hrefs, the three schema.org offer urls, the click matcher near line
-3210 and its comment), `llms.txt`, `sitemap.xml`, `scripts/test-ga4-events.mjs`,
+3210 and its comment), `llms.txt`, `scripts/test-ga4-events.mjs`,
 `scripts/check-cf-checkout.sh` (new). Not `checkout.html`, `welcome.html`,
 `worker.js` or the wallet files — `/checkout` stays as it is (B5).
 
@@ -123,10 +123,21 @@ Memory from the overseer: not received by the time of this commit.
 
 ## Spec proposals
 
-Specs belong to the overseer (DECISION BY MARTIN 2026-09-24) — this worktree
-never edits docs/specs/ itself. Anything found missing, unclear or wrong in a
-module's spec goes here instead: what the spec says now, what it should say,
-and why. The overseer applies what it agrees with on main.
+This seat is the architect, so the spec change itself is on this branch
+(`docs/specs/modules/page.md` B1–B7, R3 amended, decision 2026-10-27; INDEX
+open question). What is still open, and who answers it:
+
+- Q1 (Martin): **`/checkout` after the switch.** Proposed in B5: it stays live
+  and unchanged, unlinked from the page, so going back is four hrefs. The
+  CF copies are card-only, so the switch also takes the PayPal button
+  (shipped on `/checkout` 2026-10-17) off the main path. Keep it live and
+  accept losing PayPal on the main path — or something else?
+- Q2 (`clickfunnels-opzichter`, Martin's yes at the click): build B1 — the new
+  funnel on `checkout.leskobusiness.com`, the three copies at `/monthly`,
+  `/half-year`, `/yearly`, the root sent to leskobusiness.com — and B2, each
+  copy's after-payment step to `/welcome?plan=business-<plan>`. Report back
+  the three new numeric page ids (B7 asserts on them) and whether CF can put
+  the buyer's email in that URL.
 
 ## State
 
