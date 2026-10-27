@@ -47,7 +47,7 @@ Output after this: a ClickFunnels order page for that plan on our own
 subdomain, which charges the same Recurly plan, then back to our `/welcome`.
 
     buyer on / → https://checkout.leskobusiness.com/<plan>   (ClickFunnels page)
-      card:   Recurly.js card form → Recurly purchase on business-<plan>, origin token_api
+      card:   Recurly.js card form → Recurly purchase on business-cf-<plan>, origin token_api
       PayPal: our pasted PayPal button (B1a) → a PayPal subscription on Lesko's own plan
       → https://leskobusiness.com/welcome?plan=business-<plan>
       (then lesko-provisioning, unchanged: the recurly rail or the paypal rail)
@@ -73,6 +73,21 @@ ClickFunnels, and not part of this.)
   `www.leskohelp.com/lesko-help-*-b` by absolute URL, twice each — moving the
   funnel would break its six buy buttons. The domain's root `/` sends a
   visitor to `https://leskobusiness.com/`, not to clickfunnels.com.
+  **What was built (read live 2026-10-27, paced, cf-cache-status DYNAMIC):**
+  funnel 13711137 with pages 64133517 (monthly), 64133609 (half-year) and
+  64133610 (yearly), products 5138523/5138524/5138525, bound to the Recurly
+  plans `business-cf-monthly` $29.95, `business-cf-half-year` $89.95 and
+  `business-cf-yearly` $149.95. Those plan codes are **accepted** in place of
+  `business-<plan>`: they are active Recurly plans with the same price and
+  interval (`clickfunnels` repo, `data/recurly_plans.json`), and
+  lesko-provisioning picks the MN plan by rail (`ref_rail_plans`), not by
+  plan code. Still open from B1 at that date: the pages sit at the slugs
+  `/optin1793010582809`, `/business_6_montly_89-951793018300131` and
+  `/business_yearly_149951793018490642`; `/monthly`, `/half-year`, `/yearly`
+  and `/` all answer 302 to clickfunnels.com. The paths are renamed in the
+  CF dashboard rather than linked as they are, because the links (B3), the
+  retire redirect (B5) and the PayPal snippet (B1a) all name the plan by its
+  path.
 - B1a — **PayPal on the CF pages** (DECISION BY MARTIN 2026-10-27, "paypal
   should be included on the pages hosted by clickfunnels"). Input: a buyer on
   one of the three copies who clicks the PayPal button. Output: a live
@@ -92,7 +107,13 @@ ClickFunnels, and not part of this.)
   `clickfunnels-opzichter` session, with Martin's yes at the click. One
   snippet for all three pages, so no copy can carry the wrong id: it reads
   its plan from the page's own path (`/monthly`, `/half-year`, `/yearly`) and
-  looks the id up in a map at its top. The snippet copies `wallet-paypal.js`'s
+  looks the id up in a map at its top. Each copy's **template PayPal button
+  is removed**: the copies came with a "Pay with PayPal" button and custom JS
+  (`#tmp_button-37282`, a `Paypal` product option) that sends the buyer to
+  `www.free.lesko.com/monthly-paypal1711925300051`, which answers 302
+  (cf-cache-status MISS) to `/lesko-help-aff` — the consumer ClickBank $3
+  trial lander, `cbitems=LESKO-TRIAL-3-2995` (MISS on a fresh path). Found on
+  all three pages, the yearly one included, on 2026-10-27. The snippet copies `wallet-paypal.js`'s
   behaviour, not its code (that file depends on `LeskoCheckout`, which a CF
   page does not have):
   - PP1: an unknown path, an empty client id or a missing container → no
@@ -169,15 +190,19 @@ ClickFunnels, and not part of this.)
   fetches `https://checkout.leskobusiness.com/<plan>` without following
   redirects and asserts on what only the right page has — the new page's own
   numeric id (the hidden input's `value`; the `page_id` meta tag is
-  encrypted), `data-product-payment-gateway-plan-id="business-<plan>"` and
+  encrypted), `data-product-payment-gateway-plan-id="business-cf-<plan>"` and
   `data-product-amount` equal to the plan's price; and, for PayPal (B1a), our
   client id is on the page and the set of PayPal plan ids on it (`P-`
   followed by 24 capitals or digits) is **exactly** our three — any other
-  `P-` id is a ClickFunnels-account PayPal plan and makes the page dead.
+  `P-` id is a ClickFunnels-account PayPal plan and makes the page dead;
+  and the page does not mention `free.lesko.com` — the old template PayPal
+  button (B1a) sends a business buyer to the consumer $3 trial, and a page
+  carrying it is dead.
   Verdict per plan is live, dead or unknown: a 302, a wrong id, a wrong
   plan or a foreign or missing PayPal id is dead; 429, any 5xx, a
   timeout or a reset is unknown. Exit 0 only when all three are live. It is
-  red today (all three 302). The three page ids are constants in the script,
+  red today (all three 302 at their paths; at their slugs, no client id, none
+  of our `P-` ids, and the `free.lesko.com` button). The three page ids are constants in the script,
   filled in from what B1 creates.
 
 The prices are now typed in one more place: the three CF products. Change
