@@ -47,7 +47,8 @@ The worker it starts is done when, in this order:
    of the three plans it fetches `https://checkout.leskobusiness.com/<plan>`
    once, paced, with an honest User-Agent, and asserts on what only the right
    page has — the CF page id, `data-product-payment-gateway-plan-id` =
-   `business-<plan>`, `data-product-amount` = the plan's price. **Red today**
+   `business-<plan>`, `data-product-amount` = the plan's price, our PayPal
+   client id, and exactly our three `P-` plan ids (B1a). **Red today**
    (measured 2026-10-27: every path on that host is a 302 to
    `www.clickfunnels.com?aff_sub=domain_redirect`, the "no page assigned"
    answer). It goes green only after the ClickFunnels dashboard step (B1).
@@ -68,6 +69,11 @@ The worker it starts is done when, in this order:
    `checkout.html` is in `.assetsignore`. The existing suites (checkout, wallet,
    worker unit tests, ga4) stay green — they read the files, not the served
    site.
+5. PayPal on the CF pages (B1a): `clickfunnels/paypal-button.html` (new), the
+   one snippet pasted on all three copies, and `scripts/test-cf-paypal-button.mjs`
+   (new) green for PP1–PP5 — red first against a copy with the monthly and
+   yearly ids swapped. `clickfunnels/` is in `.assetsignore`. The paste itself
+   is `clickfunnels-opzichter`'s (Q2); item 1 proves it on the live pages.
 
 Spec: docs/specs/modules/page.md updated (this branch).
 
@@ -80,7 +86,9 @@ checkout hrefs, the three schema.org offer urls, the click matcher near line
 `scripts/check-cf-checkout.sh` (new), `worker.js` (R5, R6 in `fetch()` only —
 `subscribe()` and the decline path untouched), `.assetsignore` (one line,
 `checkout.html`), the new retire test. Not `checkout.html`, `welcome.html` or
-the wallet files: retired means unserved, not deleted (B5).
+the wallet files: retired means unserved, not deleted (B5). For B1a:
+`clickfunnels/paypal-button.html` (new), `scripts/test-cf-paypal-button.mjs`
+(new), and a second `.assetsignore` line, `clickfunnels/`.
 
 ## Deploy implied
 
@@ -122,7 +130,9 @@ requested before):
   domain needs a **copy** of the three pages in a funnel of its own.
 - The three `-b` pages are card-only: no PayPal SDK, no `P-` plan id. A buyer
   sent there has no PayPal button, unlike our `/checkout` (PayPal on since
-  2026-10-17, `wallets` P1–P10).
+  2026-10-17, `wallets` P1–P10) — so the copies need one added (B1a, Martin
+  2026-10-27). CF's built-in PayPal is not an option: its plans are CF's
+  merchant account's ($19.95 monthly, 404 for our credentials, 2026-10-17).
 - The CF pages run Recurly.js against the same three plans, so a purchase
   arrives in Recurly as origin `token_api` — the same as our own `/checkout`
   (`worker.md` decision 2026-10-06) — and provisioning needs nothing.
@@ -147,39 +157,32 @@ open question). What is still open, and who answers it:
   `/half-year`, `/yearly`, the root sent to leskobusiness.com — and B2, each
   copy's after-payment step to `/welcome?plan=business-<plan>`. Report back
   the three new numeric page ids (B7 asserts on them) and whether CF can put
-  the buyer's email in that URL.
+  the buyer's email in that URL. Also B1a: paste
+  `clickfunnels/paypal-button.html` (from `cf-links` once it is written)
+  unchanged into a Custom JS/HTML element on each copy, and never switch on
+  CF's own PayPal integration there.
+- Q3 (Martin) — **closed 2026-10-27: PayPal is included on the CF pages**
+  ("paypal should be included on the pages hosted by clickfunnels"), read as
+  a correction of the report's "PayPal leaves the buyer's path". Written
+  into `page` B1a, B4, B5, B7, `wallets`, INDEX (`b3bd700`).
 
 ## State
 
-Replaced 2026-10-27 (context guard). Seat: architect, oneshot. No werk.queue row
-id in the Goal, so no queue state written (neither designing nor specced).
+Replaced 2026-10-27. Seat: architect, oneshot. No werk.queue row id in the
+Goal, so no queue state written.
 
 Done:
-- d6c4a66 brief filled; 3f98c42 spec page.md B1-B7 (proposed) + INDEX open
-  question; 28eaff6 brief Spec proposals Q1/Q2 + sitemap.xml out of scope.
-- origin/main merged (up to date); wt-done.sh --check cf-checkout exit 0.
-- Report shown to Martin. Q1 answered: **"Retire /checkout"** (2026-10-27).
-
-In flight (uncommitted):
-- docs/specs/modules/page.md B5 rewritten to RETIRE (302 /checkout,
-  /checkout/, /checkout.html -> checkout.leskobusiness.com/<plan>, fallback
-  monthly; checkout.html into .assetsignore; files stay until a real CF
-  purchase) and B5a (/api/subscribe + /api/config -> 410, no Recurly call).
+- Spec: page B1–B7 (`3f98c42`), retire `/checkout` (`1540277`, Q1), PayPal
+  on the CF pages (`b3bd700`, Q3: page B1a + B4/B5/B7, wallets, INDEX).
+- Worker `cf-links` started (`WT_MODULE=page`), reads the spec with
+  `git show cf-checkout:…`; told about B1a after `b3bd700`.
 
 Next:
-1. page.md: fix B3/B6 wording that still says /checkout "stays"; Overview
-   entry points; the 2026-10-27 decision line -> agreed + retire.
-2. worker.md: add R5 (/checkout 302) and R6 (410), decision line; note that
-   test-subscribe-rate-limit.sh retires with the route (unit tests call
-   subscribe() directly and stay green).
-3. wallets.md: decision line, retired with /checkout.
-4. INDEX.md: replace the Q1 open question with the decision.
-5. Brief: Q1 closed, done-when gains the retire test (worker fetch: 302s,
-   410s, Recurly fetch never called), May touch gains worker.js +
-   .assetsignore + new test; commit; wt-done --check; re-report.
-6. Start worker: WT_MODULE=page wt-new.sh <name> "<goal>" — may land only
-   after scripts/check-cf-checkout.sh is green (needs B1 built by
-   clickfunnels-opzichter, Martin's yes).
+1. Re-report to Martin; wt-done.sh --check cf-checkout must exit 0.
+2. Q2 to clickfunnels-opzichter (B1, B2, B1a paste) — via Martin.
+3. Review `cf-links` when it reports: read-only, re-prove every guard red
+   (ga4 matcher, retire test, PayPal snippet test, the live check), fill
+   `Verdict:`. Never land.
 
 Traps (with dates):
 - 2026-10-27: funnel 5978951's -b pages are linked by /home-2 on
@@ -188,6 +191,7 @@ Traps (with dates):
   clickfunnels.com until a funnel serves there; landing links early sends
   every buyer away.
 - 2026-10-27: pay.leskobusiness.com is GoDaddy Payments, not ClickFunnels.
-- 2026-10-27: CF -b pages are card-only (no PayPal).
+- 2026-10-27: CF -b pages are card-only today; CF's own PayPal bills CF's
+  merchant plans — PayPal goes on via our snippet only (B1a).
 - 2026-10-27: begin_checkout matcher index.html:3210 reads only
   /checkout...?plan=.
