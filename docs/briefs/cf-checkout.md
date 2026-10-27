@@ -200,12 +200,15 @@ Verdicts on worker cf-links (session cwv-landing.cf-links):
   (real pages name it as bare text in a tracking script). Ids commit
   `046fb21` and plan-code commit `6d0ca24` pass. Proof on saved live HTML
   at short paths, narrow rule: real 3 dead, fixed 3 live, button kept 3
-  dead, yearly-at-/monthly monthly dead. Sent; awaiting new HEAD.
+  dead, yearly-at-/monthly monthly dead.
+- `e671d47` **pass.** `ed256e8` narrows the guard to the link rule, nothing
+  else; since `4b1b20a` only scripts/check-cf-checkout.sh changed outside
+  docs. Its own script vs saved live HTML at short paths: real 3 dead,
+  fixed 3 live (exit 0), button kept 3 dead, swap monthly dead. origin/main
+  merged; wt-done.sh --check cf-links exit 0.
 
 Next:
-1. On cf-links report: diff from 5d09a9f, re-run the stand-in
-   (scratchpad rev2/real_standin.py, MODE real|fixed|paypal_only|swap)
-   against its script; verdict in this State.
+1. cf-links is ready; it waits on the CF changes below.
 2. Martin's yes (asked, not given) for clickfunnels-opzichter: rename paths
    to /monthly, /half-year, /yearly; root -> https://leskobusiness.com/;
    remove template PayPal button + JS; paste clickfunnels/paypal-button.html
