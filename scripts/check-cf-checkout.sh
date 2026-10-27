@@ -11,7 +11,8 @@
 #         are live; exit 1 otherwise (dead or unknown both count as not ready).
 #
 # A verdict has three values, never two (CLAUDE.md "A crawler's refusal is not an answer"):
-#   live     HTTP 200 and the page carries its own page id, its own plan id and its own price, our
+#   live     HTTP 200 and the page carries its own page id, its own plan id (business-cf-<plan>, the
+#            CF-only Recurly plans of page B1, not the business-<plan> of the retired /checkout), its own price, our
 #            PayPal client id, and exactly our three PayPal plan ids (page B1a) and no other.
 #   dead     the host answered and it is the wrong thing: a redirect, a 404, a wrong id/plan/price,
 #            no client id, or a PayPal plan id that is not ours (a ClickFunnels-account plan).
@@ -77,8 +78,8 @@ check_plan() {
     reason="HTTP $status${location:+ to $location}, not an order page"
   elif ! grep -qF "value=\"$expected_page_id\"" "$body"; then
     reason="page id $expected_page_id not found in the page"
-  elif ! grep -qF "data-product-payment-gateway-plan-id=\"business-$plan\"" "$body"; then
-    reason="data-product-payment-gateway-plan-id is not business-$plan"
+  elif ! grep -qF "data-product-payment-gateway-plan-id=\"business-cf-$plan\"" "$body"; then
+    reason="data-product-payment-gateway-plan-id is not business-cf-$plan"
   elif ! grep -qF "data-product-amount=\"$expected_price\"" "$body"; then
     reason="data-product-amount is not $expected_price"
   elif ! grep -qF "$PAYPAL_CLIENT_ID" "$body"; then
@@ -94,7 +95,7 @@ check_plan() {
   fi
 
   if [ -z "$reason" ]; then
-    echo "$plan live: page $expected_page_id, plan business-$plan, \$$expected_price (cache: ${cache_status:-none})"
+    echo "$plan live: page $expected_page_id, plan business-cf-$plan, \$$expected_price (cache: ${cache_status:-none})"
     return 0
   fi
   if [ "$cache_status" = "HIT" ] || [ "$cache_status" = "REVALIDATED" ]; then
