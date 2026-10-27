@@ -46,10 +46,11 @@ leskobusiness.com who clicks a plan. Output today: our own `/checkout`.
 Output after this: a ClickFunnels order page for that plan on our own
 subdomain, which charges the same Recurly plan, then back to our `/welcome`.
 
-    buyer on / → https://checkout.leskobusiness.com/<plan>   (ClickFunnels, Recurly.js card form)
-      → Recurly purchase on business-<plan>, origin token_api
+    buyer on / → https://checkout.leskobusiness.com/<plan>   (ClickFunnels page)
+      card:   Recurly.js card form → Recurly purchase on business-<plan>, origin token_api
+      PayPal: our pasted PayPal button (B1a) → a PayPal subscription on Lesko's own plan
       → https://leskobusiness.com/welcome?plan=business-<plan>
-      (then lesko-provisioning, unchanged)
+      (then lesko-provisioning, unchanged: the recurly rail or the paypal rail)
 
 What is there today (measured 2026-10-27): `checkout.leskobusiness.com` is
 proxied through our Cloudflare zone to ClickFunnels, and **every path answers
@@ -72,6 +73,55 @@ ClickFunnels, and not part of this.)
   `www.leskohelp.com/lesko-help-*-b` by absolute URL, twice each — moving the
   funnel would break its six buy buttons. The domain's root `/` sends a
   visitor to `https://leskobusiness.com/`, not to clickfunnels.com.
+- B1a — **PayPal on the CF pages** (DECISION BY MARTIN 2026-10-27, "paypal
+  should be included on the pages hosted by clickfunnels"). Input: a buyer on
+  one of the three copies who clicks the PayPal button. Output: a live
+  subscription in **Lesko's own PayPal merchant account** on that plan's own
+  id — `monthly` `P-7R176589BE0160805NLJVCFI` $29.95, `half-year`
+  `P-2GV64945HR320740CNLIP2HY` $89.95, `yearly` `P-8M862053KT491162FNLJVCFI`
+  $149.95, the same ids `/checkout` has used since 2026-10-17 (`wallets` P2) —
+  then the buyer on `/welcome?plan=business-<plan>`, as B2. Access comes from
+  lesko-provisioning's `paypal` rail off PayPal's own webhook, which already
+  handles these three plans; nothing changes there.
+  How: **never ClickFunnels' built-in PayPal integration.** It bills CF's own
+  merchant plans — the ids copied from a CF page on 2026-10-17 billed $19.95
+  for monthly, had no half-year plan, and answered 404 for our credentials
+  (`wallets`, 2026-10-17). Instead one snippet,
+  `clickfunnels/paypal-button.html` in this repo, is pasted unchanged into a
+  Custom JS/HTML element on each of the three copies by the
+  `clickfunnels-opzichter` session, with Martin's yes at the click. One
+  snippet for all three pages, so no copy can carry the wrong id: it reads
+  its plan from the page's own path (`/monthly`, `/half-year`, `/yearly`) and
+  looks the id up in a map at its top. The snippet copies `wallet-paypal.js`'s
+  behaviour, not its code (that file depends on `LeskoCheckout`, which a CF
+  page does not have):
+  - PP1: an unknown path, an empty client id or a missing container → no
+    button and no PayPal script fetched.
+  - PP2: it loads PayPal's JS SDK once with our public client id (the
+    constant `PAYPAL_CLIENT_ID` in `assets/wallet-paypal.js`, copied as is)
+    and `vault=true&intent=subscription&currency=USD&components=buttons&disable-funding=card`
+    — card funding off, because the CF card form is on the same page.
+  - PP3: `createSubscription` returns `actions.subscription.create({ plan_id })`
+    for this page's plan, and nothing else.
+  - PP4: `onApprove` sends the buyer to
+    `https://leskobusiness.com/welcome?plan=business-<plan>`, adding
+    `&email=` with PayPal's `subscriber.email_address` (lower-cased) only
+    when `actions.subscription.get()` gives it within 5 s; a lookup that
+    fails, throws or hangs still navigates, without the email. The money is
+    already taken at that point, so nothing may stop the navigation.
+  - PP5: failures are shown in the snippet's own message line, never in
+    `window.alert`; a failure after approval says "we could not confirm your
+    PayPal payment — if you were charged, contact support before trying
+    again". A plain cancel shows nothing.
+  - PP6: the client *secret* never appears; the client id is a public browser
+    identifier.
+  The file is served by nobody: `clickfunnels/` goes into `.assetsignore`.
+  *Test:* `scripts/test-cf-paypal-button.mjs` — jsdom loads the snippet at
+  each of the three paths with a stub `paypal` global, and checks PP1–PP5:
+  the exact plan id per path, no script for `/` or `/other`, the SDK URL's
+  query and client id (equal to `wallet-paypal.js`'s), the `/welcome` URL
+  with and without an email, and the hang/throw cases still navigating. Red
+  first against a snippet with the monthly and yearly ids swapped.
 - B2 — after a paid order each copy sends the buyer to
   `https://leskobusiness.com/welcome?plan=business-<plan>`. No email in that
   URL: `/welcome` already works on `plan` alone (`purchase` fires, the email
@@ -86,11 +136,11 @@ ClickFunnels, and not part of this.)
 - B4 — analytics: `begin_checkout` keeps firing on every one of those four
   links with the right plan and price (R3 below, amended). The CF pages do
   not load `site-events.js`, so a buyer who goes there sends no
-  `add_payment_info` (R5); the funnel in GA4 reads `begin_checkout` →
-  `purchase` on `/welcome`.
+  `add_payment_info` (R5) and the PayPal button there sends none of the
+  `wallet_*` events (`wallets` C7); the funnel in GA4 reads `begin_checkout`
+  → `purchase` on `/welcome`, for card and PayPal buyers alike.
 - B5 — `/checkout` is **retired** (DECISION BY MARTIN 2026-10-27, "Retire
-  /checkout", chosen knowing the CF copies are card-only, so the PayPal
-  button leaves the buyer's path). Input: any request for `/checkout`,
+  /checkout"; PayPal moves with the buyer to the CF copies, B1a). Input: any request for `/checkout`,
   `/checkout/` or `/checkout.html`, with or without `?plan=`. Output: **302**
   to `https://checkout.leskobusiness.com/<plan>`, where `<plan>` is the
   `?plan=` value when it is one of `monthly`, `half-year`, `yearly` (a leading
@@ -120,8 +170,12 @@ ClickFunnels, and not part of this.)
   redirects and asserts on what only the right page has — the new page's own
   numeric id (the hidden input's `value`; the `page_id` meta tag is
   encrypted), `data-product-payment-gateway-plan-id="business-<plan>"` and
-  `data-product-amount` equal to the plan's price. Verdict per plan is live,
-  dead or unknown: a 302, a wrong id or a wrong plan is dead; 429, any 5xx, a
+  `data-product-amount` equal to the plan's price; and, for PayPal (B1a), our
+  client id is on the page and the set of PayPal plan ids on it (`P-`
+  followed by 24 capitals or digits) is **exactly** our three — any other
+  `P-` id is a ClickFunnels-account PayPal plan and makes the page dead.
+  Verdict per plan is live, dead or unknown: a 302, a wrong id, a wrong
+  plan or a foreign or missing PayPal id is dead; 429, any 5xx, a
   timeout or a reset is unknown. Exit 0 only when all three are live. It is
   red today (all three 302). The three page ids are constants in the script,
   filled in from what B1 creates.
@@ -251,6 +305,7 @@ money is GA4, shared by all three pages since `ga4-all-pages` (landed
   the gateway behind Recurly changes.
 
 - 2026-10-27 (spec agreed in part, worktree `cf-checkout`, not built): the buttons go to ClickFunnels order pages on our own subdomain `checkout.leskobusiness.com/<plan>`, a copy of funnel 5978951's three `-b` pages in a funnel of its own (B1–B7). Why: Martin's goal, "we've added lesko.business.com to clickfunnels, now we want to lead the traffic this way". Why a copy and not a move: `/home-2` on leskohelp.com links to the originals and a Classic funnel serves on one domain. Why the links wait for a live check: the domain answers every path with clickfunnels.com's own home page until B1 is built.
-- 2026-10-27: **DECISION BY MARTIN: retire `/checkout`** ("Retire /checkout", picked over keeping it live but unlinked, told that the CF copies are card-only so PayPal leaves the buyer's path). `/checkout` becomes a 302 to the CF page for its plan, `/api/subscribe` and `/api/config` answer 410 (B5, B5a). Why the code stays for now: going back is one landing, and nothing is deleted before a real purchase has come through the CF route.
+- 2026-10-27: **DECISION BY MARTIN: retire `/checkout`** ("Retire /checkout", picked over keeping it live but unlinked, told at the time that the CF copies are card-only). `/checkout` becomes a 302 to the CF page for its plan, `/api/subscribe` and `/api/config` answer 410 (B5, B5a). Why the code stays for now: going back is one landing, and nothing is deleted before a real purchase has come through the CF route.
+- 2026-10-27: **DECISION BY MARTIN: PayPal is included on the CF pages** ("paypal should be included on the pages hosted by clickfunnels", answering a report that said PayPal would leave the buyer's path). One snippet from this repo, `clickfunnels/paypal-button.html`, pasted on all three copies (B1a), billing Lesko's own three PayPal plans. Why a snippet and not CF's PayPal setting: CF's own PayPal plans belong to CF's merchant account and bill the wrong price (the 2026-10-17 trap). Why it lives here: it carries our plan ids and client id, so it is reviewed, tested and versioned like the rest of the checkout, and B7 proves the live paste matches.
 
 <!-- spec:template -->

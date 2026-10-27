@@ -62,7 +62,8 @@ See `docs/specs/architecture.md`.
   and `/checkout` is to be retired (`modules/page.md` B1–B7, DECISION BY
   MARTIN 2026-10-27). Not built: the CF pages are dashboard work for the
   `clickfunnels-opzichter` session, and the links may not land before
-  `scripts/check-cf-checkout.sh` is green. Deleting the retired checkout,
+  `scripts/check-cf-checkout.sh` is green. The CF pages carry PayPal on our
+  own three plans through `clickfunnels/paypal-button.html` (B1a). Deleting the retired checkout,
   wallet and purchase code waits for a first real purchase through CF.
 - `/api/videos` is unused since 2026-09-29: delete it or keep it (Martin).
 - The Vercel copy should be deleted (Martin).
