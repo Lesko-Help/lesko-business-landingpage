@@ -88,10 +88,10 @@ Done (all committed, HEAD after this commit; tree clean):
 - Scope change 2026-10-27 from control.cf-checkout (spec b3bd700, brief fedbe77 on branch cf-checkout; B1a, B4, B5, B7): ad5d09f clickfunnels/paypal-button.html + scripts/test-cf-paypal-button.mjs/.sh (red on swapped monthly/yearly ids, green) + `clickfunnels/` in .assetsignore; then the check script's PayPal assertions (client id present, P- ids exactly our three, ids read from assets/wallet-paypal.js).
 - First report sent to landing-opzichter [d5498b] before the scope change.
 In flight: nothing.
-Next: run the other suites once more, `git add -N .`, `wt-done.sh --check cf-links`, then send an UPDATED report to landing-opzichter [d5498b] and tell control.cf-checkout it is done. No werk.queue row in the Goal, so write no queue state.
+Next: report 31a9e8b to control.cf-checkout (reviewer) and landing-opzichter [d5498b], then wait; do not land. No werk.queue row in the Goal, so write no queue state.
 Traps (with dates):
 - 2026-10-27: the three CF page ids in check-cf-checkout.sh are placeholders (REPLACE_WITH_PAGE_ID_*) until B1 exists; data-product-amount format ("29.95") is assumed, unverified on a real page.
-- 2026-10-27: scripts/test-subscribe-rate-limit.sh retires with R6 (can only see 410); left in place ("delete nothing"), will go red - overseer's call.
+- 2026-10-27: scripts/test-subscribe-rate-limit.sh deleted in 31a9e8b at the reviewer's request (control.cf-checkout; worker.md says it goes with R6). The only deletion; subscribe() and the checkout files stay.
 - 2026-10-27: do NOT land before check-cf-checkout.sh is green live (page B6).
 - 2026-10-27: zsh does not word-split unquoted $var; use bash for loops over "a b c" strings.
 - 2026-10-27: a `ListAgents` name can match several sessions; send to `landing-opzichter [d5498b]` (the one on this machine).
