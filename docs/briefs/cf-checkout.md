@@ -58,6 +58,16 @@ The worker it starts is done when, in this order:
    (`index.html:3210` reads only `/checkout…?plan=`).
 3. The links in `index.html`, the schema.org offers and `llms.txt` point at
    the CF pages (B3). `sitemap.xml` lists only `/` and is not touched.
+4. `/checkout` retired (B5, B5a; `worker` R5, R6): a new vm test in the shape
+   of `scripts/test-subscribe-wallet.js` drives `worker.js`'s `fetch()` with a
+   `fetch` stub that fails if called — `/checkout?plan=half-year` -> 302 to
+   `https://checkout.leskobusiness.com/half-year`, `?plan=business-yearly` ->
+   `/yearly`, no or unknown plan -> `/monthly`, `/checkout/` and
+   `/checkout.html` the same, POST `/api/subscribe` and GET `/api/config` ->
+   410 with the stub untouched. Red first against today's `worker.js`.
+   `checkout.html` is in `.assetsignore`. The existing suites (checkout, wallet,
+   worker unit tests, ga4) stay green — they read the files, not the served
+   site.
 
 Spec: docs/specs/modules/page.md updated (this branch).
 
@@ -67,8 +77,10 @@ Module `page`. This branch: `docs/specs/modules/page.md`, `docs/specs/INDEX.md`
 (open questions), this brief. The worker's branch: `index.html` (the four
 checkout hrefs, the three schema.org offer urls, the click matcher near line
 3210 and its comment), `llms.txt`, `scripts/test-ga4-events.mjs`,
-`scripts/check-cf-checkout.sh` (new). Not `checkout.html`, `welcome.html`,
-`worker.js` or the wallet files — `/checkout` stays as it is (B5).
+`scripts/check-cf-checkout.sh` (new), `worker.js` (R5, R6 in `fetch()` only —
+`subscribe()` and the decline path untouched), `.assetsignore` (one line,
+`checkout.html`), the new retire test. Not `checkout.html`, `welcome.html` or
+the wallet files: retired means unserved, not deleted (B5).
 
 ## Deploy implied
 
@@ -127,11 +139,9 @@ This seat is the architect, so the spec change itself is on this branch
 (`docs/specs/modules/page.md` B1–B7, R3 amended, decision 2026-10-27; INDEX
 open question). What is still open, and who answers it:
 
-- Q1 (Martin): **`/checkout` after the switch.** Proposed in B5: it stays live
-  and unchanged, unlinked from the page, so going back is four hrefs. The
-  CF copies are card-only, so the switch also takes the PayPal button
-  (shipped on `/checkout` 2026-10-17) off the main path. Keep it live and
-  accept losing PayPal on the main path — or something else?
+- Q1 (Martin) — **closed 2026-10-27: "Retire /checkout"**, picked over
+  keeping it live and unlinked, told the CF copies are card-only. Written into
+  `page` B5/B5a, `worker` R5/R6, `wallets` and INDEX (`daee428`).
 - Q2 (`clickfunnels-opzichter`, Martin's yes at the click): build B1 — the new
   funnel on `checkout.leskobusiness.com`, the three copies at `/monthly`,
   `/half-year`, `/yearly`, the root sent to leskobusiness.com — and B2, each
