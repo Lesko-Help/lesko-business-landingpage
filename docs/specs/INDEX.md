@@ -59,10 +59,11 @@ See `docs/specs/architecture.md`.
   Recurly (and, for Apple Pay, an Apple Developer account and certificates)
   that no Claude session can reach — Martin's.
 - The buttons are to move to ClickFunnels on `checkout.leskobusiness.com`
-  (`modules/page.md` B1–B7, proposed 2026-10-27). Open for Martin: does our
-  own `/checkout` stay live but unlinked, and is losing the PayPal button on
-  the main path accepted (the CF order pages are card-only)? The CF pages
-  themselves are dashboard work for the `clickfunnels-opzichter` session.
+  and `/checkout` is to be retired (`modules/page.md` B1–B7, DECISION BY
+  MARTIN 2026-10-27). Not built: the CF pages are dashboard work for the
+  `clickfunnels-opzichter` session, and the links may not land before
+  `scripts/check-cf-checkout.sh` is green. Deleting the retired checkout,
+  wallet and purchase code waits for a first real purchase through CF.
 - `/api/videos` is unused since 2026-09-29: delete it or keep it (Martin).
 - The Vercel copy should be deleted (Martin).
 

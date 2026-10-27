@@ -11,7 +11,7 @@ Writes: `/api/subscribe` (checkout); the buyer's email, company and plan in the 
 *What it is for:* sell LeskoHelp Pro to business owners, take their card on our own `/checkout`, and tell them on `/welcome` which email to sign in with.
 *What it owns:* `index.html`, `checkout.html`, `welcome.html`, `assets/` (including `assets/flow.css`, the checkout and welcome styles), `llms.txt`, `sitemap.xml`, `robots.txt`, the icons.
 *What it depends on:* the `worker` module's `/api/config` and `/api/subscribe`; Recurly.js v4 from `js.recurly.com`; the three Recurly plans at the prices the pages show.
-*Public entry points:* `GET /`, `GET /checkout?plan=monthly|half-year|yearly`, `GET /welcome?email=…&plan=…`; the `#pricing`, `#guarantee` and `#faq` anchors.
+*Public entry points:* `GET /`, `GET /checkout?plan=monthly|half-year|yearly` (once B5 lands: a 302 to the ClickFunnels page for that plan), `GET /welcome?email=…&plan=…`; the `#pricing`, `#guarantee` and `#faq` anchors.
 *Not in scope:* the purchase itself (`worker`), provisioning and emails (lesko-provisioning), the ClickFunnels pages themselves — on leskohelp.com and, once B1 is built, on `checkout.leskobusiness.com` (built in the ClickFunnels dashboard; only the links to them are ours) — Recurly's hosted pages.
 *Personal data:* the checkout sends name, email, optional company and address to Recurly and keeps email, company and plan in `localStorage` on the buyer's device (welcome reads it for 24 h). The email is in the `/welcome` URL. The newsletter form posts the email to Kit. With GA4 on, every visitor (EU included) gets an analytics cookie; there is no consent banner.
 
@@ -88,13 +88,30 @@ ClickFunnels, and not part of this.)
   not load `site-events.js`, so a buyer who goes there sends no
   `add_payment_info` (R5); the funnel in GA4 reads `begin_checkout` →
   `purchase` on `/welcome`.
-- B5 — `/checkout` stays live and unchanged (card through `/api/subscribe`,
-  PayPal straight into PayPal): nothing on the page links to it any more,
-  anyone holding the old link still pays there, and going back is putting
-  the four hrefs back. *(proposed; Martin's call, see Open questions — the CF
-  copies are card-only, so the switch takes PayPal off the main path.)*
-- B6 — landing order: the links change only after the CF pages are proven on
-  the live domain (B7 green). Landed before that, every buyer reaches
+- B5 — `/checkout` is **retired** (DECISION BY MARTIN 2026-10-27, "Retire
+  /checkout", chosen knowing the CF copies are card-only, so the PayPal
+  button leaves the buyer's path). Input: any request for `/checkout`,
+  `/checkout/` or `/checkout.html`, with or without `?plan=`. Output: **302**
+  to `https://checkout.leskobusiness.com/<plan>`, where `<plan>` is the
+  `?plan=` value when it is one of `monthly`, `half-year`, `yearly` (a leading
+  `business-` stripped) and `monthly` otherwise — the same fallback
+  `checkout.html` uses. How: `checkout.html` goes into `.assetsignore`, so the
+  static files no longer answer `/checkout` and the request reaches
+  `worker.js` (`worker` R5). 302, not 301: a browser keeps a 301 for good, and
+  the way back must stay one landing. The file itself, `assets/flow.css`'s
+  checkout styles and the wallet files stay in the repo, unserved or unused,
+  until a real purchase has come through the CF route; deleting them is a
+  later cleanup with its own brief. Why a redirect and not a 404: the old
+  link is in `llms.txt` caches, AI answers and any bookmark, and a buyer
+  holding it should still reach a page that takes their money.
+- B5a — with the page gone nothing legitimate calls `/api/subscribe` or
+  `/api/config`, so both answer **410** (`worker` R6) and never call Recurly.
+  Why: `/api/subscribe` has no bot check and its key has full scope; left
+  open behind a retired page it is a card-testing target that serves no
+  buyer.
+- B6 — landing order: the links (B3) and the retirement (B5, B5a) change
+  only after the CF pages are proven on the live domain (B7 green), and they
+  land together. Landed before that, every buyer reaches
   clickfunnels.com's own home page.
 - B7 — the proof, `scripts/check-cf-checkout.sh`, run by hand (it is not on
   a schedule, so it needs no alert): for each plan, one request at a time,
@@ -233,6 +250,7 @@ money is GA4, shared by all three pages since `ga4-all-pages` (landed
   records a page that exists, and not one of the three wallets can run until
   the gateway behind Recurly changes.
 
-- 2026-10-27 (proposed, worktree `cf-checkout`, not agreed): the buttons go to ClickFunnels order pages on our own subdomain `checkout.leskobusiness.com/<plan>`, a copy of funnel 5978951's three `-b` pages in a funnel of its own; `/checkout` stays live but unlinked (B1–B7). Why: Martin's goal, "we've added lesko.business.com to clickfunnels, now we want to lead the traffic this way". Why a copy and not a move: `/home-2` on leskohelp.com links to the originals and a Classic funnel serves on one domain. Why the links wait for a live check: the domain answers every path with clickfunnels.com's own home page until B1 is built.
+- 2026-10-27 (spec agreed in part, worktree `cf-checkout`, not built): the buttons go to ClickFunnels order pages on our own subdomain `checkout.leskobusiness.com/<plan>`, a copy of funnel 5978951's three `-b` pages in a funnel of its own (B1–B7). Why: Martin's goal, "we've added lesko.business.com to clickfunnels, now we want to lead the traffic this way". Why a copy and not a move: `/home-2` on leskohelp.com links to the originals and a Classic funnel serves on one domain. Why the links wait for a live check: the domain answers every path with clickfunnels.com's own home page until B1 is built.
+- 2026-10-27: **DECISION BY MARTIN: retire `/checkout`** ("Retire /checkout", picked over keeping it live but unlinked, told that the CF copies are card-only so PayPal leaves the buyer's path). `/checkout` becomes a 302 to the CF page for its plan, `/api/subscribe` and `/api/config` answer 410 (B5, B5a). Why the code stays for now: going back is one landing, and nothing is deleted before a real purchase has come through the CF route.
 
 <!-- spec:template -->
