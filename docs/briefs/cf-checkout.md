@@ -179,33 +179,27 @@ Done:
 - Worker `cf-links` (session cwv-landing.cf-links) told the PayPal scope;
   it reported done at HEAD `778e158`, not landed.
 
-In flight — review of cf-links, read-only, copies in the scratchpad
-(`rev/head` = git archive HEAD, `rev/main` = git archive origin/main):
-- Green on HEAD: test-ga4-events 44 PASS, test-checkout-retired 35,
-  test-cf-paypal-button 55; wallet-paypal, wallet-seam, checkout-address,
-  wallet-google-pay, subscribe-wallet, build-purchase, decline-reasons,
-  wallet-common exit 0.
-- test-raillog-alert / test-subscribe-decline-alert / -decline-email exit
-  non-zero on BOTH main and HEAD with `worker.js` or `.` as argument —
-  wrong arguments on my side, not a regression; check their usage line.
-- test-subscribe-rate-limit.sh: green on main, RED on HEAD (route is 410).
-  Expected per worker R6, but the worker left it in place, red. Finding:
-  a permanently red suite on main — delete or retire it in this branch.
-- Read: snippet matches PP1–PP6; worker.js R5/R6 before R1; index/llms
-  links; check script three-valued, cache-aware, reads expected PayPal ids
-  from assets/wallet-paypal.js (independent of the live page; breaks loudly,
-  exit 2, if the later cleanup deletes that file — note it).
+Verdict on cf-links `778e158` (2026-10-27): **changes requested, one item**
+— delete `scripts/test-subscribe-rate-limit.sh` (red for good once R6
+lands; spec made explicit in `4f61b73`). Sent to cwv-landing.cf-links.
+Everything else passes, each re-run on a scratch copy:
+- Green: ga4 44, retire 35, PayPal snippet 55; wallet/checkout suites.
+  (raillog-alert, decline-alert, decline-email exit non-zero identically
+  on main and HEAD with my arguments — not a regression.)
+- Red when broken: ga4 with the old matcher 6 FAIL; retire vs main's
+  worker 33 FAIL, 301 mutant 14; snippet id swap 2, no `business-` 10;
+  check script vs stand-in: good=live/exit 0, foreign P- id=dead,
+  429=unknown, 302=dead.
+- Original `/lesko-help-monthly-b` prints `data-product-amount="29.95"`
+  (MISS), so the check's price format matches a copied product.
 
 Next:
-1. Re-prove red: ga4 test vs HEAD index.html with the old planCodeOf;
-   test-checkout-retired vs main worker.js; paypal test vs id-swapped
-   snippet; check-cf-checkout.sh vs a local stand-in (CF_CHECKOUT_BASE)
-   serving a page with the placeholder ids, then with a foreign P- id.
-2. Fill cf-links' `Verdict:` line — it is the worker's brief, so write the
-   verdict in a message to cf-links + this brief, not in its tree.
-3. Tell Martin; Q2 to clickfunnels-opzichter needs: real page ids into the
-   check script, data-product-amount format "29.95" (verify on original).
-   Never land.
+1. When cf-links reports the deletion: confirm the file is gone and the
+   other suites still green, then verdict pass. Never land.
+2. Q2 for clickfunnels-opzichter (Martin's yes): build B1/B2, paste
+   `clickfunnels/paypal-button.html` unchanged, report the three page ids
+   (they go into check-cf-checkout.sh's REPLACE_WITH_PAGE_ID_* constants).
+3. Land only when check-cf-checkout.sh is green live, and Martin says so.
 
 Traps (with dates):
 - 2026-10-27: funnel 5978951's -b pages are linked by /home-2 on
