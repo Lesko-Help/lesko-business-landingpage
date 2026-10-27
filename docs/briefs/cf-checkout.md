@@ -141,7 +141,7 @@ open question). What is still open, and who answers it:
 
 - Q1 (Martin) — **closed 2026-10-27: "Retire /checkout"**, picked over
   keeping it live and unlinked, told the CF copies are card-only. Written into
-  `page` B5/B5a, `worker` R5/R6, `wallets` and INDEX (`daee428`).
+  `page` B5/B5a, `worker` R5/R6, `wallets` and INDEX (`1540277`).
 - Q2 (`clickfunnels-opzichter`, Martin's yes at the click): build B1 — the new
   funnel on `checkout.leskobusiness.com`, the three copies at `/monthly`,
   `/half-year`, `/yearly`, the root sent to leskobusiness.com — and B2, each
