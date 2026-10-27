@@ -2,7 +2,7 @@
 Status: as-built 2026-10-06
 Kind: app
 Summary: `index.html` + `checkout.html` + `welcome.html` (+ `llms.txt`, `sitemap.xml`): the sales page, our one-step checkout and the thank-you page
-Part of: `docs/specs/INDEX.md` · Deploy: push to `main` (Cloudflare Workers Builds) · Updated: 2026-10-06
+Part of: `docs/specs/INDEX.md` · Deploy: push to `main` (Cloudflare Workers Builds) · Updated: 2026-10-27
 Reads: `/api/config` (checkout only); nothing else at runtime — the YouTube playlist is hard-coded.
 Writes: `/api/subscribe` (checkout); the buyer's email, company and plan in the browser's `localStorage` key `leskoCheckout`; the newsletter email straight to Kit.
 
@@ -12,7 +12,7 @@ Writes: `/api/subscribe` (checkout); the buyer's email, company and plan in the 
 *What it owns:* `index.html`, `checkout.html`, `welcome.html`, `assets/` (including `assets/flow.css`, the checkout and welcome styles), `llms.txt`, `sitemap.xml`, `robots.txt`, the icons.
 *What it depends on:* the `worker` module's `/api/config` and `/api/subscribe`; Recurly.js v4 from `js.recurly.com`; the three Recurly plans at the prices the pages show.
 *Public entry points:* `GET /`, `GET /checkout?plan=monthly|half-year|yearly`, `GET /welcome?email=…&plan=…`; the `#pricing`, `#guarantee` and `#faq` anchors.
-*Not in scope:* the purchase itself (`worker`), provisioning and emails (lesko-provisioning), the ClickFunnels pages on leskohelp.com, Recurly's hosted pages.
+*Not in scope:* the purchase itself (`worker`), provisioning and emails (lesko-provisioning), the ClickFunnels pages themselves — on leskohelp.com and, once B1 is built, on `checkout.leskobusiness.com` (built in the ClickFunnels dashboard; only the links to them are ours) — Recurly's hosted pages.
 *Personal data:* the checkout sends name, email, optional company and address to Recurly and keeps email, company and plan in `localStorage` on the buyer's device (welcome reads it for 24 h). The email is in the `/welcome` URL. The newsletter form posts the email to Kit. With GA4 on, every visitor (EU included) gets an analytics cookie; there is no consent banner.
 
 Who: a business owner Matthew sent here · Where: web, three static HTML files
@@ -37,6 +37,81 @@ Who: a business owner Matthew sent here · Where: web, three static HTML files
   `recurly-api-key`, project lesko-486515). The HTML comment above the
   PRICING section says so *(as-built: that comment still names the old
   `leskohelp.recurly.com/subscribe/<plan code>` links; Giulia's copy)*.
+
+### Where the buttons go next: ClickFunnels on `checkout.leskobusiness.com` *(proposed 2026-10-27, worktree `cf-checkout`; not built)*
+
+Martin's goal (2026-10-27): "we've added lesko.business.com to clickfunnels,
+now we want to lead the traffic this way". Input: a visitor on
+leskobusiness.com who clicks a plan. Output today: our own `/checkout`.
+Output after this: a ClickFunnels order page for that plan on our own
+subdomain, which charges the same Recurly plan, then back to our `/welcome`.
+
+    buyer on / → https://checkout.leskobusiness.com/<plan>   (ClickFunnels, Recurly.js card form)
+      → Recurly purchase on business-<plan>, origin token_api
+      → https://leskobusiness.com/welcome?plan=business-<plan>
+      (then lesko-provisioning, unchanged)
+
+What is there today (measured 2026-10-27): `checkout.leskobusiness.com` is
+proxied through our Cloudflare zone to ClickFunnels, and **every path answers
+302 to `//www.clickfunnels.com?aff_sub=domain_redirect`** — the domain is
+connected, no funnel serves on it. The apex and `www` stay on our Worker.
+(`pay.leskobusiness.com` is a GoDaddy Payments pay-link host, not
+ClickFunnels, and not part of this.)
+
+- B1 — the pages, built in the ClickFunnels dashboard, not in this repo
+  (the `clickfunnels-opzichter` session, with Martin's yes at the click): a
+  **new funnel** on `checkout.leskobusiness.com` holding a **copy** of the
+  three order pages of funnel 5978951, at the paths `/monthly`, `/half-year`
+  and `/yearly` — the same words as our `?plan=` values, so a path names its
+  plan. Each copy keeps its product bound to the same Recurly plan and price
+  as its original: monthly `business-monthly` $29.95 (original page 63160420,
+  product 4923809), half-year `business-half-year` $89.95 (63160421, 4923810),
+  yearly `business-yearly` $149.95 (63160422, 4923811). **Funnel 5978951
+  itself is not moved**: a ClickFunnels Classic funnel serves on one domain,
+  and the live leskohelp.com sales page `/home-2` (page 64064278) links to
+  `www.leskohelp.com/lesko-help-*-b` by absolute URL, twice each — moving the
+  funnel would break its six buy buttons. The domain's root `/` sends a
+  visitor to `https://leskobusiness.com/`, not to clickfunnels.com.
+- B2 — after a paid order each copy sends the buyer to
+  `https://leskobusiness.com/welcome?plan=business-<plan>`. No email in that
+  URL: `/welcome` already works on `plan` alone (`purchase` fires, the email
+  box shows "the email you entered on the payment page"). If ClickFunnels can
+  put the buyer's email in the URL as `email=`, it may; `/welcome` strips it
+  before GA4 (R6).
+- B3 — the links (the worker's change, `index.html`, `llms.txt`): the three
+  "Add To Cart!" buttons, the final call-to-action, the three schema.org
+  offer `url`s in `<head>` and the three plan lines in `llms.txt` point at
+  `https://checkout.leskobusiness.com/<plan>`. `sitemap.xml` lists only `/`
+  and is not touched.
+- B4 — analytics: `begin_checkout` keeps firing on every one of those four
+  links with the right plan and price (R3 below, amended). The CF pages do
+  not load `site-events.js`, so a buyer who goes there sends no
+  `add_payment_info` (R5); the funnel in GA4 reads `begin_checkout` →
+  `purchase` on `/welcome`.
+- B5 — `/checkout` stays live and unchanged (card through `/api/subscribe`,
+  PayPal straight into PayPal): nothing on the page links to it any more,
+  anyone holding the old link still pays there, and going back is putting
+  the four hrefs back. *(proposed; Martin's call, see Open questions — the CF
+  copies are card-only, so the switch takes PayPal off the main path.)*
+- B6 — landing order: the links change only after the CF pages are proven on
+  the live domain (B7 green). Landed before that, every buyer reaches
+  clickfunnels.com's own home page.
+- B7 — the proof, `scripts/check-cf-checkout.sh`, run by hand (it is not on
+  a schedule, so it needs no alert): for each plan, one request at a time,
+  paced, with an honest User-Agent naming this repo and the script, it
+  fetches `https://checkout.leskobusiness.com/<plan>` without following
+  redirects and asserts on what only the right page has — the new page's own
+  numeric id (the hidden input's `value`; the `page_id` meta tag is
+  encrypted), `data-product-payment-gateway-plan-id="business-<plan>"` and
+  `data-product-amount` equal to the plan's price. Verdict per plan is live,
+  dead or unknown: a 302, a wrong id or a wrong plan is dead; 429, any 5xx, a
+  timeout or a reset is unknown. Exit 0 only when all three are live. It is
+  red today (all three 302). The three page ids are constants in the script,
+  filled in from what B1 creates.
+
+The prices are now typed in one more place: the three CF products. Change
+one, change all — `index.html`, `checkout.html`, `assets/site-events.js`,
+the Recurly plans, and the CF products.
 
 ### The checkout (`/checkout?plan=…`)
 
@@ -125,7 +200,7 @@ money is GA4, shared by all three pages since `ga4-all-pages` (landed
 *What it does:*
 - R1: while `GA4_MEASUREMENT_ID` is empty, `init()` returns `false` and `track()` does nothing — no request to Google, no cookie, nothing in `dataLayer`, on any page.
 - R2: when set, `init()` loads gtag.js and sends `page_view`; one consent default applies to every visitor, with no `region` key: `analytics_storage` `granted`, `ad_storage`, `ad_user_data` and `ad_personalization` `denied`. No linker to `leskohelp.recurly.com` (removed: nothing links there any more).
-- R3: `/`: a click on a link whose href has `/checkout…?plan=<plan>` sends `begin_checkout` with `currency: USD`, `value` from `planPriceUSD(plan)`, `items[0].item_id = plan`, plus `button_text` and `button_section`.
+- R3: `/`: a click on a link whose href has `/checkout…?plan=<plan>` — or, once B3 lands, `https://checkout.leskobusiness.com/<plan>` (the plan is the path) — sends `begin_checkout` with `currency: USD`, `value` from `planPriceUSD(plan)`, `items[0].item_id = plan`, plus `button_text` and `button_section`.
 - R4: `/`: a click on `href="#pricing"` sends `join_button_click`; a submit of a form whose action contains `app.kit.com/forms/` sends `generate_lead` with `form_name: newsletter`.
 - R5: `/checkout`: `page_view` carries `plan`; pressing Pay with a valid form sends `add_payment_info` (plan, price, USD) before Recurly is asked for a card token, so declines still count.
 - R6: `/welcome`: `page_location` has `email`, `account_code` and `account` stripped, so the buyer's email never reaches Google; `purchase` (plan, price, USD; a `business-` prefix is stripped) fires once per tab (`sessionStorage` key `leskoPurchaseSent`).
@@ -157,5 +232,7 @@ money is GA4, shared by all three pages since `ga4-all-pages` (landed
   own module spec (`wallets.md`) instead of more text here. Why: this spec
   records a page that exists, and not one of the three wallets can run until
   the gateway behind Recurly changes.
+
+- 2026-10-27 (proposed, worktree `cf-checkout`, not agreed): the buttons go to ClickFunnels order pages on our own subdomain `checkout.leskobusiness.com/<plan>`, a copy of funnel 5978951's three `-b` pages in a funnel of its own; `/checkout` stays live but unlinked (B1–B7). Why: Martin's goal, "we've added lesko.business.com to clickfunnels, now we want to lead the traffic this way". Why a copy and not a move: `/home-2` on leskohelp.com links to the originals and a Classic funnel serves on one domain. Why the links wait for a live check: the domain answers every path with clickfunnels.com's own home page until B1 is built.
 
 <!-- spec:template -->
