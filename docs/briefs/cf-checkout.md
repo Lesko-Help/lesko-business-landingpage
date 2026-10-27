@@ -198,11 +198,30 @@ only `scripts/test-subscribe-rate-limit.sh`; nothing references it; no
 other code changed since `778e158`; ga4, retire, PayPal snippet, wallet and
 checkout suites green on a scratch copy; origin/main merged.
 
+CF pages read live 2026-10-27 (Martin: "should be done already"; ids from
+clickfunnels-opzichter [da30c5], each re-read by me, paced, honest UA):
+funnel 13711137; monthly 64133517, half-year 64133609, yearly 64133610;
+plans business-cf-* at 29.95/89.95/149.95 (accepted, spec `98e60da`).
+Not yet as B1/B1a/B2 need:
+- paths: the pages sit at long slugs; /monthly, /half-year, /yearly and /
+  all 302 to clickfunnels.com.
+- PayPal: our snippet is not pasted; each page carries the template's
+  "Pay with PayPal" button -> free.lesko.com/monthly-paypal1711925300051
+  -> 302 (MISS) -> /lesko-help-aff, consumer $3 ClickBank trial
+  LESKO-TRIAL-3-2995 (MISS on a fresh path).
+- after payment (B2): unrecorded; CF session said the thank-you step was
+  still to be built on 2026-10-26.
+
 Next:
-1. Q2 for clickfunnels-opzichter (Martin's yes): build B1/B2, paste
-   `clickfunnels/paypal-button.html` unchanged, report the three page ids
-   (they go into check-cf-checkout.sh's REPLACE_WITH_PAGE_ID_* constants).
-2. Land only when check-cf-checkout.sh is green live, and Martin says so.
+1. Martin's yes for clickfunnels-opzichter to: rename the three paths to
+   /monthly, /half-year, /yearly; root / -> https://leskobusiness.com/;
+   remove the template PayPal button and its custom JS; paste
+   `clickfunnels/paypal-button.html` unchanged; after payment ->
+   https://leskobusiness.com/welcome?plan=business-<plan>.
+2. Worker cf-links: fill the three page ids, expect business-cf-<plan>, and
+   fail any page that mentions free.lesko.com (spec B7 `98e60da`). Then I
+   re-review.
+3. Land only when check-cf-checkout.sh is green live, and Martin says so.
 
 Traps (with dates):
 - 2026-10-27: funnel 5978951's -b pages are linked by /home-2 on
