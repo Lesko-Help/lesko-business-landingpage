@@ -168,79 +168,58 @@ open question). What is still open, and who answers it:
 
 ## State
 
-Replaced 2026-10-27 (context guard). Seat: architect, oneshot. No werk.queue
-row id in the Goal, so no queue state written.
+Replaced 2026-10-27 (context guard, 2nd). Seat: architect, oneshot. No
+werk.queue row id in the Goal, so no queue state written. No memory bank.
 
-Done:
-- Spec: page B1–B7 (`3f98c42`), retire `/checkout` (`1540277`, Q1), PayPal on
-  the CF pages (`b3bd700`, Q3: B1a + B4/B5/B7, wallets, INDEX); brief
-  `fedbe77`. wt-done.sh --check cf-checkout exit 0 (run it from PATH, not
-  `bash wt-done.sh`). Re-reported to Martin.
-- Worker `cf-links` (session cwv-landing.cf-links) told the PayPal scope;
-  it reported done at HEAD `778e158`, not landed.
+Done (spec + brief, this branch):
+- Spec page B1-B7, retire /checkout (Q1), PayPal on CF pages (Q3, B1a).
+- `98e60da`: B1 records what CF built; plans business-cf-* accepted
+  (active Recurly plans, same price/interval; provisioning maps by rail via
+  ref_rail_plans, not plan code); B1a: template PayPal button removed; B7
+  expects business-cf-<plan>. `6f461b0`: B7 fails on a free.lesko.com
+  LINK, not a mention.
+- wt-done.sh --check cf-checkout exit 0 (run from PATH).
 
-Verdict on cf-links `778e158` (2026-10-27): **changes requested, one item**
-— delete `scripts/test-subscribe-rate-limit.sh` (red for good once R6
-lands; spec made explicit in `4f61b73`). Sent to cwv-landing.cf-links.
-Everything else passes, each re-run on a scratch copy:
-- Green: ga4 44, retire 35, PayPal snippet 55; wallet/checkout suites.
-  (raillog-alert, decline-alert, decline-email exit non-zero identically
-  on main and HEAD with my arguments — not a regression.)
-- Red when broken: ga4 with the old matcher 6 FAIL; retire vs main's
-  worker 33 FAIL, 301 mutant 14; snippet id swap 2, no `business-` 10;
-  check script vs stand-in: good=live/exit 0, foreign P- id=dead,
-  429=unknown, 302=dead.
-- Original `/lesko-help-monthly-b` prints `data-product-amount="29.95"`
-  (MISS), so the check's price format matches a copied product.
+CF pages, read live 2026-10-27 (paced, honest UA, saved HTML in the
+scratchpad `live/`): funnel 13711137; monthly 64133517
+`/optin1793010582809`, half-year 64133609
+`/business_6_montly_89-951793018300131`, yearly 64133610
+`/business_yearly_149951793018490642`; business-cf-* at 29.95/89.95/149.95
+(amount printed exactly so). Gaps: `/`, /monthly, /half-year, /yearly 302
+to clickfunnels.com; our snippet not pasted; each page has a template
+"Pay with PayPal" (#tmp_button-37282) -> free.lesko.com/monthly-paypal
+1711925300051 -> 302 (MISS) /lesko-help-aff = consumer $3 ClickBank trial
+LESKO-TRIAL-3-2995 (MISS); after-payment step unrecorded (CF session:
+unbuilt on 10-26). CF session [da30c5] told all this; asked to change
+nothing until Martin says yes.
 
-Verdict on cf-links `4b1b20a` (2026-10-27): **pass.** `31a9e8b` deletes
-only `scripts/test-subscribe-rate-limit.sh`; nothing references it; no
-other code changed since `778e158`; ga4, retire, PayPal snippet, wallet and
-checkout suites green on a scratch copy; origin/main merged.
-
-CF pages read live 2026-10-27 (Martin: "should be done already"; ids from
-clickfunnels-opzichter [da30c5], each re-read by me, paced, honest UA):
-funnel 13711137; monthly 64133517, half-year 64133609, yearly 64133610;
-plans business-cf-* at 29.95/89.95/149.95 (accepted, spec `98e60da`).
-Not yet as B1/B1a/B2 need:
-- paths: the pages sit at long slugs; /monthly, /half-year, /yearly and /
-  all 302 to clickfunnels.com.
-- PayPal: our snippet is not pasted; each page carries the template's
-  "Pay with PayPal" button -> free.lesko.com/monthly-paypal1711925300051
-  -> 302 (MISS) -> /lesko-help-aff, consumer $3 ClickBank trial
-  LESKO-TRIAL-3-2995 (MISS on a fresh path).
-- after payment (B2): unrecorded; CF session said the thank-you step was
-  still to be built on 2026-10-26.
-
-Verdict on cf-links `5d09a9f` (2026-10-27): **changes requested, one
-item** — the free.lesko.com guard must match a link
-(`//(www\.)?free\.lesko\.com/`), not any mention: each real page also
-names free.lesko.com as bare text in a tracking script, so the check could
-never go green. My spec wording caused it; fixed in `6f461b0`. Evidence,
-new script vs saved live HTML served at the short paths: real 3 dead;
-button removed + our PayPal added still 3 dead (the defect). With the
-narrow rule: real 3 dead; fixed 3 live (proves page ids, business-cf-*,
-and amount format "29.95"/"89.95"/"149.95" on the copies); button kept 3
-dead; yearly page at /monthly -> monthly dead. Old script (`4b1b20a`) vs
-the same pages: 3 dead on the placeholders. Ids and plan-code commits pass.
+Verdicts on worker cf-links (session cwv-landing.cf-links):
+- `4b1b20a` pass (rate-limit suite deleted).
+- `5d09a9f` **changes requested, one item**: check-cf-checkout.sh:80
+  `grep -qF "free.lesko.com"` -> link only `//(www\.)?free\.lesko\.com/`
+  (real pages name it as bare text in a tracking script). Ids commit
+  `046fb21` and plan-code commit `6d0ca24` pass. Proof on saved live HTML
+  at short paths, narrow rule: real 3 dead, fixed 3 live, button kept 3
+  dead, yearly-at-/monthly monthly dead. Sent; awaiting new HEAD.
 
 Next:
-1. Martin's yes for clickfunnels-opzichter to: rename the three paths to
-   /monthly, /half-year, /yearly; root / -> https://leskobusiness.com/;
-   remove the template PayPal button and its custom JS; paste
-   `clickfunnels/paypal-button.html` unchanged; after payment ->
-   https://leskobusiness.com/welcome?plan=business-<plan>.
-2. cf-links narrows the guard; I re-review.
-3. Land only when check-cf-checkout.sh is green live, and Martin says so.
+1. On cf-links report: diff from 5d09a9f, re-run the stand-in
+   (scratchpad rev2/real_standin.py, MODE real|fixed|paypal_only|swap)
+   against its script; verdict in this State.
+2. Martin's yes (asked, not given) for clickfunnels-opzichter: rename paths
+   to /monthly, /half-year, /yearly; root -> https://leskobusiness.com/;
+   remove template PayPal button + JS; paste clickfunnels/paypal-button.html
+   unchanged; after payment -> /welcome?plan=business-<plan>.
+3. Land only when check-cf-checkout.sh is green live and Martin says "land
+   it" — then say so in one line and stop.
 
 Traps (with dates):
 - 2026-10-27: funnel 5978951's -b pages are linked by /home-2 on
-  www.leskohelp.com (absolute URLs, 6 buttons): copy, never move.
-- 2026-10-27: checkout.leskobusiness.com answers every path 302 ->
-  clickfunnels.com until a funnel serves there; landing links early sends
-  every buyer away.
+  www.leskohelp.com (6 buttons): copy, never move.
+- 2026-10-27: checkout.leskobusiness.com answers unknown paths 302 ->
+  clickfunnels.com; landing links early sends every buyer away.
 - 2026-10-27: pay.leskobusiness.com is GoDaddy Payments, not ClickFunnels.
-- 2026-10-27: CF -b pages are card-only today; CF's own PayPal bills CF's
-  merchant plans — PayPal goes on via our snippet only (B1a).
-- 2026-10-27: begin_checkout matcher index.html:3210 reads only
-  /checkout...?plan= (fixed on cf-links).
+- 2026-10-27: CF's own PayPal bills CF's merchant plans — our snippet only.
+- 2026-10-27: CF pages name free.lesko.com as bare text (tracking script);
+  guard on links, not mentions.
+- 2026-10-27: three sessions are named clickfunnels-opzichter; use [da30c5].
