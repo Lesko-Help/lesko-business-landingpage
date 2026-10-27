@@ -141,11 +141,43 @@ open question). What is still open, and who answers it:
 
 ## State
 
-Replaced in full each time the context guard asks you to save — never append another checkpoint.
-About 60 lines max. Old traps stay (they are short and worth keeping); everything else gets
-overwritten with the current picture.
+Replaced 2026-10-27 (context guard). Seat: architect, oneshot. No werk.queue row
+id in the Goal, so no queue state written (neither designing nor specced).
 
 Done:
-In flight (file:line):
+- d6c4a66 brief filled; 3f98c42 spec page.md B1-B7 (proposed) + INDEX open
+  question; 28eaff6 brief Spec proposals Q1/Q2 + sitemap.xml out of scope.
+- origin/main merged (up to date); wt-done.sh --check cf-checkout exit 0.
+- Report shown to Martin. Q1 answered: **"Retire /checkout"** (2026-10-27).
+
+In flight (uncommitted):
+- docs/specs/modules/page.md B5 rewritten to RETIRE (302 /checkout,
+  /checkout/, /checkout.html -> checkout.leskobusiness.com/<plan>, fallback
+  monthly; checkout.html into .assetsignore; files stay until a real CF
+  purchase) and B5a (/api/subscribe + /api/config -> 410, no Recurly call).
+
 Next:
+1. page.md: fix B3/B6 wording that still says /checkout "stays"; Overview
+   entry points; the 2026-10-27 decision line -> agreed + retire.
+2. worker.md: add R5 (/checkout 302) and R6 (410), decision line; note that
+   test-subscribe-rate-limit.sh retires with the route (unit tests call
+   subscribe() directly and stay green).
+3. wallets.md: decision line, retired with /checkout.
+4. INDEX.md: replace the Q1 open question with the decision.
+5. Brief: Q1 closed, done-when gains the retire test (worker fetch: 302s,
+   410s, Recurly fetch never called), May touch gains worker.js +
+   .assetsignore + new test; commit; wt-done --check; re-report.
+6. Start worker: WT_MODULE=page wt-new.sh <name> "<goal>" — may land only
+   after scripts/check-cf-checkout.sh is green (needs B1 built by
+   clickfunnels-opzichter, Martin's yes).
+
 Traps (with dates):
+- 2026-10-27: funnel 5978951's -b pages are linked by /home-2 on
+  www.leskohelp.com (absolute URLs, 6 buttons): copy, never move.
+- 2026-10-27: checkout.leskobusiness.com answers every path 302 ->
+  clickfunnels.com until a funnel serves there; landing links early sends
+  every buyer away.
+- 2026-10-27: pay.leskobusiness.com is GoDaddy Payments, not ClickFunnels.
+- 2026-10-27: CF -b pages are card-only (no PayPal).
+- 2026-10-27: begin_checkout matcher index.html:3210 reads only
+  /checkout...?plan=.
