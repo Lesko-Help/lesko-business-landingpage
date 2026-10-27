@@ -1,0 +1,142 @@
+<!--
+  PayPal button for the ClickFunnels order pages on checkout.leskobusiness.com (page spec B1a).
+
+  NOT SERVED from this repo: `clickfunnels/` is in .assetsignore. This file is the text that the
+  clickfunnels-opzichter session pastes, UNCHANGED, into a Custom JS/HTML element on each of the
+  three copies (/monthly, /half-year, /yearly), with Martin's yes at the click.
+
+  Why it exists: ClickFunnels' own PayPal integration bills ClickFunnels' merchant plans, not
+  ours (on 2026-10-17 the ids copied from a CF page billed $19.95 for monthly, had no half-year
+  plan and answered 404 for our credentials). This button creates the subscription in Lesko's own
+  PayPal account, on the plan ids below, which lesko-provisioning's PayPal rail already handles.
+  Never use ClickFunnels' own PayPal plan ids.
+
+  One snippet for all three pages: it reads its plan from the page's own path, so no copy can
+  carry the wrong id. It copies the behaviour of assets/wallet-paypal.js, not its code (a CF page
+  has no LeskoCheckout). The client id and the three plan ids below must equal that file's
+  PAYPAL_CLIENT_ID and PAYPAL_PLAN_IDS; scripts/test-cf-paypal-button.mjs checks that they do.
+  The client id is public (a browser identifier); the client SECRET never appears here.
+-->
+<div id="lesko-paypal-button"></div>
+<p id="lesko-paypal-message" role="alert" style="color:#b00020;font-size:14px;margin:8px 0 0;"></p>
+<script>
+(function () {
+  var PAYPAL_CLIENT_ID = 'ARTrRs67UuT2GSadXtlhLA6Q2JTpDSNHJQBvj0NdIeBOSEHbv7IST2eClJwe0D7rpsBMpcYkTYuxXnvN';
+  var PAYPAL_PLAN_IDS = {
+    'monthly': 'P-7R176589BE0160805NLJVCFI',    // $29.95 every 1 MONTH
+    'half-year': 'P-2GV64945HR320740CNLIP2HY',  // $89.95 every 6 MONTH
+    'yearly': 'P-8M862053KT491162FNLJVCFI'      // $149.95 every 1 YEAR
+  };
+  var EMAIL_LOOKUP_MS = 5000;
+  var CONFIRM_FAILED = 'We could not confirm your PayPal payment. If you were charged, contact support before trying again.';
+
+  // Input: nothing (reads location.pathname). Output: 'monthly', 'half-year' or 'yearly', or ''
+  // for any other path. Why: the page's own path names its plan, so one snippet serves all three.
+  function planFromPath() {
+    var match = /^\/(monthly|half-year|yearly)\/?$/.exec(location.pathname);
+    return match ? match[1] : '';
+  }
+
+  // Input: a message, or '' to clear. Output: none; writes it in this snippet's own message
+  // line. Why: errors never go to window.alert (PP5).
+  function showMessage(text) {
+    var line = document.getElementById('lesko-paypal-message');
+    if (line) line.textContent = text;
+  }
+
+  // Input: PayPal's `actions` object from onApprove. Output: a promise for the buyer's PayPal
+  // email, lower-cased, or '' when PayPal does not give one within EMAIL_LOOKUP_MS. Why it never
+  // rejects: it runs after the money is taken, so a failed, thrown or hung lookup must still let
+  // the buyer through to /welcome, only without the email (PP4).
+  function paypalEmail(actions) {
+    var get = actions && actions.subscription && actions.subscription.get;
+    if (typeof get !== 'function') return Promise.resolve('');
+    return new Promise(function (resolve) {
+      var settled = false;
+      var timer;
+      // Input: the address to report. Output: none; resolves once, whichever of the call and the
+      // timeout gets there first.
+      function settle(address) {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(address);
+      }
+      timer = setTimeout(function () { settle(''); }, EMAIL_LOOKUP_MS);
+      try {
+        Promise.resolve(actions.subscription.get()).then(function (subscription) {
+          var subscriber = subscription && subscription.subscriber;
+          var address = subscriber && subscriber.email_address;
+          settle(address ? String(address).trim().toLowerCase() : '');
+        }, function () { settle(''); });
+      } catch (e) {
+        settle('');
+      }
+    });
+  }
+
+  // Input: the plan key ('monthly' ...) and its PayPal plan id. Output: none; renders PayPal's
+  // button into #lesko-paypal-button. Why: called only once PayPal's SDK has loaded.
+  function renderButton(plan, planId) {
+    var container = document.getElementById('lesko-paypal-button');
+    if (!container || !window.paypal) return;
+
+    window.paypal.Buttons({
+      style: { layout: 'vertical', label: 'subscribe' },
+
+      // PP3: the one thing PayPal needs - create the subscription on this page's plan.
+      createSubscription: function (data, actions) {
+        return actions.subscription.create({ plan_id: planId });
+      },
+
+      // PP4: the money is already taken here, so nothing may stop the navigation.
+      // Input: PayPal's onApprove data and actions. Output: a promise that settles once the buyer
+      // is sent to /welcome with the plan, and with the email only when PayPal gave one.
+      onApprove: function (data, actions) {
+        if (!data || !data.subscriptionID) {
+          showMessage(CONFIRM_FAILED);
+          return;
+        }
+        showMessage('');
+        return paypalEmail(actions).then(function (email) {
+          var url = 'https://leskobusiness.com/welcome?plan=business-' + plan +
+            (email ? '&email=' + encodeURIComponent(email) : '');
+          try {
+            location.assign(url);
+          } catch (e) {
+            showMessage(CONFIRM_FAILED);
+          }
+        });
+      },
+
+      // PP5: a real failure is shown in our own line; the card form stays usable.
+      onError: function () {
+        showMessage('PayPal did not go through. Please try again or pay by card instead.');
+      }
+
+      // No onCancel: the buyer closing PayPal's window is not an error, so nothing is shown (PP5).
+    }).render(container);
+  }
+
+  // Input: nothing. Output: none; either does nothing (PP1: unknown path, empty client id, no
+  // container, and then no PayPal script is fetched at all) or adds PayPal's SDK script once
+  // (PP2) and renders the button when it loads.
+  function init() {
+    var plan = planFromPath();
+    var planId = Object.prototype.hasOwnProperty.call(PAYPAL_PLAN_IDS, plan) ? PAYPAL_PLAN_IDS[plan] : '';
+    if (!planId || !PAYPAL_CLIENT_ID || !document.getElementById('lesko-paypal-button')) return;
+
+    var script = document.createElement('script');
+    // Subscription intent with vaulting, USD, buttons only; card funding off because ClickFunnels'
+    // own card form is on the same page.
+    script.src = 'https://www.paypal.com/sdk/js?client-id=' + encodeURIComponent(PAYPAL_CLIENT_ID) +
+      '&vault=true&intent=subscription&currency=USD&components=buttons&disable-funding=card';
+    script.onload = function () { renderButton(plan, planId); };
+    // A blocked or failed SDK means no PayPal button, silently - the card path is untouched.
+    script.onerror = function () { if (script.parentNode) script.parentNode.removeChild(script); };
+    document.head.appendChild(script);
+  }
+
+  init();
+})();
+</script>
