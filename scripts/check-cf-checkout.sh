@@ -27,12 +27,11 @@ PACE="${CF_PACE_SECONDS:-5}"
 USER_AGENT="lesko-business-landingpage/scripts/check-cf-checkout.sh (hand check; contact martin.j.menke@gmail.com)"
 
 # The numeric ClickFunnels page id of each copy: the `value` of a hidden input on the page (the
-# page_id meta tag is encrypted). PLACEHOLDERS until the clickfunnels-opzichter session builds the
-# funnel (page B1) - replace each REPLACE_WITH_PAGE_ID_* with the real number. Until then a page
-# that serves still reads dead, which is the honest answer.
-PAGE_ID_MONTHLY="REPLACE_WITH_PAGE_ID_MONTHLY"
-PAGE_ID_HALF_YEAR="REPLACE_WITH_PAGE_ID_HALF_YEAR"
-PAGE_ID_YEARLY="REPLACE_WITH_PAGE_ID_YEARLY"
+# page_id meta tag is encrypted). Read live from the three copies on 2026-10-27 (page B1). A page
+# whose id differs reads dead, which is the honest answer if a copy is ever rebuilt.
+PAGE_ID_MONTHLY="64133517"
+PAGE_ID_HALF_YEAR="64133609"
+PAGE_ID_YEARLY="64133610"
 
 # Our PayPal client id and the three PayPal plan ids are read out of assets/wallet-paypal.js, the
 # one place they live in the page code, so this script is not a third copy to keep in step.
