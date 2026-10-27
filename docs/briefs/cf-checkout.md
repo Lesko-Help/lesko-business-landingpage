@@ -212,15 +212,25 @@ Not yet as B1/B1a/B2 need:
 - after payment (B2): unrecorded; CF session said the thank-you step was
   still to be built on 2026-10-26.
 
+Verdict on cf-links `5d09a9f` (2026-10-27): **changes requested, one
+item** — the free.lesko.com guard must match a link
+(`//(www\.)?free\.lesko\.com/`), not any mention: each real page also
+names free.lesko.com as bare text in a tracking script, so the check could
+never go green. My spec wording caused it; fixed in `6f461b0`. Evidence,
+new script vs saved live HTML served at the short paths: real 3 dead;
+button removed + our PayPal added still 3 dead (the defect). With the
+narrow rule: real 3 dead; fixed 3 live (proves page ids, business-cf-*,
+and amount format "29.95"/"89.95"/"149.95" on the copies); button kept 3
+dead; yearly page at /monthly -> monthly dead. Old script (`4b1b20a`) vs
+the same pages: 3 dead on the placeholders. Ids and plan-code commits pass.
+
 Next:
 1. Martin's yes for clickfunnels-opzichter to: rename the three paths to
    /monthly, /half-year, /yearly; root / -> https://leskobusiness.com/;
    remove the template PayPal button and its custom JS; paste
    `clickfunnels/paypal-button.html` unchanged; after payment ->
    https://leskobusiness.com/welcome?plan=business-<plan>.
-2. Worker cf-links: fill the three page ids, expect business-cf-<plan>, and
-   fail any page that mentions free.lesko.com (spec B7 `98e60da`). Then I
-   re-review.
+2. cf-links narrows the guard; I re-review.
 3. Land only when check-cf-checkout.sh is green live, and Martin says so.
 
 Traps (with dates):
