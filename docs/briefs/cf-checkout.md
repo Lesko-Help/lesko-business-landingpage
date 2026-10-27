@@ -195,6 +195,8 @@ nothing until Martin says yes.
 
 Verdicts on worker cf-links (session cwv-landing.cf-links):
 - `4b1b20a` pass (rate-limit suite deleted).
+  Keeping that deletion (`31a9e8b`): Martin approved it 2026-10-27 in
+  control.report (relayed by that session, not said here).
 - `5d09a9f` **changes requested, one item**: check-cf-checkout.sh:80
   `grep -qF "free.lesko.com"` -> link only `//(www\.)?free\.lesko\.com/`
   (real pages name it as bare text in a tracking script). Ids commit
