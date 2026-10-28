@@ -115,8 +115,8 @@ function isSharedAnalyticsSrc(src) {
 // ── index.html ──────────────────────────────────────────────────────────────
 (function () {
   const w = loadPage('index.html', 'https://leskobusiness.com/', FORCED_ID);
-  const link = w.document.querySelector('a[href^="/checkout?plan="]');
-  check('index.html has a /checkout?plan= link to click', !!link);
+  const link = w.document.querySelector('a[href^="https://checkout.leskobusiness.com/"]');
+  check('index.html has a checkout.leskobusiness.com/<plan> link to click', !!link);
   if (link) link.dispatchEvent(new w.MouseEvent('click', { bubbles: true, cancelable: true }));
 
   const joinLink = w.document.querySelector('a[href="#pricing"]');
@@ -133,6 +133,40 @@ function isSharedAnalyticsSrc(src) {
   check('index.html: begin_checkout carries currency USD and a plan value', !!bc && bc.currency === 'USD' && typeof bc.value === 'number');
   check('index.html: join_button_click fires on #pricing', !!findEvent(w, 'join_button_click'));
   check('index.html: generate_lead fires on the newsletter submit', !!findEvent(w, 'generate_lead'));
+})();
+
+// ── index.html, every checkout link (page B3, B4; R3) ───────────────────────
+// Input: the real index.html with the id forced on. Output: checks that each of the four checkout
+// links (three pricing cards in order monthly, half-year, yearly, then the final call-to-action,
+// which sells monthly) points at https://checkout.leskobusiness.com/<plan> and that clicking it
+// sends begin_checkout with that plan, its USD price and the link's own item_id. Why: the buttons
+// moved from /checkout?plan= to the ClickFunnels pages, and a click matcher that still only knew
+// the old shape would silently stop counting every checkout start.
+(function () {
+  const expected = [
+    { plan: 'monthly', price: 29.95 },
+    { plan: 'half-year', price: 89.95 },
+    { plan: 'yearly', price: 149.95 },
+    { plan: 'monthly', price: 29.95 }
+  ];
+  const w = loadPage('index.html', 'https://leskobusiness.com/', FORCED_ID);
+  // jsdom cannot navigate; stop the click's default action after the page's own listener has run.
+  w.document.addEventListener('click', function (e) { e.preventDefault(); });
+  const links = [...w.document.querySelectorAll('a[href^="https://checkout.leskobusiness.com/"]')];
+  check('index.html has exactly four checkout.leskobusiness.com links', links.length === 4);
+  expected.forEach(function (want, i) {
+    const link = links[i];
+    check('index.html: checkout link ' + (i + 1) + ' goes to /' + want.plan,
+      !!link && link.getAttribute('href') === 'https://checkout.leskobusiness.com/' + want.plan);
+    if (!link) return;
+    const before = events(w).filter(function (e) { return e[0] === 'event' && e[1] === 'begin_checkout'; }).length;
+    link.dispatchEvent(new w.MouseEvent('click', { bubbles: true, cancelable: true }));
+    const all = events(w).filter(function (e) { return e[0] === 'event' && e[1] === 'begin_checkout'; });
+    const got = all.length === before + 1 ? all[all.length - 1][2] : undefined;
+    check('index.html: link ' + (i + 1) + ' sends begin_checkout for ' + want.plan + ' at $' + want.price,
+      !!got && got.currency === 'USD' && got.value === want.price &&
+      got.items && got.items[0] && got.items[0].item_id === want.plan);
+  });
 })();
 
 // ── checkout.html ───────────────────────────────────────────────────────────

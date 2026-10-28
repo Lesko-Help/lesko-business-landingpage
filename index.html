@@ -96,7 +96,7 @@
      "price": "29.95",
      "priceCurrency": "USD",
      "description": "$29.95 per month, billed monthly. Cancel anytime.",
-     "url": "https://www.leskobusiness.com/checkout?plan=monthly",
+     "url": "https://checkout.leskobusiness.com/monthly",
      "availability": "https://schema.org/InStock"
     },
     {
@@ -105,7 +105,7 @@
      "price": "89.95",
      "priceCurrency": "USD",
      "description": "$14.99/month billed semi-annually ($89.95).",
-     "url": "https://www.leskobusiness.com/checkout?plan=half-year",
+     "url": "https://checkout.leskobusiness.com/half-year",
      "availability": "https://schema.org/InStock"
     },
     {
@@ -114,7 +114,7 @@
      "price": "149.95",
      "priceCurrency": "USD",
      "description": "$12.49/month billed yearly ($149.95).",
-     "url": "https://www.leskobusiness.com/checkout?plan=yearly",
+     "url": "https://checkout.leskobusiness.com/yearly",
      "availability": "https://schema.org/InStock"
     }
    ]
@@ -2609,13 +2609,15 @@
 </section>
 
 <!-- ──────────── PRICING ──────────── -->
-<!-- The checkout buttons go to our branded /checkout page (checkout.html),
-     which sends the buyer on to Recurly's hosted page
-     (leskohelp.recurly.com/subscribe/<plan code>). Recurly charges that
-     plan's own price, so the prices here and in checkout.html must match the
-     plans in Recurly: business-monthly $29.95, business-half-year $89.95,
-     business-yearly $149.95. Changing a price means changing it in all three
-     places. After payment Recurly should send the buyer to /welcome. -->
+<!-- The checkout buttons go to the ClickFunnels order pages on our own
+     subdomain, https://checkout.leskobusiness.com/<plan> (plan = monthly,
+     half-year or yearly), which charge through Recurly.js. Each page charges
+     its own plan's price, so the prices here, in checkout.html and in
+     assets/site-events.js must match the plans in Recurly and the
+     ClickFunnels products: business-monthly $29.95, business-half-year
+     $89.95, business-yearly $149.95. Changing a price means changing it in
+     every one of those places. After payment ClickFunnels sends the buyer to
+     /welcome. -->
 <section class="pricing" id="pricing">
   <div class="container">
     <div class="pricing-header reveal">
@@ -2637,7 +2639,7 @@
         <div class="pc-per">Per Month</div>
         <div class="pc-note">($29.95 Total)</div>
         <div class="pc-bill">Billed Monthly&nbsp;|&nbsp;Cancel Anytime</div>
-        <a href="/checkout?plan=monthly" class="pc-cart">Add To Cart!</a>
+        <a href="https://checkout.leskobusiness.com/monthly" class="pc-cart">Add To Cart!</a>
         <div class="pc-mbg">30-Day Money-Back Guarantee</div>
       </div>
 
@@ -2654,7 +2656,7 @@
         <div class="pc-per">Per Month</div>
         <div class="pc-note">($89.95 Total)</div>
         <div class="pc-bill">Billed Semi-Annually&nbsp;|&nbsp;Cancel Anytime</div>
-        <a href="/checkout?plan=half-year" class="pc-cart">Add To Cart!</a>
+        <a href="https://checkout.leskobusiness.com/half-year" class="pc-cart">Add To Cart!</a>
         <div class="pc-mbg">30-Day Money-Back Guarantee</div>
       </div>
 
@@ -2671,7 +2673,7 @@
         <div class="pc-per">Per Month</div>
         <div class="pc-note">($149.95 Total)</div>
         <div class="pc-bill">Billed Yearly&nbsp;|&nbsp;Cancel Anytime</div>
-        <a href="/checkout?plan=yearly" class="pc-cart">Add To Cart!</a>
+        <a href="https://checkout.leskobusiness.com/yearly" class="pc-cart">Add To Cart!</a>
         <div class="pc-mbg">30-Day Money-Back Guarantee</div>
       </div>
     </div>
@@ -2821,7 +2823,7 @@
       <em>Start winning them.</em>
     </h2>
     <p>This money isn’t only for the rich and the well-connected — <strong>it’s for everybody, and most of it goes unclaimed.</strong> Join 15,000+ members and get your first AI report the minute you sign up.</p>
-    <a href="/checkout?plan=monthly" class="btn-primary">Join the community — I want my share &nbsp;→</a>
+    <a href="https://checkout.leskobusiness.com/monthly" class="btn-primary">Join the community — I want my share &nbsp;→</a>
     <p class="small">From $12.49/month · Cancel anytime · 30-day money-back guarantee</p>
     <div class="cta-video">
       <video src="assets/welcome-loop.mp4" muted autoplay loop playsinline aria-label="Comic Matthew welcomes you with open arms"></video>
@@ -3201,14 +3203,18 @@
     return (link.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 80);
   }
 
-  // Input: a checkout link's href. Output: the plan code after its ?plan=, or
-  // null when the href is not one of our checkout links. The buttons go to
-  // our own /checkout page (since 2026-09-30), not straight to Recurly, so
-  // this reads the plan out of that link's own query string instead of a
-  // Recurly hosted-page address.
+  // Input: a checkout link's href. Output: the plan code of that link, or
+  // null when the href is not one of our checkout links. Two shapes count:
+  // https://checkout.leskobusiness.com/<plan> (the ClickFunnels order pages,
+  // where the plan is the path; since 2026-10-27) and /checkout?plan=<plan>
+  // (our retired own checkout page, which now only redirects there - kept so
+  // an old copy of the page still counts its clicks). The query string of
+  // the first shape is ignored on purpose.
   function planCodeOf(href) {
-    var match = /\/checkout\b[^#]*[?&]plan=([a-z0-9-]+)/i.exec(href || '');
-    return match ? match[1] : null;
+    var cfPage = /^https:\/\/checkout\.leskobusiness\.com\/(monthly|half-year|yearly)\/?(?:[?#]|$)/i.exec(href || '');
+    if (cfPage) return cfPage[1].toLowerCase();
+    var oldPage = /\/checkout\b[^#]*[?&]plan=([a-z0-9-]+)/i.exec(href || '');
+    return oldPage ? oldPage[1] : null;
   }
 
   // One listener for the whole page: every click is checked once.

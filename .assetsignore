@@ -23,3 +23,10 @@ README.md
 # publish that key on leskobusiness.com.
 .dev.vars
 .dev.vars.example
+
+# Our own checkout page is retired (page B5): unserved here so /checkout reaches the Worker,
+# which redirects it to the ClickFunnels page. The file stays in the repo; deleting it is a later brief.
+checkout.html
+
+# Text pasted into ClickFunnels by hand (the PayPal button snippet), never a page of this site.
+clickfunnels/
