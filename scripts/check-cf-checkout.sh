@@ -66,6 +66,7 @@ resolve_location() {
   local current="$1" target="$2"
   case "$target" in
     http://*|https://*) echo "$target" ;;
+    //*)                echo "${current%%://*}:$target" ;;   # protocol-relative: other host, same scheme
     /*)                 echo "$(origin_of "$current")$target" ;;
     *)                  echo "${current%/*}/$target" ;;
   esac
@@ -93,7 +94,7 @@ check_plan() {
     fi
     [ "${status:0:1}" = "3" ] || break
 
-    location="$(grep -i '^location:' "$headers" | tr -d '\r' | cut -d' ' -f2-)"
+    location="$(grep -i '^location:' "$headers" | head -1 | tr -d '\r' | cut -d' ' -f2-)"
     if [ -z "$location" ]; then
       reason="HTTP $status without a Location header, not an order page"; break
     fi
