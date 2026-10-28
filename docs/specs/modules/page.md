@@ -188,8 +188,9 @@ ClickFunnels, and not part of this.)
   a schedule, so it needs no alert): for each plan, one request at a time,
   paced, with an honest User-Agent naming this repo and the script, it
   fetches `https://checkout.leskobusiness.com/<plan>`, follows its redirects
-  (at most 3, each hop paced like a request; ClickFunnels answers the short
-  path with a 302 to its own page slug) and asserts on the final page, on
+  (at most 3, each hop paced like a request, only on our own host: a redirect
+  to another host, a loop or a fourth hop is dead; ClickFunnels answers the
+  short path with a 302 to its own page slug) and asserts on the final page, on
   what only the right page has — the new page's own
   numeric id (the hidden input's `value`; the `page_id` meta tag is
   encrypted), `data-product-payment-gateway-plan-id="business-cf-<plan>"` and
