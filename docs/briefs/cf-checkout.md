@@ -218,7 +218,12 @@ Next:
    x-request-id = ClickFunnels' app, not our zone). Check must not follow
    redirects (snippet reads location.pathname). CF session diagnosing; the
    other four items: Martin approved all four in that pane 2026-10-27,
-   plus the 302 diagnosis; awaiting its report: rename paths
+   plus the 302 diagnosis. 2026-10-28: cf-links LANDED (main fd53962,
+   merged here at 22b9b73) while check-cf-checkout.sh said NOT READY 3/3:
+   live buttons -> short path -> 302 to the long slug (card form on
+   business-cf-*, OK) whose template PayPal button still links to the
+   consumer $3 trial; root still -> clickfunnels.com. Told overseer
+   [be98da] and Martin; revert or finish CF is Martin's. Awaiting CF report: rename paths
    to /monthly, /half-year, /yearly; root -> https://leskobusiness.com/;
    remove template PayPal button + JS; paste clickfunnels/paypal-button.html
    unchanged; after payment -> /welcome?plan=business-<plan>.
