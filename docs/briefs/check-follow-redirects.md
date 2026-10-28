@@ -53,9 +53,17 @@ Verdict: `<fill in — pass, or changes requested>`
 What the overseer's review subagent flagged — style, bugs, security —
 one line each. A trimmer before Martin's read, not a replacement for it.
 
+1. MEDIUM, check-cf-checkout.sh resolve_location: a protocol-relative Location (//evil.example/x) hit the /* case, became our origin plus //evil.example/x and passed the same-host check.
+2. MEDIUM, test-check-cf-checkout.sh: the Python functions good_page, Handler.reply, do_GET, log_message had no input/output/why comments.
+3. LOW: take only the first Location header; keep a shell proxy off the 127.0.0.1 calls in the test; add scenarios for a 3xx without Location, a 429 at the first hop and a 5xx mid-chain. Leave 403/408 and cache-per-hop alone.
+
 ### Fixed in
 Which commit fixed each finding, or "not fixed — see report" — one line
 each.
+
+1. 670177b (checker: a //* case prefixes the current scheme; the protorel scenario was red first in 0c16168).
+2. 0c16168 (docstrings on all four stand-in functions).
+3. 670177b (head -1 on Location, red first as twoloc in 0c16168); 0c16168 (NO_PROXY, scenarios noloc, busyfirst, midfail, which already held and pin it); 403/408 and cache-per-hop left alone, noted under Spec proposals.
 
 This section is filled last, after the overseer runs its review subagent
 and sends the findings back — never by the worker reviewing its own
@@ -94,6 +102,8 @@ module's spec goes here instead: what the spec says now, what it should say,
 and why. The overseer applies what it agrees with on main.
 
 - `docs/specs/modules/page.md` B7, after "at most 3": add "a redirect to another host is dead, not followed". Why: the check proves the page on our own domain; following a foreign host would assert on a page we do not own, and the spec was silent.
+
+- B7, not changed here: a 403 or 408 mid-chain is read as dead (403) or dead as "not an order page" (408 is not special-cased); both could mean a host refusing and arguably read unknown. And the cf-cache-status check looks only at the final hop, not at the redirect hops. Proposal: decide whether B7 wants either; left alone for now.
 
 ## State
 
