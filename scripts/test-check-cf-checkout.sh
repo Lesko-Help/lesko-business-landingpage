@@ -37,6 +37,11 @@ export PAYPAL_PLAN_IDS="$(grep -o "P-[0-9A-Z]\{24\}" "$WALLET_FILE" | sort -u | 
 #   /plain/    the short path itself is the right page, no redirect             -> live
 #   /bare/     302 to a page that is a 404                                      -> dead
 #   /busy/     302 to a page that answers 429                                   -> unknown
+#   /protorel/ 302 whose Location is protocol-relative (//host/path), another host -> dead
+#   /noloc/    a 302 that carries no Location header at all                     -> dead
+#   /busyfirst/ the short path itself answers 429, no redirect yet              -> unknown
+#   /midfail/  a 302, then a second hop that answers 503                        -> unknown
+#   /twoloc/   a 302 with two Location headers; only the first (the good one) counts -> live
 cat > "$WORK_DIR/standin.py" <<'PYTHON'
 import http.server, os, sys
 
@@ -45,6 +50,10 @@ PRICES = {"monthly": "29.95", "half-year": "89.95", "yearly": "149.95"}
 SLUGS = {"monthly": "monthly64133517", "half-year": "business_half-year", "yearly": "business_yearly"}
 
 def good_page(plan, page_id=None):
+    """Input: a plan name, and optionally a wrong page id to plant.
+    Output: the bytes of an order page that carries everything the checker asserts on (page id,
+    plan code, price, our PayPal client id and exactly our three PayPal plan ids).
+    Why: one place builds the "right page", so a scenario can break exactly one thing in it."""
     plan_ids = " ".join('"%s"' % pid for pid in os.environ["PAYPAL_PLAN_IDS"].split())
     return (
         '<input type="hidden" value="%s">'
@@ -54,17 +63,28 @@ def good_page(plan, page_id=None):
     ).encode()
 
 class Handler(http.server.BaseHTTPRequestHandler):
-    def log_message(self, *args): pass
+    def log_message(self, *args):
+        """Input: the server's log arguments. Output: nothing. Why: keeps the test output to
+        the PASS/FAIL lines instead of one access-log line per request."""
 
-    def reply(self, status, body=b"", location=None):
+    def reply(self, status, body=b"", location=None, extra_location=None):
+        """Input: a status code, a body, and optionally a Location header (plus a second one).
+        Output: writes the whole HTTP answer to the client. Why: every scenario answers through
+        here, so a header is sent the same way each time."""
         self.send_response(status)
         if location:
             self.send_header("Location", location)
+        if extra_location:
+            self.send_header("Location", extra_location)
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
 
     def do_GET(self):
+        """Input: a GET request whose first path part names the scenario and whose last part is
+        a plan name, a hop (hop1monthly) or a page slug. Output: the answer that scenario gives
+        (a redirect, a page, an error). Why: this is the pretend ClickFunnels the checker is run
+        against; each scenario at the top of this file is one branch below."""
         parts = self.path.strip("/").split("/")
         scenario, name = parts[0], parts[-1]
         plan = next((p for p in PAGE_IDS if name == p or name.startswith("hop") and name.endswith(p)
@@ -99,6 +119,19 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self.reply(302, location=slug) if short else self.reply(200, good_page(plan, "1"))
         if scenario == "bare":
             return self.reply(302, location="/bare/gone") if short else self.reply(404, b"gone")
+        if scenario == "protorel":
+            return self.reply(302, location="//example.invalid/%s" % plan)
+        if scenario == "noloc":
+            return self.reply(302)
+        if scenario == "busyfirst":
+            return self.reply(429, b"slow down")
+        if scenario == "midfail":
+            if short:
+                return self.reply(302, location="/midfail/hop1%s" % plan)
+            return self.reply(503, b"down")
+        if scenario == "twoloc":
+            return (self.reply(302, location=slug, extra_location="http://example.invalid/x")
+                    if short else self.reply(200, good_page(plan)))
         if scenario == "busy":
             return self.reply(302, location=slug) if short else self.reply(429, b"slow down")
         return self.reply(404, b"nope")
@@ -120,7 +153,8 @@ failures=0
 # (a verdict word). Output: one PASS/FAIL line. Why: every scenario is judged the same way.
 run_scenario() {
   local scenario="$1" want_exit="$2" want_text="$3" output code
-  output="$(CF_CHECKOUT_BASE="http://127.0.0.1:$PORT/$scenario" CF_PACE_SECONDS=0 bash "$CHECKER" 2>&1)"
+  # NO_PROXY: a proxy set in the shell must not swallow the calls to 127.0.0.1.
+  output="$(NO_PROXY=127.0.0.1 no_proxy=127.0.0.1 CF_CHECKOUT_BASE="http://127.0.0.1:$PORT/$scenario" CF_PACE_SECONDS=0 bash "$CHECKER" 2>&1)"
   code=$?
   if [ "$code" = "$want_exit" ] && grep -qF -- "$want_text" <<<"$output"; then
     echo "PASS $scenario: exit $code, output has '$want_text'"
@@ -142,9 +176,14 @@ run_scenario away    1 "monthly dead: redirected to another host"
 run_scenario wrongid 1 "monthly dead: page id 64133517 not found"
 run_scenario bare    1 "monthly dead: HTTP 404"
 run_scenario busy    1 "monthly unknown: HTTP 429"
+run_scenario protorel  1 "monthly dead: redirected to another host"
+run_scenario noloc     1 "monthly dead: HTTP 302 without a Location header"
+run_scenario busyfirst 1 "monthly unknown: HTTP 429"
+run_scenario midfail   1 "monthly unknown: HTTP 503"
+run_scenario twoloc    0 "ALL LIVE"
 
 # The live line names the page the buyer really lands on, so a reader can see the redirect was followed.
-live_output="$(CF_CHECKOUT_BASE="http://127.0.0.1:$PORT/ok" CF_PACE_SECONDS=0 bash "$CHECKER" 2>&1)"
+live_output="$(NO_PROXY=127.0.0.1 no_proxy=127.0.0.1 CF_CHECKOUT_BASE="http://127.0.0.1:$PORT/ok" CF_PACE_SECONDS=0 bash "$CHECKER" 2>&1)"
 if grep -qF "1 redirect" <<<"$live_output" && grep -qF "monthly64133517" <<<"$live_output"; then
   echo "PASS ok: the live line names the final page and the redirect count"
 else
