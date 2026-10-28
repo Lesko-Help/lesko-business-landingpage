@@ -81,13 +81,13 @@ ClickFunnels, and not part of this.)
   `business-<plan>`: they are active Recurly plans with the same price and
   interval (`clickfunnels` repo, `data/recurly_plans.json`), and
   lesko-provisioning picks the MN plan by rail (`ref_rail_plans`), not by
-  plan code. Still open from B1 at that date: the pages sit at the slugs
-  `/optin1793010582809`, `/business_6_montly_89-951793018300131` and
-  `/business_yearly_149951793018490642`; `/monthly`, `/half-year`, `/yearly`
-  and `/` all answer 302 to clickfunnels.com. The paths are renamed in the
-  CF dashboard rather than linked as they are, because the links (B3), the
-  retire redirect (B5) and the PayPal snippet (B1a) all name the plan by its
-  path.
+  plan code. As measured 2026-10-28, after the CF renames: `/monthly` answers
+  302 to `/monthly64133517`, `/half-year` 302 to `/business_half-year` and
+  `/yearly` 302 to `/business_yearly`, each a 200 on its own page. Martin
+  kept the slugs ClickFunnels produced, so the links (B3), the retire
+  redirect (B5) and the PayPal snippet (B1a) keep naming the plan by the
+  short path and rely on that 302. Bare `/` still answers 302 to
+  clickfunnels.com.
 - B1a — **PayPal on the CF pages** (DECISION BY MARTIN 2026-10-27, "paypal
   should be included on the pages hosted by clickfunnels"). Input: a buyer on
   one of the three copies who clicks the PayPal button. Output: a live
@@ -187,8 +187,10 @@ ClickFunnels, and not part of this.)
 - B7 — the proof, `scripts/check-cf-checkout.sh`, run by hand (it is not on
   a schedule, so it needs no alert): for each plan, one request at a time,
   paced, with an honest User-Agent naming this repo and the script, it
-  fetches `https://checkout.leskobusiness.com/<plan>` without following
-  redirects and asserts on what only the right page has — the new page's own
+  fetches `https://checkout.leskobusiness.com/<plan>`, follows its redirects
+  (at most 3, each hop paced like a request; ClickFunnels answers the short
+  path with a 302 to its own page slug) and asserts on the final page, on
+  what only the right page has — the new page's own
   numeric id (the hidden input's `value`; the `page_id` meta tag is
   encrypted), `data-product-payment-gateway-plan-id="business-cf-<plan>"` and
   `data-product-amount` equal to the plan's price; and, for PayPal (B1a), our
@@ -336,5 +338,6 @@ money is GA4, shared by all three pages since `ga4-all-pages` (landed
 - 2026-10-27 (spec agreed in part, worktree `cf-checkout`, not built): the buttons go to ClickFunnels order pages on our own subdomain `checkout.leskobusiness.com/<plan>`, a copy of funnel 5978951's three `-b` pages in a funnel of its own (B1–B7). Why: Martin's goal, "we've added lesko.business.com to clickfunnels, now we want to lead the traffic this way". Why a copy and not a move: `/home-2` on leskohelp.com links to the originals and a Classic funnel serves on one domain. Why the links wait for a live check: the domain answers every path with clickfunnels.com's own home page until B1 is built.
 - 2026-10-27: **DECISION BY MARTIN: retire `/checkout`** ("Retire /checkout", picked over keeping it live but unlinked, told at the time that the CF copies are card-only). `/checkout` becomes a 302 to the CF page for its plan, `/api/subscribe` and `/api/config` answer 410 (B5, B5a). Why the code stays for now: going back is one landing, and nothing is deleted before a real purchase has come through the CF route.
 - 2026-10-27: **DECISION BY MARTIN: PayPal is included on the CF pages** ("paypal should be included on the pages hosted by clickfunnels", answering a report that said PayPal would leave the buyer's path). One snippet from this repo, `clickfunnels/paypal-button.html`, pasted on all three copies (B1a), billing Lesko's own three PayPal plans. Why a snippet and not CF's PayPal setting: CF's own PayPal plans belong to CF's merchant account and bill the wrong price (the 2026-10-17 trap). Why it lives here: it carries our plan ids and client id, so it is reviewed, tested and versioned like the rest of the checkout, and B7 proves the live paste matches.
+- 2026-10-28: **DECISION BY MARTIN: the checker follows redirects** (B7), and no revert of the links. Why: Martin kept the slugs ClickFunnels produced (`/monthly` 302 to `/monthly64133517`, `/half-year` 302 to `/business_half-year`, `/yearly` 302 to `/business_yearly`), so a checker that demanded a plain 200 on the short path could never go green although buyers reach the right pages; the buttons stay on the short paths so a later slug rename does not break them.
 
 <!-- spec:template -->
