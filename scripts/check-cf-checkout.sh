@@ -6,23 +6,27 @@
 #
 # Input:  nothing. Optional environment, for testing against a stand-in server only:
 #           CF_CHECKOUT_BASE  default https://checkout.leskobusiness.com
-#           CF_PACE_SECONDS   default 5 (pause between requests)
+#           CF_PACE_SECONDS   default 5 (pause between requests, redirect hops included)
 # Output: one line per plan with its verdict, then a summary. Exit 0 only when all three plans
 #         are live; exit 1 otherwise (dead or unknown both count as not ready).
 #
 # A verdict has three values, never two (CLAUDE.md "A crawler's refusal is not an answer"):
-#   live     HTTP 200 and the page carries its own page id, its own plan id (business-cf-<plan>, the
+#   live     the path, after at most 3 redirects on our own host, ends at HTTP 200 and that final page carries its own page id, its own plan id (business-cf-<plan>, the
 #            CF-only Recurly plans of page B1, not the business-<plan> of the retired /checkout), its own price, our
 #            PayPal client id, and exactly our three PayPal plan ids (page B1a) and no other.
-#   dead     the host answered and it is the wrong thing: a redirect, a 404, a wrong id/plan/price,
+#   dead     the host answered and it is the wrong thing: more than 3 redirects (a loop included), a
+#            redirect to another host (clickfunnels.com's home page, the generic lander), a 404,
+#            a wrong id/plan/price,
 #            no client id, a PayPal plan id that is not ours (a ClickFunnels-account plan), or a
 #            link to free.lesko.com (the old template PayPal button to the consumer $3 trial; the
 #            domain as plain text, as in a tracking script's allow-list, is not a link).
 #   unknown  the host did not answer properly: 429, any 5xx, a timeout, a reset, or a "dead"
 #            read that came out of Cloudflare's cache instead of the origin. Never written as dead.
 #
-# One request at a time, paced, redirects NOT followed (a 302 is itself the answer), and an honest
-# User-Agent naming this repo and script (a bare curl gets Cloudflare's "Attention Required").
+# One request at a time, paced (every redirect hop is a request and is paced like one), redirects
+# followed by hand, at most 3, only on our own host: ClickFunnels answers the short path /monthly
+# with a 302 to its own page slug, so the page is judged where the buyer lands. An honest
+# User-Agent names this repo and script (a bare curl gets Cloudflare's "Attention Required").
 set -uo pipefail
 
 BASE="${CF_CHECKOUT_BASE:-https://checkout.leskobusiness.com}"
@@ -50,34 +54,68 @@ fi
 WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "$WORK_DIR"' EXIT
 
+# Input: the scheme and host (with port) of a URL. Output: just that part, e.g. https://host:443.
+# Why: two URLs are "the same host" when this part is equal; the redirect rule compares them.
+origin_of() {
+  echo "$1" | sed -E 's#^(https?://[^/]+).*#\1#'
+}
+
+# Input: the URL just fetched and the Location header it answered with. Output: the absolute URL
+# to fetch next. Why: ClickFunnels may answer with a full URL or with a path; both must work.
+resolve_location() {
+  local current="$1" target="$2"
+  case "$target" in
+    http://*|https://*) echo "$target" ;;
+    /*)                 echo "$(origin_of "$current")$target" ;;
+    *)                  echo "${current%/*}/$target" ;;
+  esac
+}
+
 # Input: a plan name (monthly | half-year | yearly) and the page id expected on its page, and its
 # price. Output: prints "<plan> <verdict>: <reason>" and returns 0 only for live. Why: one place
 # holds the three-valued logic, so the three plans cannot drift apart.
 check_plan() {
   local plan="$1" expected_page_id="$2" expected_price="$3"
   local url="$BASE/$plan" body="$WORK_DIR/$plan.body" headers="$WORK_DIR/$plan.headers"
-  local status curl_exit
+  local status curl_exit redirects=0 reason="" location
 
-  status="$(curl -s -o "$body" -D "$headers" -w '%{http_code}' --max-time 20 \
-    -A "$USER_AGENT" "$url")"
-  curl_exit=$?
+  # Fetch, and while the answer is a redirect, fetch where it points: at most 3 times, only on our
+  # own host, one request at a time with a pause before each hop.
+  while true; do
+    status="$(curl -s -o "$body" -D "$headers" -w '%{http_code}' --max-time 20 \
+      -A "$USER_AGENT" "$url")"
+    curl_exit=$?
+    if [ "$curl_exit" -ne 0 ]; then
+      echo "$plan unknown: curl exit $curl_exit (timeout or connection problem)"; return 1
+    fi
+    if [ "$status" = "429" ] || [ "${status:0:1}" = "5" ]; then
+      echo "$plan unknown: HTTP $status (host refusing or failing, says nothing about the page)"; return 1
+    fi
+    [ "${status:0:1}" = "3" ] || break
 
-  if [ "$curl_exit" -ne 0 ]; then
-    echo "$plan unknown: curl exit $curl_exit (timeout or connection problem)"; return 1
-  fi
-  if [ "$status" = "429" ] || [ "${status:0:1}" = "5" ]; then
-    echo "$plan unknown: HTTP $status (host refusing or failing, says nothing about the page)"; return 1
-  fi
+    location="$(grep -i '^location:' "$headers" | tr -d '\r' | cut -d' ' -f2-)"
+    if [ -z "$location" ]; then
+      reason="HTTP $status without a Location header, not an order page"; break
+    fi
+    if [ "$redirects" -ge 3 ]; then
+      reason="more than 3 redirects (last: HTTP $status to $location)"; break
+    fi
+    url="$(resolve_location "$url" "$location")"
+    if [ "$(origin_of "$url")" != "$(origin_of "$BASE")" ]; then
+      reason="redirected to another host: $url"; break
+    fi
+    redirects=$((redirects + 1))
+    sleep "$PACE"
+  done
 
   # A HIT or REVALIDATED answer is the edge's memory, not the origin's (CLAUDE.md rule 7).
   local cache_status
   cache_status="$(grep -i '^cf-cache-status:' "$headers" | tr -d '\r' | awk '{print toupper($2)}')"
 
-  local reason=""
-  if [ "$status" != "200" ]; then
-    local location
-    location="$(grep -i '^location:' "$headers" | tr -d '\r' | cut -d' ' -f2-)"
-    reason="HTTP $status${location:+ to $location}, not an order page"
+  if [ -n "$reason" ]; then
+    : # the redirect chain itself already said what is wrong
+  elif [ "$status" != "200" ]; then
+    reason="HTTP $status, not an order page"
   elif grep -qE "//(www\.)?free\.lesko\.com/" "$body"; then
     # The old template "Pay with PayPal" button (page B1a) links to free.lesko.com and sends a
     # business buyer to the consumer $3 ClickBank trial, so a page carrying that LINK is dead
@@ -103,7 +141,7 @@ check_plan() {
   fi
 
   if [ -z "$reason" ]; then
-    echo "$plan live: page $expected_page_id, plan business-cf-$plan, \$$expected_price (cache: ${cache_status:-none})"
+    echo "$plan live: page $expected_page_id, plan business-cf-$plan, \$$expected_price, at $url after $redirects redirect(s) (cache: ${cache_status:-none})"
     return 0
   fi
   if [ "$cache_status" = "HIT" ] || [ "$cache_status" = "REVALIDATED" ]; then

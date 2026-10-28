@@ -87,7 +87,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 return self.reply(302, location="/%s/hop1%s" % (scenario, plan))
             if name.startswith("hop"):
                 n = int(name[3])
-                if n < chain:
+                if n < chain - 1:
                     return self.reply(302, location="/%s/hop%d%s" % (scenario, n + 1, plan))
                 return self.reply(302, location=slug)
             return self.reply(200, good_page(plan))
